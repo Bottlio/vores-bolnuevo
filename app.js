@@ -429,6 +429,16 @@ function render() {
         (none ? chip("subcat", "__ingen", "Ikke valgt", none, ui.subcat === "__ingen") : "") + "</div>";
       if (ui.subcat) inCat = inCat.filter(function (p) { return ui.subcat === "__ingen" ? !subName(ui.cat, p.subcat) : p.subcat === ui.subcat; });
     }
+    var qs = (QUESTIONS[ui.cat] || []).map(function (x) { return x[0]; });
+    if (qs.length) {
+      sub += '<div class="chips" role="group" aria-label="Åbningstider">' +
+        (qs.indexOf("saeson") >= 0 ? chip("fopen", "1", "Skjul sæsonlukkede", inCat.filter(function (p) { return (p.facts || {}).saeson === "ja"; }).length || null, !!ui.fOpen) : "") +
+        (qs.indexOf("sondag") >= 0 ? chip("fsun", "1", "Kun søndagsåbent", inCat.filter(function (p) { return (p.facts || {}).sondag === "ja"; }).length, !!ui.fSun) : "") +
+        (qs.indexOf("tidlig") >= 0 ? chip("fearly", "1", "Åbent før kl. 20", inCat.filter(function (p) { return (p.facts || {}).tidlig === "ja"; }).length, !!ui.fEarly) : "") + "</div>";
+      if (ui.fOpen) inCat = inCat.filter(function (p) { return (p.facts || {}).saeson !== "ja"; });
+      if (ui.fSun) inCat = inCat.filter(function (p) { return (p.facts || {}).sondag === "ja"; });
+      if (ui.fEarly) inCat = inCat.filter(function (p) { return (p.facts || {}).tidlig === "ja"; });
+    }
     if (TOWN_CATS.indexOf(ui.cat) >= 0) {
       var ts2 = townsOf(inCat);
       if (ts2.length > 1) sub += '<div class="chips" role="group" aria-label="By">' + chip("filtertown", "", "Alle byer", null, !ui.ftown) + ts2.map(function (t) { return chip("filtertown", t[0], t[0], t[1], ui.ftown === t[0]); }).join("") + "</div>";
@@ -478,7 +488,7 @@ function render() {
   function catBtn(id, label, n) {
     return '<button type="button" class="cat" data-cat="' + id + '" aria-pressed="' + (ui.cat === id) + '">' + (CAT_ICONS[id] || "") + '<span class="cl">' + esc(label) + "</span>" + (n != null ? '<span class="cn">' + n + "</span>" : "") + "</button>";
   }
-  var summary = searching ? 'Søgning: "' + ui.q.trim() + '"' : [inApt ? "" : (ui.status === "wish" ? "Vil prøve" : "Har prøvet"), ui.cat === "alle" ? "Alle" : ui.cat === "byer" ? "Byer" : ui.cat === "dagsture" ? "Dagsture" : CATNAME[ui.cat], ui.subcat && ui.subcat !== "__ingen" ? subName(ui.cat, ui.subcat) : "", ui.region || "", ui.town || ui.ftown || "", ui.sub ? CATNAME[ui.sub] : "",
+  var summary = searching ? 'Søgning: "' + ui.q.trim() + '"' : [inApt ? "" : (ui.status === "wish" ? "Vil prøve" : "Har prøvet"), ui.cat === "alle" ? "Alle" : ui.cat === "byer" ? "Byer" : ui.cat === "dagsture" ? "Dagsture" : CATNAME[ui.cat], ui.subcat && ui.subcat !== "__ingen" ? subName(ui.cat, ui.subcat) : "", ui.fOpen ? "uden sæsonlukkede" : "", ui.fSun ? "søndagsåbent" : "", ui.fEarly ? "åbent før kl. 20" : "", ui.region || "", ui.town || ui.ftown || "", ui.sub ? CATNAME[ui.sub] : "",
     ui.minRating ? ui.minRating + "+ ★" : "", ui.sort && ui.sort !== "senest" ? { nyeste: "senest tilføjet", naermeste: "nærmeste først", stjerner: "flest stjerner", navn: "A–Å" }[ui.sort] : ""].filter(Boolean).join(" · ");
   if (detail) {
     html += '<div class="bar" id="fullbar"><div class="row"><button class="chip" type="button" data-closeplace>‹ Tilbage</button></div></div>';
@@ -858,13 +868,14 @@ function cleanFacts(d) {
 /* Faste spørgsmål pr. kategori (svar: "ja", "nej" eller ikke besvaret) */
 var QUESTIONS = {
   dagligvarer: [["saeson", "Sæsonlukket?"], ["sondag", "Åbent om søndagen?"]],
-  spisesteder: [["saeson", "Sæsonlukket?"]]
+  spisesteder: [["saeson", "Sæsonlukket?"], ["tidlig", "Åbent før kl. 20?"]]
 };
 function factTags(p, full) {
   var f = p.facts || {}, q = QUESTIONS[p.cat] || [], out = [];
   q.forEach(function (x) {
     var v = f[x[0]];
     if (x[0] === "saeson") { if (v === "ja") out.push(["warn", "Sæsonlukket" + (f.periode ? " (" + f.periode + ")" : "")]); else if (v === "nej" && full) out.push(["", "Åbent hele året"]); }
+    if (x[0] === "tidlig") { if (v === "ja") out.push(["", "Åbent før kl. 20"]); else if (v === "nej") out.push(["warn", "Åbner først kl. 20"]); }
     if (x[0] === "sondag") { if (v === "ja" && full) out.push(["", "Søndagsåbent"]); else if (v === "nej") out.push(["warn", "Lukket om søndagen"]); }
   });
   return out.map(function (t) { return '<span class="tag' + (t[0] ? " " + t[0] : "") + '">' + esc(t[1]) + "</span>"; }).join("");
@@ -1147,11 +1158,14 @@ document.addEventListener("click", async function (e) {
   if ((t.dataset.town != null || t.dataset.region != null) && ui.place) { ui.place = null; try { history.replaceState(null, "", location.pathname); } catch (x) {} }
   if (t.dataset.town != null) { ui.town = t.dataset.town || null; ui.region = null; ui.sub = null; if (ui.town) ui.cat = "byer"; render(); window.scrollTo({ top: 0 }); return; }
   if (t.dataset.region != null) { ui.region = t.dataset.region || null; ui.town = null; ui.sub = null; if (ui.region && ui.cat !== "byer") ui.cat = "dagsture"; render(); window.scrollTo({ top: 0 }); return; }
+  if (t.dataset.fopen) { ui.fOpen = !ui.fOpen; render(); return; }
+  if (t.dataset.fsun) { ui.fSun = !ui.fSun; render(); return; }
+  if (t.dataset.fearly) { ui.fEarly = !ui.fEarly; render(); return; }
   if (t.dataset.subcat != null) { ui.subcat = t.dataset.subcat || null; render(); return; }
   if (t.dataset.filtertown != null) { ui.ftown = t.dataset.filtertown || null; render(); return; }
   if (t.dataset.sub != null) { ui.sub = t.dataset.sub || null; render(); return; }
   if (t.dataset.sort) { ui.sort = t.dataset.sort; render(); return; }
-  if (t.dataset.cat) { ui.town = null; ui.region = null; ui.ftown = null; ui.subcat = null; ui.sub = null; ui.cat = t.dataset.cat; try { history.replaceState(null, "", ui.cat === "alle" ? location.pathname : "#" + ui.cat); } catch (x) {} render(); return; }
+  if (t.dataset.cat) { ui.town = null; ui.region = null; ui.ftown = null; ui.subcat = null; ui.fOpen = false; ui.fSun = false; ui.fEarly = false; ui.sub = null; ui.cat = t.dataset.cat; try { history.replaceState(null, "", ui.cat === "alle" ? location.pathname : "#" + ui.cat); } catch (x) {} render(); return; }
   if (t.dataset.step || t.dataset.go) {
     var tr = t.closest("[data-car]").querySelector(".track"), n = tr.children.length;
     var cur = Math.round(tr.scrollLeft / tr.clientWidth);
@@ -1228,7 +1242,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 27;
+var APP_VERSION = 28;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
