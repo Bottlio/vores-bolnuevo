@@ -55,3 +55,7 @@ create policy "redaktører sletter billeder" on storage.objects for delete to au
 
 -- Tilføjet 24.10.2026
 alter table public.places add column if not exists website text, add column if not exists maps_url text, add column if not exists last_visit date, add column if not exists photo_credit text;
+
+-- Vurderinger (24.10.2026)
+alter table public.places add column if not exists ratings jsonb not null default '{}'::jsonb, add column if not exists rating_score numeric(2,1);
+create table if not exists public.towns (name text primary key, ratings jsonb not null default '{}'::jsonb, rating_score numeric(2,1), rating integer, updated_at timestamptz not null default now());

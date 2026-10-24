@@ -55,21 +55,118 @@ function mapsUrl(p) {
   var q = (p.cat === "spisesteder" || p.cat === "shopping" || p.lat == null) ? (p.name + ", " + (p.area || "Mazarrón")) : (p.lat + "," + p.lon);
   return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
 }
-/* Stjerner ved navnet: redaktører kan trykke direkte (tryk på samme stjerne igen fjerner karakteren) */
-function starsHtml(p) {
-  var r = p.rating || 0;
-  if (!ui.editor) return r ? '<span class="rating" aria-label="' + r + ' ud af 5 stjerner">' + stars(r) + "</span>" : "";
-  var s = '<span class="stars" role="group" aria-label="Giv karakter">';
-  for (var i = 1; i <= 5; i++) s += '<button type="button" class="star' + (i <= r ? " on" : "") + '" data-rate="' + i + '" data-id="' + esc(p.id) + '" aria-label="' + i + " stjerne" + (i > 1 ? "r" : "") + '" aria-pressed="' + (i === r) + '">' + (i <= r ? "★" : "☆") + "</button>";
-  return s + "</span>";
+/* ---------- vurderinger ----------
+   Én fælles komponent: kriterierne bestemmes af kategorien. Hvert kriterium får 1–5 stjerner eller "Ikke relevant".
+   Samlet score = gennemsnit af de vurderede kriterier med lige vægt, vist med én decimal. */
+var SCALE = [null, ["Virkelig dårligt", "Hold dig væk!"], ["Skuffende", "Spring det over"], ["Helt okay", "Hvis vi alligevel er der"], ["Rigtig godt", "Kom gerne igen"], ["Fantastisk", "Gå ikke glip af det!"]];
+var CRITERIA = {
+  spisesteder: ["Restaurantvurdering", [["mad", "Mad og drikke"], ["betjening", "Betjening"], ["beliggenhed", "Beliggenhed og stemning"], ["vaerdi", "Værdi for pengene"]]],
+  strande: ["Strandvurdering", [["vand", "Strand og vand"], ["natur", "Omgivelser og natur"], ["adgang", "Adgang og parkering"], ["faciliteter", "Faciliteter (solsenge, toilet, strandbar)"]]],
+  ture: ["Turvurdering", [["natur", "Natur og omgivelser"], ["sevaerdigheder", "Seværdigheder undervejs"], ["rute", "Rutens kvalitet"], ["ro", "Ro og atmosfære"]]],
+  dagsture: ["Dagsturvurdering", [["sevaerdigheder", "Seværdigheder og oplevelser"], ["atmosfaere", "Atmosfære og omgivelser"], ["adgang", "Parkering og tilgængelighed"], ["vaerdi", "Værd at køre efter"]]],
+  oplevelser: ["Oplevelsesvurdering", [["kvalitet", "Oplevelsens kvalitet"], ["formidling", "Formidling og indhold"], ["rammer", "Rammer og atmosfære"], ["vaerdi", "Værdi for pengene"]]],
+  sport: ["Sportsvurdering", [["kvalitet", "Aktivitetens kvalitet"], ["faciliteter", "Faciliteter og udstyr"], ["service", "Service og organisering"], ["vaerdi", "Værdi for pengene"]]],
+  dagligvarer: ["Butiksvurdering", [["udvalg", "Udvalg og sortiment"], ["friskhed", "Kvalitet og friskhed"], ["pris", "Prisniveau"], ["butik", "Butik og indkøbsoplevelse"]]],
+  opladning: ["Ladestandervurdering", [["hastighed", "Ladehastighed og driftssikkerhed"], ["brugervenlighed", "Brugervenlighed"], ["beliggenhed", "Beliggenhed og faciliteter"], ["pris", "Pris og tilgængelighed"]]],
+  shopping: ["Butiksvurdering", [["udvalg", "Udvalg og sortiment"], ["pris", "Pris og kvalitet"], ["betjening", "Betjening"], ["butik", "Butik og atmosfære"]]],
+  byer: ["Byvurdering", [["sevaerdigheder", "Seværdigheder og kultur"], ["mad", "Spisesteder og caféliv"], ["bymiljoe", "Bymiljø og stemning"], ["praktisk", "Parkering og det praktiske"]]]
+};
+var towns = {};
+function computeScore(cat, r) {
+  var c = CRITERIA[cat]; if (!c || !r) return null;
+  var vals = c[1].map(function (k) { return r[k[0]]; }).filter(function (v) { return typeof v === "number" && v >= 1 && v <= 5; });
+  if (!vals.length) return null;
+  return Math.round(vals.reduce(function (a, b) { return a + b; }, 0) / vals.length * 10) / 10;
 }
-async function setRating(id, n) {
-  var p = places.filter(function (x) { return x.id === id; })[0]; if (!p) return;
-  var old = p.rating, next = p.rating === n ? null : n;
-  p.rating = next; render();
-  var r = await sb.from("places").update({ rating: next, updated_at: new Date().toISOString() }).eq("id", id);
-  if (r.error) { p.rating = old; ui.msg = "Karakteren blev ikke gemt. Prøv igen."; render(); }
+function dec(n) { return n.toFixed(1).replace(".", ","); }
+/* Samlet vurdering for et sted eller en by: ny score, ellers en gammel samlet karakter */
+function overall(o) {
+  if (o && o.rating_score != null) { var s = +o.rating_score; return { score: s, stars: Math.round(s) }; }
+  if (o && o.rating) return { legacy: true, stars: o.rating };
+  return null;
 }
+function scoreOf(o) { var v = overall(o); return v ? (v.score != null ? v.score : v.stars) : 0; }
+function starRow(n) { var s = ""; for (var i = 1; i <= 5; i++) s += '<span class="' + (i <= n ? "on" : "off") + '">' + (i <= n ? "★" : "☆") + "</span>"; return s; }
+/* Lille knap ved navnet. Tryk åbner vurderingsvinduet. */
+function ratingButton(kind, key, cat, o) {
+  if (!CRITERIA[cat]) return "";
+  var v = overall(o);
+  if (!v && !ui.editor) return "";
+  var label = v ? (v.score != null ? dec(v.score) + " ud af 5, " + SCALE[v.stars][0] : v.stars + " ud af 5 stjerner") : "Giv en vurdering";
+  return '<button type="button" class="rbtn' + (v ? "" : " empty") + '" data-rateopen="' + kind + '" data-key="' + esc(key) + '" aria-label="' + esc(label) + (ui.editor ? "" : ", se detaljer") + '">' +
+    (v && v.score != null ? '<span class="rnum">' + dec(v.score) + "</span>" : "") + '<span class="rstars" aria-hidden="true">' + starRow(v ? v.stars : 0) + "</span></button>";
+}
+
+var rateBox = document.createElement("div"); rateBox.id = "ratemodal"; document.body.appendChild(rateBox);
+var rateReturn = null;
+function openRating(kind, key) {
+  var o, cat, name;
+  if (kind === "town") { o = towns[key] || { name: key, ratings: {} }; cat = "byer"; name = key; }
+  else { o = places.filter(function (x) { return x.id === key; })[0]; if (!o) return; cat = o.cat; name = o.name; }
+  if (!CRITERIA[cat]) return;
+  rateReturn = document.activeElement;
+  ui.rate = { kind: kind, key: key, cat: cat, name: name, values: JSON.parse(JSON.stringify(o.ratings || {})), legacy: o.rating_score == null && o.rating ? o.rating : null, readonly: !ui.editor, saving: false, err: "" };
+  renderRating(true);
+}
+function closeRating() {
+  ui.rate = null; rateBox.innerHTML = ""; document.body.classList.remove("modal-open");
+  if (rateReturn && document.contains(rateReturn)) rateReturn.focus();
+}
+function renderRating(first) {
+  var r = ui.rate; if (!r) return;
+  var c = CRITERIA[r.cat], score = computeScore(r.cat, r.values), ro = r.readonly;
+  var rows = c[1].map(function (k) {
+    var v = r.values[k[0]], na = v === "na", n = typeof v === "number" ? v : 0;
+    var st = "";
+    for (var i = 1; i <= 5; i++) st += '<button type="button" class="rs' + (i <= n ? " on" : "") + '" data-rv="' + k[0] + '" data-n="' + i + '"' + (ro ? " disabled" : "") +
+      ' aria-label="' + i + " – " + SCALE[i][0] + '" aria-pressed="' + (i === n) + '">' + (i <= n ? "★" : "☆") + "</button>";
+    return '<div class="rrow' + (na ? " na" : "") + '"><span class="rlabel" id="rl-' + k[0] + '">' + esc(k[1]) + '</span><div class="rright"><div class="rstars-in" role="group" aria-labelledby="rl-' + k[0] + '">' + st + "</div>" +
+      (ro ? (na ? '<span class="rna-ro">Ikke relevant</span>' : "") : '<button type="button" class="rna" data-rna="' + k[0] + '" aria-pressed="' + na + '">Ikke relevant</button>') + "</div></div>";
+  }).join("");
+  var total = score == null ? '<p class="rnone">' + (ro ? "Ingen vurdering endnu." : "Giv stjerner ovenfor, så beregnes den samlede vurdering.") + "</p>" :
+    '<div class="rscore"><span class="rbig">' + dec(score) + ' <small>/ 5</small></span><span class="rtot" aria-hidden="true">' + starRow(Math.round(score)) + '</span></div><p class="rtext"><strong>' + SCALE[Math.round(score)][0] + '</strong> <span>"' + SCALE[Math.round(score)][1] + '"</span></p>';
+  rateBox.innerHTML = '<div class="rback" data-rclose></div><div class="rmodal" role="dialog" aria-modal="true" aria-labelledby="r-h">' +
+    '<p class="rplace">' + esc(r.name) + '</p><h2 id="r-h">' + esc(c[0]) + "</h2>" +
+    (r.legacy ? '<p class="hint">Tidligere samlet karakter: ' + r.legacy + " af 5 stjerner." + (ro ? "" : " Den erstattes, når I vurderer kriterierne.") + "</p>" : "") +
+    '<div class="rrows">' + rows + '</div><hr class="rsep"><div class="rtotal" aria-live="polite"><p class="rcap">Samlet vurdering</p>' + total + "</div>" +
+    (r.err ? '<p class="err" role="alert">' + esc(r.err) + "</p>" : "") +
+    '<div class="row rbtns">' + (ro ? '<button type="button" class="btn primary" data-rclose>Luk</button>' :
+      '<button type="button" class="btn primary" data-rsave' + (r.saving ? " disabled" : "") + ">" + (r.saving ? "Gemmer…" : "Gem") + '</button><button type="button" class="btn" data-rclose>Annuller</button>') + "</div></div>";
+  document.body.classList.add("modal-open");
+  if (first) { var f = rateBox.querySelector(".rs:not([disabled])") || rateBox.querySelector("[data-rclose].btn"); if (f) f.focus(); }
+}
+async function saveRating() {
+  var r = ui.rate; if (!r || r.saving) return;
+  var vals = {}; CRITERIA[r.cat][1].forEach(function (k) { if (r.values[k[0]] != null) vals[k[0]] = r.values[k[0]]; });
+  Object.keys(r.values).forEach(function (k) { if (vals[k] == null) vals[k] = r.values[k]; });   // behold vurderinger fra en tidligere kategori
+  var score = computeScore(r.cat, vals), any = CRITERIA[r.cat][1].some(function (k) { return vals[k[0]] != null; });
+  var row = { ratings: vals, rating_score: score, rating: score == null ? (any ? null : r.legacy) : Math.round(score), updated_at: new Date().toISOString() };
+  r.saving = true; r.err = ""; renderRating();
+  var res;
+  if (r.kind === "town") res = await sb.from("towns").upsert(Object.assign({ name: r.key }, row));
+  else res = await sb.from("places").update(row).eq("id", r.key);
+  if (res.error) { r.saving = false; r.err = "Vurderingen blev ikke gemt: " + res.error.message; renderRating(); return; }
+  if (r.kind === "town") towns[r.key] = Object.assign({ name: r.key }, towns[r.key] || {}, row);
+  else { var p = places.filter(function (x) { return x.id === r.key; })[0]; if (p) Object.assign(p, row); }
+  closeRating(); render();
+}
+rateBox.addEventListener("click", function (e) {
+  var r = ui.rate; if (!r) return;
+  if (e.target.closest("[data-rclose]")) { closeRating(); return; }
+  if (e.target.closest("[data-rsave]")) { saveRating(); return; }
+  var b = e.target.closest("button"); if (!b || r.readonly) return;
+  if (b.dataset.rv) { var k = b.dataset.rv, n = +b.dataset.n; r.values[k] = r.values[k] === n ? undefined : n; if (r.values[k] === undefined) delete r.values[k]; renderRating(); var again = rateBox.querySelector('[data-rv="' + k + '"][data-n="' + n + '"]'); if (again) again.focus(); return; }
+  if (b.dataset.rna) { var kk = b.dataset.rna; if (r.values[kk] === "na") delete r.values[kk]; else r.values[kk] = "na"; renderRating(); var a2 = rateBox.querySelector('[data-rna="' + kk + '"]'); if (a2) a2.focus(); return; }
+});
+document.addEventListener("keydown", function (e) {
+  if (!ui.rate) return;
+  if (e.key === "Escape") { closeRating(); return; }
+  if (e.key === "Tab") {   // hold fokus inde i vinduet
+    var f = rateBox.querySelectorAll("button:not([disabled])"); if (!f.length) return;
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+    else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+  }
+});
 /* Placering fra et Google Maps-link (den lange udgave med koordinater) */
 function coordsFromLink(u) {
   if (!u) return null;
@@ -107,6 +204,8 @@ function uid() { return "p" + Date.now().toString(36) + Math.random().toString(3
 
 /* ---------- data ---------- */
 async function load() {
+  var tw = await sb.from("towns").select("*");
+  if (!tw.error) { towns = {}; (tw.data || []).forEach(function (t) { towns[t.name] = t; }); }
   var r = await sb.from("places").select("*");
   if (r.error) { ui.msg = "Kunne ikke hente stederne. Prøv at genindlæse siden."; }
   else places = r.data || [];
@@ -171,7 +270,7 @@ function render() {
   var APT = "lejligheden", inApt = ui.cat === APT, inTowns = ui.cat === "byer";
   var spots = places.filter(function (p) { return p.cat !== APT; });
   var byStatus = spots.filter(function (p) { return p.status === ui.status; });
-  var rated = function (p) { return !ui.minRating || (p.rating || 0) >= ui.minRating; };
+  var rated = function (p) { var v = overall(p); return !ui.minRating || (v ? v.stars : 0) >= ui.minRating; };
   var counts = { alle: byStatus.length };
   CATS.forEach(function (c) { counts[c[0]] = byStatus.filter(function (p) { return p.cat === c[0]; }).length; });
   counts[APT] = places.filter(function (p) { return p.cat === APT; }).length;
@@ -187,6 +286,8 @@ function render() {
       sub = '<div class="chips" role="group" aria-label="I byen">' + chip("town", "", "‹ Alle byer", null, false) + chip("sub", "", ui.town, inTown.length, !ui.sub);
       CATS.forEach(function (c) { var n = inTown.filter(function (p) { return p.cat === c[0]; }).length; if (n) sub += chip("sub", c[0], c[1], n, ui.sub === c[0]); });
       sub += "</div>";
+      var tr = ratingButton("town", ui.town, "byer", towns[ui.town]);
+      if (tr) sub += '<div class="townrate"><span>Byvurdering</span>' + tr + "</div>";
       list = inTown.filter(function (p) { return (!ui.sub || p.cat === ui.sub) && rated(p); });
     }
   } else {
@@ -218,7 +319,7 @@ function render() {
     senest: function (a, b) { return lastKey(b).localeCompare(lastKey(a)) || String(b.created_at || "").localeCompare(String(a.created_at || "")); },
     nyeste: function (a, b) { return String(b.created_at || "").localeCompare(String(a.created_at || "")) || dist(a) - dist(b); },
     naermeste: function (a, b) { return dist(a) - dist(b); },
-    stjerner: function (a, b) { return (b.rating || 0) - (a.rating || 0) || dist(a) - dist(b); },
+    stjerner: function (a, b) { return scoreOf(b) - scoreOf(a) || dist(a) - dist(b); },
     navn: function (a, b) { return a.name.localeCompare(b.name, "da"); }
   };
   if (list) list.sort(SORTS[ui.sort] || SORTS.senest);
@@ -258,8 +359,9 @@ function render() {
     tlist.forEach(function (t) {
       var withPhoto = byStatus.filter(function (p) { return p.town === t[0] && p.photos && p.photos.length; })[0];
       var cats = []; CATS.forEach(function (c) { if (byStatus.some(function (p) { return p.town === t[0] && p.cat === c[0]; })) cats.push(c[1]); });
-      html += '<button class="town" type="button" data-town="' + esc(t[0]) + '">' + (withPhoto ? '<img src="' + esc(photoUrl(withPhoto.photos[0])) + '" alt="" loading="lazy">' : '<span class="noimg"></span>') +
-        '<span class="tname">' + esc(t[0]) + '</span><span class="tmeta">' + t[1] + (t[1] === 1 ? " sted" : " steder") + " · " + esc(cats.join(", ")) + "</span></button>";
+      html += '<div class="town"><button class="tlink" type="button" data-town="' + esc(t[0]) + '">' + (withPhoto ? '<img src="' + esc(photoUrl(withPhoto.photos[0])) + '" alt="" loading="lazy">' : '<span class="noimg"></span>') +
+        '<span class="tname">' + esc(t[0]) + '</span><span class="tmeta">' + t[1] + (t[1] === 1 ? " sted" : " steder") + " · " + esc(cats.join(", ")) + "</span></button>" +
+        '<div class="trate">' + ratingButton("town", t[0], "byer", towns[t[0]]) + "</div></div>";
     });
     html += "</div>";
     list = [];
@@ -271,7 +373,7 @@ function render() {
   else if (!list.length && !(inTowns && !ui.town)) html += '<p class="empty-state">' + (ui.status === "wish" ? "Ingen ønsker her endnu." : "Intet her endnu.") + (ui.editor ? ' Tryk "+ Nyt sted" for at tilføje et.' : "") + "</p>";
   list.forEach(function (p) {
     html += '<article class="place" id="' + esc(p.id) + '">' + carousel(p);
-    html += '<div class="place-top"><h3>' + esc(p.name) + "</h3>" + (p.cat === "lejligheden" ? "" : starsHtml(p)) + "</div>";
+    html += '<div class="place-top"><h3>' + esc(p.name) + "</h3>" + ratingButton("place", p.id, p.cat, p) + "</div>";
     var where = p.area && p.area !== p.town ? (p.town && p.area.indexOf(p.town) < 0 ? p.area + ", " + p.town : p.area) : (p.town || p.area);
     var meta = p.cat === "lejligheden" ? "" : [where, distText(p), p.price].filter(Boolean).join(" · ");
     if (meta) html += '<p class="meta">' + esc(meta) + "</p>";
@@ -550,7 +652,7 @@ function formHtml(f) {
     '<div class="grid"><label>Navn<input id="f-name" required value="' + esc(f.name) + '" placeholder="Restaurante La Siesta"></label><label>By<input id="f-town" value="' + esc(f.town || "") + '" placeholder="Puerto de Mazarrón"></label></div>' +
     '<label>Sted/område (valgfrit)<input id="f-area" value="' + esc(f.area) + '" placeholder="Plaza del Muelle"></label>' +
     linkFields(f) +
-    '<div class="grid"><label>Kategori<select id="f-cat">' + opts + '</select></label><label>Liste<select id="f-status"><option value="tried"' + (f.status === "tried" ? " selected" : "") + '>Har prøvet</option><option value="wish"' + (f.status === "wish" ? " selected" : "") + ">Vil prøve</option></select></label><label>Karakter<select id=\"f-rating\">" + r + '</select></label><label>Pris<select id="f-price">' + pr + "</select></label></div>" +
+    '<div class="grid"><label>Kategori<select id="f-cat">' + opts + '</select></label><label>Liste<select id="f-status"><option value="tried"' + (f.status === "tried" ? " selected" : "") + '>Har prøvet</option><option value="wish"' + (f.status === "wish" ? " selected" : "") + ">Vil prøve</option></select></label>" + '<label>Pris<select id="f-price">' + pr + "</select></label></div>" +
     '<label>Vores beskrivelse<textarea id="f-note" placeholder="Bestil dagens fisk. Book bord lørdag aften.">' + esc(f.note) + "</textarea></label>" +
     '<div><p class="hint" style="margin-bottom:8px">Billeder (det første vises først, man swiper til de næste)</p><div class="photos">' + ph + "</div>" +
     '<label class="btn" style="display:inline-flex;margin-top:10px;color:var(--fg)">+ Tilføj billeder<input type="file" id="f-add" accept="image/*" multiple hidden></label></div>' +
@@ -689,8 +791,11 @@ async function saveDraft() {
     if (isMapsLink(web)) web = ""; if (isMapsLink(link)) link = "";
     if (d.lat == null) { var gc = coordsFromLink(maps); if (gc) { d.lat = +gc[0].toFixed(5); d.lon = +gc[1].toFixed(5); if (!d.town) d.town = townFor(d.lat, d.lon, {}); } }
     var drive = orig && orig.lat === d.lat && orig.lon === d.lon && orig.drive_min ? { km: orig.drive_km, min: orig.drive_min } : (d.lat != null ? await driveFromHotel(d.lat, d.lon) : null);
-    var row = { link: link || null, website: web || null, maps_url: maps || null, last_visit: newestVisit(orig && orig.last_visit, d.visits, d.lastVisit), town: (d.town || "").trim() || null, drive_km: drive ? drive.km : null, drive_min: drive ? drive.min : null, id: d.id, cat: d.cat, status: d.status, name: d.name.trim(), area: d.area.trim(), note: d.note.trim(), rating: d.rating, price: d.price,
+    var row = { link: link || null, website: web || null, maps_url: maps || null, last_visit: newestVisit(orig && orig.last_visit, d.visits, d.lastVisit), town: (d.town || "").trim() || null, drive_km: drive ? drive.km : null, drive_min: drive ? drive.min : null, id: d.id, cat: d.cat, status: d.status, name: d.name.trim(), area: d.area.trim(), note: d.note.trim(), price: d.price,
       visits: d.visits, guess: d.guess, lat: d.lat, lon: d.lon, photos: paths, updated_at: new Date().toISOString() };
+    // Vurderingen sættes i vurderingsvinduet. Skifter stedet kategori, beregnes den samlede score efter de nye kriterier.
+    var oldR = (orig && orig.ratings) || {};
+    if (Object.keys(oldR).length) { var sc = computeScore(d.cat, oldR); row.rating_score = sc; row.rating = sc == null ? null : Math.round(sc); }
     var r = await sb.from("places").upsert(row);
     if (r.error) throw new Error("Stedet blev ikke gemt: " + r.error.message);
     var gone = d.removed.filter(function (x) { return !/^img\//.test(x); });
@@ -748,7 +853,7 @@ document.addEventListener("click", async function (e) {
   }
   if (t.dataset.first) { syncDraft(); var it = ui.draft.items.splice(+t.dataset.first, 1)[0]; ui.draft.items.unshift(it); render(); return; }
   if (t.dataset.rm) { syncDraft(); var gone = ui.draft.items.splice(+t.dataset.rm, 1)[0]; if (gone.path) ui.draft.removed.push(gone.path); render(); return; }
-  if (t.dataset.rate) { setRating(t.dataset.id, +t.dataset.rate); return; }
+  if (t.dataset.rateopen) { openRating(t.dataset.rateopen, t.dataset.key); return; }
   if (t.dataset.minrating != null) { ui.minRating = +t.dataset.minrating; render(); return; }
   if (t.dataset.setcat) { syncDraft(); ui.draft.cat = t.dataset.setcat; render(); return; }
   if (t.dataset.setstatus) { syncDraft(); ui.draft.status = t.dataset.setstatus; render(); return; }
@@ -787,7 +892,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 21;
+var APP_VERSION = 22;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
