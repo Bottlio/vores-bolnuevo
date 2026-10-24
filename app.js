@@ -179,12 +179,17 @@ async function readPhotoInfo(files) {
   var info = { lat: null, lon: null, month: null };
   for (var i = 0; i < files.length; i++) {
     try {
-      var data = await window.exifr.parse(files[i], { gps: true, pick: ["DateTimeOriginal", "CreateDate", "latitude", "longitude"] });
-      if (data) {
-        if (info.lat == null && typeof data.latitude === "number") { info.lat = data.latitude; info.lon = data.longitude; }
-        if (!info.month) info.month = monthOf(data.DateTimeOriginal || data.CreateDate);
+      if (info.lat == null) {
+        var gps = await window.exifr.gps(files[i]);
+        if (gps && typeof gps.latitude === "number" && isFinite(gps.latitude)) { info.lat = gps.latitude; info.lon = gps.longitude; }
       }
-    } catch (e) { /* billedet har ingen EXIF */ }
+    } catch (e) { /* billedet har ingen placering */ }
+    try {
+      if (!info.month) {
+        var data = await window.exifr.parse(files[i], ["DateTimeOriginal", "CreateDate"]);
+        if (data) info.month = monthOf(data.DateTimeOriginal || data.CreateDate);
+      }
+    } catch (e) { /* billedet har ingen dato */ }
     if (info.lat != null && info.month) break;
   }
   if (!info.month && files[0] && files[0].lastModified) info.month = monthOf(new Date(files[0].lastModified));
@@ -264,6 +269,7 @@ function formHtml(f) {
       '<div class="row">' + (i > 0 ? '<button class="btn small" type="button" data-first="' + i + '">Gør til forside</button>' : "") +
       '<button class="btn small danger" type="button" data-rm="' + i + '">Slet</button></div></div>';
   }).join("");
+  if (f.isNew && !f.more) return quickHtml(f);
   return '<form class="panel" id="editor"><h2>' + (f.isNew ? "Nyt sted" : "Ret sted") + "</h2>" +
     (f.finding ? '<p class="hint">Finder stedet ud fra billedet…</p>' : "") + (f.info ? '<p class="hint">' + esc(f.info) + "</p>" : "") +
     (f.lat == null && !f.finding ? '<div><button class="btn" type="button" id="my-loc">Brug min placering</button></div>' : "") +
@@ -279,15 +285,41 @@ function formHtml(f) {
     (!f.isNew ? '<button class="btn danger" type="button" id="del-place">' + (f.confirmDel ? "Tryk igen for at slette stedet" : "Slet sted") + "</button>" : "") + "</div></form>";
 }
 
+/* Hurtig udgave til nyt sted: billeder + det fundne navn, alt andet er valgfrit */
+function quickHtml(f) {
+  var thumbs = f.items.map(function (it) { return '<img src="' + esc(it.url || photoUrl(it.path)) + '" alt="" style="width:88px;height:88px;object-fit:cover;border-radius:8px;flex:0 0 auto">'; }).join("");
+  var dist = f.lat != null ? distText(f) : "";
+  var chips = CATS.map(function (c) { return '<button class="chip" type="button" data-setcat="' + c[0] + '" aria-pressed="' + (f.cat === c[0]) + '">' + c[1] + "</button>"; }).join("");
+  return '<form class="panel" id="editor"><h2>Nyt sted</h2>' +
+    '<div style="display:flex;gap:8px;overflow-x:auto">' + thumbs + "</div>" +
+    (f.finding ? '<p class="hint">Finder stedet ud fra billedet…</p>' :
+      '<label>Navn<input id="f-name" required value="' + esc(f.name) + '" placeholder="Skriv stedets navn"></label>' +
+      '<p class="meta">' + esc([f.area, dist].filter(Boolean).join(" · ") || "Ingen placering fundet") + "</p>" +
+      (f.info ? '<p class="hint">' + esc(f.info) + "</p>" : "") +
+      (f.lat == null ? '<div><button class="btn" type="button" id="my-loc">Brug min placering</button></div>' : "") +
+      '<div class="chips" role="group" aria-label="Kategori">' + chips + "</div>" +
+      '<div class="seg" role="group" aria-label="Liste"><button type="button" data-setstatus="tried" aria-pressed="' + (f.status === "tried") + '">Vi har prøvet</button><button type="button" data-setstatus="wish" aria-pressed="' + (f.status === "wish") + '">Vil gerne prøve</button></div>') +
+    (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
+    '<div class="row"><button class="btn primary" type="submit"' + (ui.busy || f.finding ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + "</button>" +
+    '<button class="btn" type="button" id="more">Tilføj beskrivelse, karakter m.m.</button><button class="btn" type="button" id="cancel">Annuller</button></div></form>';
+}
+
 function syncDraft() {
-  var d = ui.draft, g = function (id) { return document.getElementById(id); };
-  if (!d || !g("f-name")) return;
-  d.name = g("f-name").value; d.area = g("f-area").value; d.cat = g("f-cat").value; d.status = g("f-status").value;
-  d.rating = g("f-rating").value ? parseInt(g("f-rating").value, 10) : null; d.price = g("f-price").value; d.note = g("f-note").value;
-  d.visits = g("f-visits").value.split(/[,\s]+/).filter(function (s) { return /^\d{4}-\d{2}$/.test(s); });
-  var pos = g("f-pos").value.split(",").map(function (s) { return parseFloat(s); });
-  if (isFinite(pos[0]) && isFinite(pos[1])) { d.lat = pos[0]; d.lon = pos[1]; } else if (!g("f-pos").value.trim()) { d.lat = null; d.lon = null; }
-  d.guess = g("f-guess").checked;
+  var d = ui.draft, g = function (id) { return document.getElementById(id); }, v = function (id) { var el = g(id); return el ? el.value : null; };
+  if (!d) return;
+  if (v("f-name") != null) d.name = v("f-name");
+  if (v("f-area") != null) d.area = v("f-area");
+  if (v("f-cat") != null) d.cat = v("f-cat");
+  if (v("f-status") != null) d.status = v("f-status");
+  if (v("f-rating") != null) d.rating = v("f-rating") ? parseInt(v("f-rating"), 10) : null;
+  if (v("f-price") != null) d.price = v("f-price");
+  if (v("f-note") != null) d.note = v("f-note");
+  if (v("f-visits") != null) d.visits = v("f-visits").split(/[,\s]+/).filter(function (s) { return /^\d{4}-\d{2}$/.test(s); });
+  if (v("f-pos") != null) {
+    var pos = v("f-pos").split(",").map(function (s) { return parseFloat(s); });
+    if (isFinite(pos[0]) && isFinite(pos[1])) { d.lat = pos[0]; d.lon = pos[1]; } else if (!v("f-pos").trim()) { d.lat = null; d.lon = null; }
+  }
+  if (g("f-guess")) d.guess = g("f-guess").checked;
 }
 
 function editPlace(id) {
@@ -373,6 +405,9 @@ root.addEventListener("click", async function (e) {
   }
   if (t.dataset.first) { syncDraft(); var it = ui.draft.items.splice(+t.dataset.first, 1)[0]; ui.draft.items.unshift(it); render(); return; }
   if (t.dataset.rm) { syncDraft(); var gone = ui.draft.items.splice(+t.dataset.rm, 1)[0]; if (gone.path) ui.draft.removed.push(gone.path); render(); return; }
+  if (t.dataset.setcat) { syncDraft(); ui.draft.cat = t.dataset.setcat; render(); return; }
+  if (t.dataset.setstatus) { syncDraft(); ui.draft.status = t.dataset.setstatus; render(); return; }
+  if (t.id === "more") { syncDraft(); ui.draft.more = true; render(); return; }
   if (t.id === "my-loc") { syncDraft(); useMyLocation(); return; }
   if (t.id === "cancel") { ui.draft = null; render(); return; }
   if (t.id === "del-place") { deletePlace(); return; }
