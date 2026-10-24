@@ -96,3 +96,7 @@ textarea{min-height:90px;resize:vertical}
 footer{margin-top:32px;color:var(--muted);font-size:.85rem;display:flex;flex-direction:column;gap:6px}
 @media (max-width:480px){h1{font-size:1.9rem}.practical dl{grid-template-columns:1fr}.practical dt{margin-top:6px}}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+/* Knap til nyt sted: nederst til højre, hvor tommelfingeren er */
+.fab{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:20;display:flex;align-items:center;gap:6px;font:inherit;font-weight:700;font-size:1rem;color:var(--surface);background:var(--sea);border:0;border-radius:999px;padding:14px 20px;box-shadow:0 6px 18px rgba(0,0,0,.22);cursor:pointer}
+.fab span{font-size:1.4rem;line-height:1}
+#root{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}

@@ -101,15 +101,13 @@ function render() {
     .sort(function (a, b) { return (km(a.lat, a.lon) || 0) - (km(b.lat, b.lon) || 0); });
   var tried = places.filter(function (p) { return p.status === "tried"; }).length, wish = places.length - tried;
 
-  var html = '<header><div><p class="eyebrow">Laderita de Bolnuevo · Costa Cálida</p><h1>Vores Bolnuevo</h1><p class="lead">Steder vi selv har været, og steder vi gerne vil prøve. Til familie og venner, der låner lejligheden.</p></div>';
-  if (ui.editor) html += '<button class="btn primary" type="button" id="new">+ Nyt sted</button>';
+  var html = '<header><div><p class="eyebrow">Laderita de Bolnuevo · Costa Cálida</p><h1>Vores Bolnuevo</h1></div>';
   html += "</header>";
-  if (ui.editor) html += '<p class="hint" style="margin-top:8px">Tip: Tryk "+ Nyt sted" og vælg et billede. Så finder siden selv navn, type og placering.</p>';
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
   if (ui.login) html += loginHtml();
   if (ui.draft) html += formHtml(ui.draft);
 
-  html += '<div class="bar"><div class="seg" role="group" aria-label="Vis"><button type="button" data-status="tried" aria-pressed="' + (ui.status === "tried") + '">Vi har prøvet (' + tried + ')</button><button type="button" data-status="wish" aria-pressed="' + (ui.status === "wish") + '">Vil gerne prøve (' + wish + ")</button></div>";
+  html += '<div class="bar"><div class="seg" role="group" aria-label="Vis"><button type="button" data-status="tried" aria-pressed="' + (ui.status === "tried") + '">Har prøvet (' + tried + ')</button><button type="button" data-status="wish" aria-pressed="' + (ui.status === "wish") + '">Vil prøve (' + wish + ")</button></div>";
   html += '<div class="chips" role="group" aria-label="Kategori"><button class="chip" type="button" data-cat="alle" aria-pressed="' + (ui.cat === "alle") + '">Alle<span class="n">' + counts.alle + "</span></button>";
   CATS.forEach(function (c) { html += '<button class="chip" type="button" data-cat="' + c[0] + '" aria-pressed="' + (ui.cat === c[0]) + '">' + c[1] + '<span class="n">' + counts[c[0]] + "</span></button>"; });
   html += "</div>";
@@ -134,7 +132,7 @@ function render() {
     html += '<div class="row"><a class="maps" href="' + esc(mapsUrl(p)) + '" target="_blank" rel="noopener">Åbn i Google Maps</a>';
     if (ui.editor) {
       html += '<button class="btn small" type="button" data-edit="' + esc(p.id) + '">Ret</button>';
-      if (p.status === "wish") html += '<button class="btn small" type="button" data-move="' + esc(p.id) + '">Flyt til "Vi har prøvet"</button>';
+      if (p.status === "wish") html += '<button class="btn small" type="button" data-move="' + esc(p.id) + '">Flyt til "Har prøvet"</button>';
     }
     html += "</div></article>";
   });
@@ -147,6 +145,7 @@ function render() {
   if (ui.user) html += "<span>Logget ind som " + esc(ui.user.email) + '. <button class="linkbtn" type="button" id="logout">Log ud</button></span>';
   else html += '<span><button class="linkbtn" type="button" id="open-login">Log ind for at rette</button></span>';
   html += "</footer>";
+  if (ui.editor && !ui.draft) html += '<button class="fab" type="button" id="new" aria-label="Nyt sted"><span aria-hidden="true">+</span> Nyt sted</button>';
   root.innerHTML = html;
   wireCarousels();
 }
@@ -295,7 +294,7 @@ function formHtml(f) {
     (f.finding ? '<p class="hint">Finder stedet ud fra billedet…</p>' : "") + (f.info ? '<p class="hint">' + esc(f.info) + "</p>" : "") +
     (f.lat == null && !f.finding ? '<div><button class="btn" type="button" id="my-loc">Brug min placering</button></div>' : "") +
     '<div class="grid"><label>Navn<input id="f-name" required value="' + esc(f.name) + '" placeholder="Restaurante La Siesta"></label><label>Område eller by<input id="f-area" value="' + esc(f.area) + '" placeholder="Puerto de Mazarrón"></label></div>' +
-    '<div class="grid"><label>Kategori<select id="f-cat">' + opts + '</select></label><label>Liste<select id="f-status"><option value="tried"' + (f.status === "tried" ? " selected" : "") + '>Vi har prøvet</option><option value="wish"' + (f.status === "wish" ? " selected" : "") + ">Vil gerne prøve</option></select></label><label>Karakter<select id=\"f-rating\">" + r + '</select></label><label>Pris<select id="f-price">' + pr + "</select></label></div>" +
+    '<div class="grid"><label>Kategori<select id="f-cat">' + opts + '</select></label><label>Liste<select id="f-status"><option value="tried"' + (f.status === "tried" ? " selected" : "") + '>Har prøvet</option><option value="wish"' + (f.status === "wish" ? " selected" : "") + ">Vil prøve</option></select></label><label>Karakter<select id=\"f-rating\">" + r + '</select></label><label>Pris<select id="f-price">' + pr + "</select></label></div>" +
     '<label>Vores beskrivelse<textarea id="f-note" placeholder="Bestil dagens fisk. Book bord lørdag aften.">' + esc(f.note) + "</textarea></label>" +
     '<div><p class="hint" style="margin-bottom:8px">Billeder (det første vises først, man swiper til de næste)</p><div class="photos">' + ph + "</div>" +
     '<label class="btn" style="display:inline-flex;margin-top:10px;color:var(--fg)">+ Tilføj billeder<input type="file" id="f-add" accept="image/*" multiple hidden></label></div>' +
@@ -319,7 +318,7 @@ function quickHtml(f) {
       (f.info ? '<p class="hint">' + esc(f.info) + "</p>" : "") +
       (f.lat == null ? '<div><button class="btn" type="button" id="my-loc">Brug min placering</button></div>' : "") +
       '<div class="chips" role="group" aria-label="Kategori">' + chips + "</div>" +
-      '<div class="seg" role="group" aria-label="Liste"><button type="button" data-setstatus="tried" aria-pressed="' + (f.status === "tried") + '">Vi har prøvet</button><button type="button" data-setstatus="wish" aria-pressed="' + (f.status === "wish") + '">Vil gerne prøve</button></div>') +
+      '<div class="seg" role="group" aria-label="Liste"><button type="button" data-setstatus="tried" aria-pressed="' + (f.status === "tried") + '">Har prøvet</button><button type="button" data-setstatus="wish" aria-pressed="' + (f.status === "wish") + '">Vil prøve</button></div>') +
     (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
     '<div class="row"><button class="btn primary" type="submit"' + (ui.busy || f.finding ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + "</button>" +
     '<button class="btn" type="button" id="more">Tilføj beskrivelse, karakter m.m.</button><button class="btn" type="button" id="cancel">Annuller</button></div></form>';
@@ -422,7 +421,7 @@ root.addEventListener("click", async function (e) {
   if (t.dataset.edit) { editPlace(t.dataset.edit); return; }
   if (t.dataset.move) {
     var r = await sb.from("places").update({ status: "tried", updated_at: new Date().toISOString() }).eq("id", t.dataset.move);
-    ui.msg = r.error ? "Det blev ikke gemt. Prøv igen." : "Flyttet til \"Vi har prøvet\"."; await load(); return;
+    ui.msg = r.error ? "Det blev ikke gemt. Prøv igen." : "Flyttet til \"Har prøvet\"."; await load(); return;
   }
   if (t.dataset.first) { syncDraft(); var it = ui.draft.items.splice(+t.dataset.first, 1)[0]; ui.draft.items.unshift(it); render(); return; }
   if (t.dataset.rm) { syncDraft(); var gone = ui.draft.items.splice(+t.dataset.rm, 1)[0]; if (gone.path) ui.draft.removed.push(gone.path); render(); return; }
@@ -457,7 +456,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 6;
+var APP_VERSION = 7;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
