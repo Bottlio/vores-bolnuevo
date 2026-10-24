@@ -4,7 +4,7 @@
 var CFG = window.BOLNUEVO;
 var sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true } });
 
-var CATS = [["lejligheden","Lejligheden"],["spisesteder","Spisesteder"],["strande","Strande"],["ture","Ture i nærområdet"],["dagsture","Dagsture"],["oplevelser","Oplevelser"],["dagligvarer","Dagligvarer"],["shopping","Shopping"]];
+var CATS = [["lejligheden","Lejligheden"],["spisesteder","Spisesteder"],["strande","Strande"],["ture","Ture i nærområdet"],["dagsture","Dagsture"],["oplevelser","Oplevelser"],["dagligvarer","Dagligvarer"],["opladning","Opladning til elbil"],["shopping","Shopping"]];
 var CATNAME = {}; CATS.forEach(function (c) { CATNAME[c[0]] = c[1]; });
 var MONTHS = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
 var PRACTICAL = [
@@ -121,9 +121,10 @@ var CAT_ICONS = {
   dagsture: svg('<path d="M5 16h14l-1.5-5.5A2 2 0 0 0 15.6 9H8.4a2 2 0 0 0-1.9 1.5z"/><path d="M4 16v3h3v-3M17 16v3h3v-3"/><circle cx="8" cy="13.5" r=".6"/><circle cx="16" cy="13.5" r=".6"/>'),
   oplevelser: svg('<path d="M12 3l2.2 5.4L20 9l-4.4 3.8L17 19l-5-3-5 3 1.4-6.2L4 9l5.8-.6z"/>'),
   dagligvarer: svg('<path d="M3 5h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L21 8H6"/><circle cx="9.5" cy="20" r="1.2"/><circle cx="17" cy="20" r="1.2"/>'),
+  opladning: svg('<path d="M13 3L6 13h5l-1 8 7-10h-5z"/>'),
   shopping: svg('<path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>')
 };
-var TOWN_CATS = ["spisesteder","strande","ture","oplevelser","dagligvarer","shopping"];
+var TOWN_CATS = ["spisesteder","strande","ture","oplevelser","dagligvarer","opladning","shopping"];
 var TIME_BUCKETS = [["kort","Under 45 min",0,45],["mellem","45–90 min",45,90],["lang","Over 1,5 time",90,9999]];
 function townsOf(list) {
   var c = {}; list.forEach(function (p) { if (p.town) c[p.town] = (c[p.town] || 0) + 1; });
@@ -195,7 +196,7 @@ function render() {
   var f = "";
   if (!inApt) f += '<div class="seg" role="group" aria-label="Vis"><button type="button" data-status="tried" aria-pressed="' + (ui.status === "tried") + '">Har prøvet (' + tried + ')</button><button type="button" data-status="wish" aria-pressed="' + (ui.status === "wish") + '">Vil prøve (' + wish + ")</button></div>";
   f += '<div class="cats" role="group" aria-label="Kategori">' + catBtn("alle", "Alle", counts.alle) + catBtn("byer", "Byer", null);
-  CATS.forEach(function (c) { f += catBtn(c[0], c[1], counts[c[0]]); });
+  CATS.forEach(function (c) { f += catBtn(c[0], c[0] === "opladning" ? "Elbil" : c[1], counts[c[0]]); });
   f += "</div>";
   if (sub) f += '<div class="subchips">' + sub + "</div>";
   f += '<div class="selects">';
@@ -391,6 +392,7 @@ async function lookupPlace(lat, lon) {
       var c = poi.category, t = poi.type;
       if (c === "amenity" && FOOD.indexOf(t) >= 0) out.cat = "spisesteder";
       else if ((c === "natural" && t === "beach") || t === "beach_resort") out.cat = "strande";
+      else if (t === "charging_station") out.cat = "opladning";
       else if (GROCERY.indexOf(t) >= 0) out.cat = "dagligvarer";
       else if (c === "shop" || t === "marketplace" || t === "mall") out.cat = "shopping";
       else if (FUN.indexOf(t) >= 0) out.cat = "oplevelser";
@@ -670,7 +672,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 16;
+var APP_VERSION = 17;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
