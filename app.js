@@ -628,11 +628,63 @@ var GROCERY = ["supermarket","convenience","bakery","butcher","greengrocer","sea
 var FOOD = ["restaurant","cafe","bar","pub","fast_food","ice_cream","biergarten","food_court"];
 var SPORT = ["sports_centre","golf_course","pitch","stadium","fitness_centre","tennis","padel"];
 var FUN = ["spa","water_park","marina","theme_park","zoo","aquarium","public_bath","dive_centre","boat_rental","horse_riding","swimming_pool"];
+/* ---------- kortopslag via OpenStreetMap (Overpass) ---------- */
+var OVERPASS = "https://overpass-api.de/api/interpreter";
+async function overpass(q) {
+  var c = new AbortController(), t = setTimeout(function () { c.abort(); }, 7000);
+  try {
+    var r = await fetch(OVERPASS, { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" }, signal: c.signal });
+    if (!r.ok) return null; return (await r.json()).elements || [];
+  } catch (e) { return null; } finally { clearTimeout(t); }
+}
+function elPos(e) { return e.center ? [e.center.lat, e.center.lon] : [e.lat, e.lon]; }
+function elName(t) { return t.name || t.brand || t.operator || (t.amenity === "parking" ? "Parkering" : t.amenity === "charging_station" ? "Ladestander" : ""); }
+/* Kategori og underkategori ud fra kortets mærker */
+function catFromTags(t) {
+  var a = t.amenity, sh = t.shop, l = t.leisure, to = t.tourism, h = t.historic;
+  if (a === "charging_station") return ["opladning", /dc|ccs|chademo|combo/i.test(JSON.stringify(t)) ? "lynlader" : null];
+  if (a === "parking") return ["parkering", t.parking === "multi-storey" || t.parking === "underground" ? "phus" : t.fee === "no" ? "gratis" : t.fee === "yes" ? "betalt" : null];
+  if (a === "restaurant" || a === "fast_food") return ["spisesteder", "restaurant"];
+  if (a === "cafe" || a === "bar" || a === "pub" || a === "biergarten") return ["spisesteder", "barcafe"];
+  if (a === "ice_cream" || sh === "pastry") return ["spisesteder", "is"];
+  if (sh === "supermarket" || sh === "convenience" || sh === "greengrocer" || sh === "alcohol" || sh === "beverages") return ["dagligvarer", "supermarked"];
+  if (sh === "bakery") return ["dagligvarer", "bager"];
+  if (sh === "butcher" || sh === "seafood") return ["dagligvarer", "slagter"];
+  if (a === "marketplace") return ["dagligvarer", "marked"];
+  if (sh === "mall" || sh === "department_store") return ["shopping", "center"];
+  if (sh) return ["shopping", "butik"];
+  if (l === "golf_course") return ["sport", "golf"];
+  if (l === "sports_centre" || l === "pitch" || l === "fitness_centre") return ["sport", /padel/i.test(t.sport || "") ? "padel" : /tennis/i.test(t.sport || "") ? "tennis" : /golf/i.test(t.sport || "") ? "golf" : /div/i.test(t.sport || "") ? "dykning" : null];
+  if (t.natural === "beach" || l === "beach_resort") return ["strande", null];
+  if (to === "viewpoint") return ["natur", "udsigt"];
+  if (to === "museum") return ["sevaerdigheder", "museum"];
+  if (h === "castle" || h === "fort" || h === "tower" || t.man_made === "tower") return ["sevaerdigheder", "borg"];
+  if (a === "place_of_worship") return ["sevaerdigheder", "kirke"];
+  if (to === "attraction" || h) return ["sevaerdigheder", h ? "historisk" : null];
+  if (l === "water_park" || a === "spa" || l === "spa") return ["oplevelser", "spa"];
+  return [null, null];
+}
+/* Det navngivne sted nærmest et punkt (fx hvor billedet er taget) */
+async function poiNear(lat, lon, radius) {
+  var q = "[out:json][timeout:10];(nwr(around:" + (radius || 120) + "," + lat + "," + lon + ")[name][~\"^(shop|amenity|tourism|leisure|historic)$\"~\".\"];" +
+    "nwr(around:" + (radius || 120) + "," + lat + "," + lon + ")[amenity~\"^(charging_station|parking)$\"];);out center 60;";
+  var els = await overpass(q); if (!els || !els.length) return null;
+  var best = null;
+  els.forEach(function (e) {
+    var p = elPos(e); if (p[0] == null) return;
+    var c = catFromTags(e.tags || {}), d = distM(lat, lon, p[0], p[1]) - (c[0] ? 25 : 0);   // steder med kendt kategori foretrækkes lidt
+    if (!elName(e.tags || {})) return;
+    if (!best || d < best.d) best = { d: d, name: elName(e.tags), cat: c[0], subcat: c[1], lat: p[0], lon: p[1] };
+  });
+  return best;
+}
 async function lookupPlace(lat, lon) {
   var base = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=es&lat=" + lat + "&lon=" + lon;
-  var out = { name: "", cat: null, area: "" };
+  var out = { name: "", cat: null, subcat: null, area: "" };
+  var op = await poiNear(lat, lon, 120);
+  if (op) { out.name = op.name; out.cat = op.cat; out.subcat = op.subcat; }
   try {
-    var poi = await (await fetch(base + "&zoom=18&layer=poi")).json();
+    var poi = op ? null : await (await fetch(base + "&zoom=18&layer=poi")).json();
     var near = poi && poi.lat && km(lat, lon) != null ? distM(lat, lon, +poi.lat, +poi.lon) : 99999;
     if (poi && poi.name && near < 150) {
       out.name = poi.name;
@@ -675,10 +727,15 @@ async function startNew(files) {
     if (near) d.match = { id: near[0].id, name: near[0].name, m: Math.round(near[1]) };
     var found = await lookupPlace(d.lat, d.lon);
     if (ui.draft !== d) return;
-    d.name = found.name; d.area = found.area; d.cat = found.cat; d.town = found.town || "";
+    d.name = found.name; d.area = found.area; d.cat = found.cat; d.subcat = found.subcat || ""; d.town = found.town || "";
     d.info = found.name ? "Navn, type og placering er fundet ud fra billedet. Ret dem, hvis de ikke passer." : "Placeringen er fundet ud fra billedet, men stedet har intet navn på kortet. Skriv navnet selv.";
   } else {
-    d.info = 'Billedet har ingen placering gemt. Står du på stedet nu, kan du trykke "Brug min placering".';
+    // iPhone fjerner tit placeringen, når et billede uploades fra browseren. Er billedet taget for nylig, bruger vi telefonens placering.
+    var ft = files[0] && files[0].lastModified ? files[0].lastModified : 0;
+    var recent = (info.date && info.date === dayOf(new Date())) || (ft && Date.now() - ft < 6 * 3600 * 1000);
+    d.finding = false;
+    if (recent && navigator.geolocation) { d.info = "Billedet har ingen placering gemt, men det er taget i dag. Jeg bruger din nuværende placering…"; render(); useMyLocation(true); return; }
+    d.info = 'Billedet har ingen placering gemt. Tip: Tryk på "Valg" øverst, når du vælger billeder, og slå "Placering" til (iPhone fjerner den ellers). Står du på stedet nu, kan du trykke "Brug min placering".';
   }
   d.finding = false;
   render(); scrollToForm();
@@ -699,14 +756,27 @@ async function findOnMap() {
       var rv = await (await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=es&zoom=18&lat=" + gm[0] + "&lon=" + gm[1])).json();
       hit = rv && rv.lat ? rv : { lat: gm[0], lon: gm[1], address: {} };
     }
+    if (!hit) {
+      // Søg først tæt på hotellet (ca. 35 km), og vis flere valg hvis der er flere steder med navnet
+      var H = CFG.hotel, box = [H.lon - 0.4, H.lat + 0.3, H.lon + 0.4, H.lat - 0.3].join(",");
+      var nr = await (await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=10&accept-language=es&countrycodes=es&bounded=1&viewbox=" + box + "&q=" + encodeURIComponent(d.name.trim()))).json();
+      if (ui.draft !== d) return;
+      var seen = {}, ch = (nr || []).map(function (e) {
+        var tg = {}; tg[e.category] = e.type; var c = catFromTags(tg), ad = e.address || {};
+        return { name: e.name || d.name.trim(), lat: +e.lat, lon: +e.lon, cat: c[0], subcat: c[1], addr: [ad.road, ad.village || ad.town || ad.city || ad.suburb].filter(Boolean).join(", "), km: km(+e.lat, +e.lon), address: ad };
+      }).filter(function (x) { var k = x.lat.toFixed(3) + x.lon.toFixed(3); if (seen[k]) return false; seen[k] = 1; return true; })
+        .sort(function (a, b) { return a.km - b.km; }).slice(0, 6);
+      if (ch.length === 1) { await applyChoice(d, ch[0]); return; }
+      if (ch.length > 1) { d.choices = ch; d.info = "Jeg fandt " + ch.length + " steder med det navn i nærheden. Vælg det rigtige:"; render(); return; }
+    }
     var words = d.name.trim().split(/\s+/), tries = [d.name.trim()];
     var generic = /^(restaurante|restaurant|bar|cafe|café|cafetería|faro|playa|el|la|los|las)$/i;
     var stripped = words.filter(function (w) { return !generic.test(w); }).join(" "); if (stripped && tries.indexOf(stripped) < 0) tries.push(stripped);
     if (words.length > 2) tries.push(words.slice(0, 2).join(" "));
     for (var i = 0; !hit && i < tries.length; i++) {
-      var u = "https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&accept-language=es&countrycodes=es&viewbox=-2.3,38.7,-0.3,37.2&q=" + encodeURIComponent(tries[i]);
+      var u = "https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=10&accept-language=es&countrycodes=es&viewbox=-2.3,38.7,-0.3,37.2&q=" + encodeURIComponent(tries[i]);
       var r = await (await fetch(u)).json();
-      if (r.length) hit = r[0];
+      if (r.length) hit = r.sort(function (a, b) { return km(+a.lat, +a.lon) - km(+b.lat, +b.lon); })[0];   // nærmest hotellet
     }
     if (ui.draft !== d) return;
     if (!hit) { d.info = "Fandt ikke stedet på kortet. Tip: indsæt et link fra Google Maps i link-feltet og tryk igen. Du kan også gemme stedet uden placering."; render(); return; }
@@ -723,16 +793,27 @@ async function findOnMap() {
   render();
 }
 
-function useMyLocation() {
+async function applyChoice(d, x) {
+  d.choices = null; d.lat = +x.lat.toFixed(5); d.lon = +x.lon.toFixed(5);
+  var addr = {};
+  if (x.address) addr = x.address;
+  if (!townFor(d.lat, d.lon, addr)) { try { var rv = await (await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=es&zoom=14&lat=" + d.lat + "&lon=" + d.lon)).json(); addr = (rv && rv.address) || {}; } catch (e) {} }
+  d.town = townFor(d.lat, d.lon, addr); d.area = x.addr || d.town;
+  if (x.cat) { d.cat = x.cat; d.subcat = x.subcat || ""; }
+  if (!d.name || d.name.toLowerCase() === (x.name || "").toLowerCase()) d.name = x.name || d.name;
+  d.info = "Fundet: " + [x.name, x.addr || d.town].filter(Boolean).join(", ") + ". Passer det ikke, så ret navnet og prøv igen.";
+  render();
+}
+function useMyLocation(auto) {
   var d = ui.draft; if (!d) return;
   if (!navigator.geolocation) { d.info = "Telefonen kan ikke give placeringen her."; render(); return; }
-  d.info = "Finder din placering…"; render();
+  if (!auto) d.info = "Finder din placering…"; render();
   navigator.geolocation.getCurrentPosition(async function (pos) {
     d.lat = +pos.coords.latitude.toFixed(5); d.lon = +pos.coords.longitude.toFixed(5);
     var found = await lookupPlace(d.lat, d.lon);
     if (ui.draft !== d) return;
-    if (!d.name) d.name = found.name; d.area = d.area || found.area; d.cat = found.cat;
-    d.info = found.name ? "Fundet ud fra din placering. Ret, hvis det ikke passer." : "Placeringen er gemt. Skriv navnet selv.";
+    if (!d.name) d.name = found.name; d.area = d.area || found.area; d.town = d.town || found.town || ""; d.cat = found.cat; if (found.subcat) d.subcat = found.subcat;
+    d.info = found.name ? "Fundet ud fra din placering: " + found.name + ". Ret, hvis det ikke passer." : "Placeringen er gemt. Skriv navnet selv.";
     render(); scrollToForm();
   }, function () { d.info = "Placeringen blev ikke givet. Du kan skrive stedet ind selv."; render(); }, { enableHighAccuracy: true, timeout: 15000 });
 }
@@ -777,6 +858,7 @@ function quickHtml(f) {
   if (f.manual) return '<form class="panel" id="editor"><h2>Nyt sted</h2>' +
     '<div class="row" style="align-items:flex-end"><label style="flex:1">Navn<input id="f-name" required value="' + esc(f.name) + '" placeholder="Restaurante El Puerto"></label><button class="btn" type="button" id="find-map">Find på kortet</button></div>' +
     (f.info ? '<p class="hint">' + esc(f.info) + "</p>" : "") +
+    (f.choices ? '<div class="choices">' + f.choices.map(function (x, i) { return '<button class="btn" type="button" data-choose="' + i + '"><strong>' + esc(x.name) + "</strong> " + esc([x.addr, x.km != null ? Math.round(x.km) + " km fra hotellet" : ""].filter(Boolean).join(" · ")) + "</button>"; }).join("") + "</div>" : "") +
     (f.lat != null ? '<p class="meta">' + esc([f.town, dist].filter(Boolean).join(" · ")) + "</p>" : "") +
     linkFields(f) + '<p class="hint">Har I ingen billeder, henter siden selv et par stykker fra hjemmesiden eller bloggen, når I gemmer.</p>' +
     '<div class="chips" role="group" aria-label="Kategori">' + chips + "</div>" + subChooser(f) +
@@ -1049,6 +1131,7 @@ document.addEventListener("click", async function (e) {
   if (t.id === "new-photo") { ui.chooser = false; render(); newInput.value = ""; newInput.click(); return; }
   if (t.id === "new-manual") { ui.chooser = false; startManual(); return; }
   if (t.id === "find-map") { syncDraft(); findOnMap(); return; }
+  if (t.dataset.choose != null && ui.draft && ui.draft.choices) { syncDraft(); applyChoice(ui.draft, ui.draft.choices[+t.dataset.choose]); return; }
   if (t.dataset.edit) { editPlace(t.dataset.edit); return; }
   if (t.dataset.editarea) { ui.draft = null; startAreaEdit(t.dataset.editarea, t.dataset.key); return; }
   if (t.dataset.addarea) { addInput.dataset.kind = t.dataset.addarea; addInput.dataset.target = t.dataset.key; addInput.value = ""; addInput.click(); return; }
@@ -1111,7 +1194,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 25;
+var APP_VERSION = 26;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

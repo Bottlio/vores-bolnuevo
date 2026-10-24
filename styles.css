@@ -216,3 +216,4 @@ body.modal-open{overflow:hidden}
 .place:not(.detailcard) .slide{cursor:pointer}
 .detailcard{max-width:760px}
 .rsum{margin:-2px 0 6px;color:var(--muted)}.rsum strong{color:var(--fg)}
+.choices{display:grid;gap:8px}.choices .btn{text-align:left}
