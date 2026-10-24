@@ -52,3 +52,6 @@ create policy "redaktører uploader billeder" on storage.objects for insert to a
 drop policy if exists "redaktører sletter billeder" on storage.objects;
 create policy "redaktører sletter billeder" on storage.objects for delete to authenticated
   using (bucket_id = 'photos' and public.is_editor());
+
+-- Tilføjet 24.10.2026
+alter table public.places add column if not exists website text, add column if not exists maps_url text, add column if not exists last_visit date, add column if not exists photo_credit text;

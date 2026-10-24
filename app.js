@@ -4,7 +4,7 @@
 var CFG = window.BOLNUEVO;
 var sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true } });
 
-var CATS = [["lejligheden","Lejligheden"],["spisesteder","Spisesteder"],["strande","Strande"],["ture","Ture i nærområdet"],["dagsture","Dagsture"],["oplevelser","Oplevelser"],["dagligvarer","Dagligvarer"],["opladning","Opladning til elbil"],["shopping","Shopping"]];
+var CATS = [["lejligheden","Lejligheden"],["spisesteder","Spisesteder"],["strande","Strande"],["ture","Ture i nærområdet"],["dagsture","Dagsture"],["oplevelser","Oplevelser"],["sport","Sport"],["dagligvarer","Dagligvarer"],["opladning","Opladning til elbil"],["shopping","Shopping"]];
 var CATNAME = {}; CATS.forEach(function (c) { CATNAME[c[0]] = c[1]; });
 var MONTHS = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
 var PRACTICAL = [
@@ -49,7 +49,9 @@ async function driveFromHotel(lat, lon) {
   } catch (e) { return null; }
 }
 function visitsText(v) { if (!v || !v.length) return ""; return "Besøgt " + v.map(function (m) { return MONTHS[parseInt(m.slice(5, 7), 10) - 1] + " " + m.slice(0, 4); }).join(", "); }
+function isMapsLink(u) { return /google\.[a-z.]+\/maps|goo\.gl\/maps|maps\.app\.goo\.gl|maps\.google\./i.test(u || ""); }
 function mapsUrl(p) {
+  if (p.maps_url) return p.maps_url;
   var q = (p.cat === "spisesteder" || p.cat === "shopping" || p.lat == null) ? (p.name + ", " + (p.area || "Mazarrón")) : (p.lat + "," + p.lon);
   return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
 }
@@ -78,6 +80,29 @@ function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ""); } c
 function stars(r) { var s = ""; for (var i = 1; i <= 5; i++) s += i <= r ? "★" : "☆"; return s; }
 function photoUrl(path) { return /^img\//.test(path) ? path : CFG.supabaseUrl + "/storage/v1/object/public/photos/" + encodeURI(path); }
 function monthOf(d) { if (!d) return null; var t = d instanceof Date ? d : new Date(d); if (isNaN(t)) return null; return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0"); }
+/* Senest besøgt: præcis dato fra billederne, ellers seneste måned i "Besøgt" */
+function lastKey(p) { if (p.last_visit) return String(p.last_visit); var v = (p.visits || []).slice().sort(); return v.length ? v[v.length - 1] + "-01" : ""; }
+function dayOf(d) { if (!d) return null; var t = d instanceof Date ? d : new Date(d); if (isNaN(t)) return null; return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0"); }
+function newestVisit(prev, visits, extra) {
+  var v = (visits || []).slice().sort(); if (!v.length) return null;
+  var m = v[v.length - 1];
+  var best = [prev, extra].filter(function (d) { return d && String(d).slice(0, 7) === m; }).sort().pop();
+  return best ? String(best).slice(0, 10) : m + "-01";
+}
+function linkFields(f) {
+  return '<label>Stedets hjemmeside (valgfrit)<input id="f-web" type="url" inputmode="url" value="' + esc(f.website || "") + '" placeholder="https://…"></label>' +
+    '<label>Link til Google Maps (valgfrit)<input id="f-maps" type="url" inputmode="url" value="' + esc(f.maps || "") + '" placeholder="Del-link fra Google Maps"></label>' +
+    '<label>Andet link: blog, anmeldelser el.lign. (valgfrit)<input id="f-link" type="url" inputmode="url" value="' + esc(f.link || "") + '" placeholder="https://…"></label>';
+}
+async function fetchWebImages(id, quiet) {
+  ui.msg = "Henter billeder fra stedets hjemmeside eller blog…"; render();
+  try {
+    var r = await sb.functions.invoke("fetch-image", { body: { id: id, max: 3 } });
+    var err = r.error ? ((r.data && r.data.error) || (r.error.context && (await r.error.context.json().catch(function () { return {}; })).error) || "") : "";
+    ui.msg = err ? "Fandt ikke noget billede" + (quiet ? "" : ": " + err) + (quiet ? ". Du kan selv tilføje et under \"+ Billeder\"." : "") : r.data.added + (r.data.added === 1 ? " billede" : " billeder") + " hentet fra " + r.data.credit + ".";
+  } catch (e) { ui.msg = "Billedet kunne ikke hentes lige nu."; }
+  await load();
+}
 function uid() { return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
 /* ---------- data ---------- */
@@ -107,7 +132,8 @@ function carousel(p) {
   html += '<div class="track">' + ph.map(function (x, i) {
     var u = esc(photoUrl(x));
     // Den slørede baggrund sættes først når billedet er hentet (se "load"-lytteren), så kun synlige billeder hentes.
-    return '<div class="slide"><img src="' + u + '" alt="' + esc(p.name) + (ph.length > 1 ? ", billede " + (i + 1) : "") + '" loading="lazy" decoding="async"></div>';
+    var credit = /\/web-/.test(x) && p.photo_credit ? '<span class="credit">Foto: ' + esc(p.photo_credit) + "</span>" : "";
+    return '<div class="slide"><img src="' + u + '" alt="' + esc(p.name) + (ph.length > 1 ? ", billede " + (i + 1) : "") + '" loading="lazy" decoding="async">' + credit + "</div>";
   }).join("") + "</div>";
   if (ph.length > 1) {
     html += '<span class="count">1/' + ph.length + '</span><button class="arrow prev" type="button" data-step="-1" aria-label="Forrige billede">‹</button><button class="arrow next" type="button" data-step="1" aria-label="Næste billede">›</button>';
@@ -127,12 +153,13 @@ var CAT_ICONS = {
   strande: svg('<path d="M4 12a8 8 0 0 1 16 0z"/><path d="M12 12v8M3 21c2-1.3 4-1.3 6 0s4 1.3 6 0 4-1.3 6 0"/>'),
   ture: svg('<path d="M3 20l6-12 4 7 3-4 5 9z"/><circle cx="17" cy="6" r="2"/>'),
   dagsture: svg('<path d="M5 16h14l-1.5-5.5A2 2 0 0 0 15.6 9H8.4a2 2 0 0 0-1.9 1.5z"/><path d="M4 16v3h3v-3M17 16v3h3v-3"/><circle cx="8" cy="13.5" r=".6"/><circle cx="16" cy="13.5" r=".6"/>'),
+  sport: svg('<circle cx="10" cy="9.5" r="6"/><path d="M14.3 13.8L20 19.5"/><circle cx="19" cy="5" r="1.6"/><path d="M7.5 7v5M10 6v7M12.5 7v5"/>'),
   oplevelser: svg('<path d="M12 3l2.2 5.4L20 9l-4.4 3.8L17 19l-5-3-5 3 1.4-6.2L4 9l5.8-.6z"/>'),
   dagligvarer: svg('<path d="M3 5h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L21 8H6"/><circle cx="9.5" cy="20" r="1.2"/><circle cx="17" cy="20" r="1.2"/>'),
   opladning: svg('<path d="M13 3L6 13h5l-1 8 7-10h-5z"/>'),
   shopping: svg('<path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>')
 };
-var TOWN_CATS = ["spisesteder","strande","ture","oplevelser","dagligvarer","opladning","shopping"];
+var TOWN_CATS = ["spisesteder","strande","ture","oplevelser","sport","dagligvarer","opladning","shopping"];
 var TIME_BUCKETS = [["kort","Under 45 min",0,45],["mellem","45–90 min",45,90],["lang","Over 1,5 time",90,9999]];
 function townsOf(list) {
   var c = {}; list.forEach(function (p) { if (p.town) c[p.town] = (c[p.town] || 0) + 1; });
@@ -182,18 +209,19 @@ function render() {
   if (searching) {
     var words = q.split(/\s+/);
     list = places.filter(function (p) {
-      var hay = [p.name, p.area, p.town, p.note, CATNAME[p.cat], p.status === "wish" ? "vil prøve" : "har prøvet"].join(" ").toLowerCase();
+      var hay = [p.name, p.area, p.town, p.note, p.website, CATNAME[p.cat], p.status === "wish" ? "vil prøve" : "har prøvet"].join(" ").toLowerCase();
       return words.every(function (w) { return hay.indexOf(w) >= 0; });
     });
   }
   var dist = function (p) { return p.drive_min != null ? p.drive_min : (km(p.lat, p.lon) || 0) * 1.2; };
   var SORTS = {
+    senest: function (a, b) { return lastKey(b).localeCompare(lastKey(a)) || String(b.created_at || "").localeCompare(String(a.created_at || "")); },
     nyeste: function (a, b) { return String(b.created_at || "").localeCompare(String(a.created_at || "")) || dist(a) - dist(b); },
     naermeste: function (a, b) { return dist(a) - dist(b); },
     stjerner: function (a, b) { return (b.rating || 0) - (a.rating || 0) || dist(a) - dist(b); },
     navn: function (a, b) { return a.name.localeCompare(b.name, "da"); }
   };
-  if (list) list.sort(SORTS[ui.sort] || SORTS.nyeste);
+  if (list) list.sort(SORTS[ui.sort] || SORTS.senest);
 
   var html = '<header><div><p class="eyebrow">Laderita de Bolnuevo · Costa Cálida</p><h1>Vores Bolnuevo</h1></div><button class="iconbtn" type="button" data-open-search aria-label="Søg">' + ICON_SEARCH + "</button>";
   html += "</header>";
@@ -211,13 +239,13 @@ function render() {
   if (!inApt && !(inTowns && !ui.town)) f += '<label class="sel"><span aria-hidden="true">★</span><select data-select="rating" aria-label="Karakter">' +
     [[0, "Alle karakterer"], [4, "4 stjerner og op"], [5, "Kun 5 stjerner"]].map(function (r) { return '<option value="' + r[0] + '"' + ((ui.minRating || 0) === r[0] ? " selected" : "") + ">" + r[1] + "</option>"; }).join("") + "</select></label>";
   f += '<label class="sel"><span aria-hidden="true">⇅</span><select data-select="sort" aria-label="Sortér">' +
-    [["nyeste", "Nyeste først"], ["naermeste", "Nærmeste først"], ["stjerner", "Flest stjerner"], ["navn", "Navn A–Å"]].map(function (o) { return '<option value="' + o[0] + '"' + ((ui.sort || "nyeste") === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>";
+    [["senest", "Senest besøgt"], ["nyeste", "Senest tilføjet"], ["naermeste", "Nærmeste først"], ["stjerner", "Flest stjerner"], ["navn", "Navn A–Å"]].map(function (o) { return '<option value="' + o[0] + '"' + ((ui.sort || "senest") === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>";
   f += "</div>";
   function catBtn(id, label, n) {
     return '<button type="button" class="cat" data-cat="' + id + '" aria-pressed="' + (ui.cat === id) + '">' + (CAT_ICONS[id] || "") + '<span class="cl">' + esc(label) + "</span>" + (n != null ? '<span class="cn">' + n + "</span>" : "") + "</button>";
   }
   var summary = searching ? 'Søgning: "' + ui.q.trim() + '"' : [inApt ? "" : (ui.status === "wish" ? "Vil prøve" : "Har prøvet"), ui.cat === "alle" ? "Alle" : ui.cat === "byer" ? "Byer" : CATNAME[ui.cat], ui.town || "", ui.sub ? CATNAME[ui.sub] : "",
-    ui.time ? TIME_BUCKETS.filter(function (b) { return b[0] === ui.time; })[0][1] : "", ui.minRating ? ui.minRating + "+ ★" : "", ui.sort && ui.sort !== "nyeste" ? { naermeste: "nærmeste først", stjerner: "flest stjerner", navn: "A–Å" }[ui.sort] : ""].filter(Boolean).join(" · ");
+    ui.time ? TIME_BUCKETS.filter(function (b) { return b[0] === ui.time; })[0][1] : "", ui.minRating ? ui.minRating + "+ ★" : "", ui.sort && ui.sort !== "senest" ? { nyeste: "senest tilføjet", naermeste: "nærmeste først", stjerner: "flest stjerner", navn: "A–Å" }[ui.sort] : ""].filter(Boolean).join(" · ");
   if (searching) {
     html += '<div class="bar" id="fullbar"><div class="row"><strong>' + list.length + (list.length === 1 ? " sted" : " steder") + ' matcher "' + esc(ui.q.trim()) + '"</strong><button class="btn small" type="button" id="q-clear">Ryd søgning</button></div></div>';
   } else html += '<div class="bar" id="fullbar">' + f + "</div>";
@@ -254,9 +282,11 @@ function render() {
     if (p.guess) html += '<span class="tag guess">Navnet er gættet ud fra billeder</span>';
     html += "</div>";
     html += '<div class="row"><a class="maps" href="' + esc(mapsUrl(p)) + '" target="_blank" rel="noopener">Åbn i Google Maps</a>';
+    if (p.website) html += '<a class="maps" href="' + esc(p.website) + '" target="_blank" rel="noopener">Hjemmeside ↗</a>';
     if (p.link) html += '<a class="maps" href="' + esc(p.link) + '" target="_blank" rel="noopener">Læs mere (' + esc(hostOf(p.link)) + ") ↗</a>";
     if (ui.editor) {
       html += '<button class="btn small" type="button" data-edit="' + esc(p.id) + '">Ret</button><button class="btn small" type="button" data-addphotos="' + esc(p.id) + '">+ Billeder</button>';
+      if ((!p.photos || !p.photos.length) && (p.website || (p.link && !isMapsLink(p.link)))) html += '<button class="btn small" type="button" data-fetchimg="' + esc(p.id) + '">Hent billeder fra nettet</button>';
       if (p.status === "wish") html += '<button class="btn small" type="button" data-move="' + esc(p.id) + '">Flyt til "Har prøvet"</button>';
     }
     html += "</div></article>";
@@ -362,7 +392,7 @@ async function afterLogin() {
 
 /* ---------- nyt sted ud fra billede ---------- */
 async function readPhotoInfo(files) {
-  var info = { lat: null, lon: null, month: null };
+  var info = { lat: null, lon: null, month: null, date: null };
   for (var i = 0; i < files.length; i++) {
     try {
       if (info.lat == null) {
@@ -373,12 +403,12 @@ async function readPhotoInfo(files) {
     try {
       if (!info.month) {
         var data = await window.exifr.parse(files[i], ["DateTimeOriginal", "CreateDate"]);
-        if (data) info.month = monthOf(data.DateTimeOriginal || data.CreateDate);
+        if (data) { info.month = monthOf(data.DateTimeOriginal || data.CreateDate); info.date = dayOf(data.DateTimeOriginal || data.CreateDate); }
       }
     } catch (e) { /* billedet har ingen dato */ }
     if (info.lat != null && info.month) break;
   }
-  if (!info.month && files[0] && files[0].lastModified) info.month = monthOf(new Date(files[0].lastModified));
+  if (!info.month && files[0] && files[0].lastModified) { info.month = monthOf(new Date(files[0].lastModified)); info.date = dayOf(new Date(files[0].lastModified)); }
   return info;
 }
 
@@ -392,7 +422,8 @@ function townFor(lat, lon, addr) {
 }
 var GROCERY = ["supermarket","convenience","bakery","butcher","greengrocer","seafood","deli","marketplace","alcohol","beverages","frozen_food"];
 var FOOD = ["restaurant","cafe","bar","pub","fast_food","ice_cream","biergarten","food_court"];
-var FUN = ["spa","water_park","marina","sports_centre","golf_course","theme_park","zoo","aquarium","public_bath","dive_centre","boat_rental","horse_riding","swimming_pool"];
+var SPORT = ["sports_centre","golf_course","pitch","stadium","fitness_centre","tennis","padel"];
+var FUN = ["spa","water_park","marina","theme_park","zoo","aquarium","public_bath","dive_centre","boat_rental","horse_riding","swimming_pool"];
 async function lookupPlace(lat, lon) {
   var base = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=es&lat=" + lat + "&lon=" + lon;
   var out = { name: "", cat: null, area: "" };
@@ -407,6 +438,7 @@ async function lookupPlace(lat, lon) {
       else if (t === "charging_station") out.cat = "opladning";
       else if (GROCERY.indexOf(t) >= 0) out.cat = "dagligvarer";
       else if (c === "shop" || t === "marketplace" || t === "mall") out.cat = "shopping";
+      else if (SPORT.indexOf(t) >= 0) out.cat = "sport";
       else if (FUN.indexOf(t) >= 0) out.cat = "oplevelser";
     }
     var where = poi && poi.address ? poi.address : null;
@@ -431,6 +463,7 @@ async function startNew(files) {
   var info = await readPhotoInfo(files);
   var d = ui.draft; if (!d) return;
   if (info.month) d.visits = [info.month];
+  d.lastVisit = info.date;
   if (info.lat != null) {
     d.lat = +info.lat.toFixed(5); d.lon = +info.lon.toFixed(5);
     var near = places.filter(function (p) { return p.lat != null; }).map(function (p) { return [p, distM(d.lat, d.lon, p.lat, p.lon)]; })
@@ -450,14 +483,14 @@ async function startNew(files) {
 function startManual() {
   ui.msg = "";
   ui.draft = { isNew: true, manual: true, id: uid(), cat: ["alle", "byer", "lejligheden"].indexOf(ui.cat) >= 0 ? "spisesteder" : ui.cat, status: "wish", name: "", area: "", town: "", note: "", rating: null, price: "",
-    visits: [], guess: false, lat: null, lon: null, link: "", items: [], removed: [], info: 'Skriv navnet og tryk "Find på kortet", så finder siden by, placering og køretid.' };
+    visits: [], guess: false, lat: null, lon: null, link: "", website: "", maps: "", items: [], removed: [], info: 'Skriv navnet og tryk "Find på kortet", så finder siden by, placering og køretid.' };
   render(); scrollToForm(); var n = document.getElementById("f-name"); if (n) n.focus();
 }
 async function findOnMap() {
   var d = ui.draft; if (!d || !d.name.trim()) { if (d) { d.err = "Skriv et navn først."; render(); } return; }
   d.err = ""; d.info = "Søger…"; render();
   try {
-    var hit = null, gm = coordsFromLink(d.link);
+    var hit = null, gm = coordsFromLink(d.maps) || coordsFromLink(d.link);
     if (gm) {
       var rv = await (await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=es&zoom=18&lat=" + gm[0] + "&lon=" + gm[1])).json();
       hit = rv && rv.lat ? rv : { lat: gm[0], lon: gm[1], address: {} };
@@ -480,6 +513,7 @@ async function findOnMap() {
     else if (t === "charging_station") d.cat = "opladning";
     else if (GROCERY.indexOf(t) >= 0) d.cat = "dagligvarer";
     else if ((c === "natural" && t === "beach") || t === "beach_resort") d.cat = "strande";
+    else if (SPORT.indexOf(t) >= 0) d.cat = "sport";
     d.info = "Fundet: " + (hit.display_name || "").split(",").slice(0, 3).join(",") + ". Passer det ikke, så ret navnet og prøv igen.";
   } catch (e) { d.info = "Kortet svarer ikke lige nu. Du kan gemme stedet alligevel."; }
   render();
@@ -515,7 +549,7 @@ function formHtml(f) {
     (f.lat == null && !f.finding ? '<div><button class="btn" type="button" id="my-loc">Brug min placering</button></div>' : "") +
     '<div class="grid"><label>Navn<input id="f-name" required value="' + esc(f.name) + '" placeholder="Restaurante La Siesta"></label><label>By<input id="f-town" value="' + esc(f.town || "") + '" placeholder="Puerto de Mazarrón"></label></div>' +
     '<label>Sted/område (valgfrit)<input id="f-area" value="' + esc(f.area) + '" placeholder="Plaza del Muelle"></label>' +
-    '<label>Link til blog, anmeldelse el.lign. (valgfrit)<input id="f-link" type="url" inputmode="url" value="' + esc(f.link || "") + '" placeholder="https://…"></label>' +
+    linkFields(f) +
     '<div class="grid"><label>Kategori<select id="f-cat">' + opts + '</select></label><label>Liste<select id="f-status"><option value="tried"' + (f.status === "tried" ? " selected" : "") + '>Har prøvet</option><option value="wish"' + (f.status === "wish" ? " selected" : "") + ">Vil prøve</option></select></label><label>Karakter<select id=\"f-rating\">" + r + '</select></label><label>Pris<select id="f-price">' + pr + "</select></label></div>" +
     '<label>Vores beskrivelse<textarea id="f-note" placeholder="Bestil dagens fisk. Book bord lørdag aften.">' + esc(f.note) + "</textarea></label>" +
     '<div><p class="hint" style="margin-bottom:8px">Billeder (det første vises først, man swiper til de næste)</p><div class="photos">' + ph + "</div>" +
@@ -536,7 +570,7 @@ function quickHtml(f) {
     '<div class="row" style="align-items:flex-end"><label style="flex:1">Navn<input id="f-name" required value="' + esc(f.name) + '" placeholder="Restaurante El Puerto"></label><button class="btn" type="button" id="find-map">Find på kortet</button></div>' +
     (f.info ? '<p class="hint">' + esc(f.info) + "</p>" : "") +
     (f.lat != null ? '<p class="meta">' + esc([f.town, dist].filter(Boolean).join(" · ")) + "</p>" : "") +
-    '<label>Link til blog, anmeldelse el.lign. (valgfrit)<input id="f-link" type="url" inputmode="url" value="' + esc(f.link || "") + '" placeholder="https://…"></label>' +
+    linkFields(f) + '<p class="hint">Har I ingen billeder, henter siden selv et par stykker fra hjemmesiden eller bloggen, når I gemmer.</p>' +
     '<div class="chips" role="group" aria-label="Kategori">' + chips + "</div>" +
     '<div class="seg" role="group" aria-label="Liste"><button type="button" data-setstatus="tried" aria-pressed="' + (f.status === "tried") + '">Har prøvet</button><button type="button" data-setstatus="wish" aria-pressed="' + (f.status === "wish") + '">Vil prøve</button></div>' +
     (thumbs ? '<div style="display:flex;gap:8px;overflow-x:auto">' + thumbs + "</div>" : "") +
@@ -566,6 +600,8 @@ function syncDraft() {
   if (v("f-area") != null) d.area = v("f-area");
   if (v("f-town") != null) d.town = v("f-town");
   if (v("f-link") != null) d.link = v("f-link").trim();
+  if (v("f-web") != null) d.website = v("f-web").trim();
+  if (v("f-maps") != null) d.maps = v("f-maps").trim();
   if (v("f-cat") != null) d.cat = v("f-cat");
   if (v("f-status") != null) d.status = v("f-status");
   if (v("f-rating") != null) d.rating = v("f-rating") ? parseInt(v("f-rating"), 10) : null;
@@ -581,7 +617,7 @@ function syncDraft() {
 
 function editPlace(id) {
   var p = places.filter(function (x) { return x.id === id; })[0]; if (!p) return;
-  ui.draft = { isNew: false, id: p.id, link: p.link || "", town: p.town || "", cat: p.cat, status: p.status, name: p.name, area: p.area || "", note: p.note || "", rating: p.rating, price: p.price || "", visits: (p.visits || []).slice(), guess: !!p.guess, lat: p.lat, lon: p.lon,
+  ui.draft = { isNew: false, id: p.id, link: p.link || "", website: p.website || "", maps: p.maps_url || "", lastVisit: p.last_visit || null, town: p.town || "", cat: p.cat, status: p.status, name: p.name, area: p.area || "", note: p.note || "", rating: p.rating, price: p.price || "", visits: (p.visits || []).slice(), guess: !!p.guess, lat: p.lat, lon: p.lon,
     items: (p.photos || []).map(function (x) { return { path: x }; }), removed: [] };
   ui.msg = ""; render(); scrollToForm();
 }
@@ -618,7 +654,10 @@ async function addPhotosTo(placeId, files) {
   ui.busy = true;
   try {
     var paths = await uploadFiles(placeId, files, function (i, n) { ui.msg = "Uploader billede " + i + " af " + n + "…"; render(); });
-    var r = await sb.from("places").update({ photos: (p.photos || []).concat(paths), updated_at: new Date().toISOString() }).eq("id", placeId);
+    var pi = await readPhotoInfo(files), visits = (p.visits || []).slice();
+    if (pi.month && visits.indexOf(pi.month) < 0) { visits.push(pi.month); visits.sort(); }
+    var upd = { photos: (p.photos || []).concat(paths), visits: visits, last_visit: newestVisit(p.last_visit, visits, pi.date), updated_at: new Date().toISOString() };
+    var r = await sb.from("places").update(upd).eq("id", placeId);
     if (r.error) throw new Error("Billederne blev ikke gemt: " + r.error.message);
     ui.msg = files.length + (files.length === 1 ? " billede" : " billeder") + " tilføjet til " + p.name + ".";
     ui.draft = null; await load();
@@ -644,9 +683,13 @@ async function saveDraft() {
       it.path = path; paths.push(path);
     }
     var orig = places.filter(function (x) { return x.id === d.id; })[0];
+    var fix = function (u) { u = (u || "").trim(); return u && !/^https?:\/\//i.test(u) ? "https://" + u : u; };
+    var web = fix(d.website), maps = fix(d.maps), link = fix(d.link);
+    [web, link].forEach(function (u) { if (u && isMapsLink(u) && !maps) maps = u; });   // et Google Maps-link havner i Maps-feltet
+    if (isMapsLink(web)) web = ""; if (isMapsLink(link)) link = "";
+    if (d.lat == null) { var gc = coordsFromLink(maps); if (gc) { d.lat = +gc[0].toFixed(5); d.lon = +gc[1].toFixed(5); if (!d.town) d.town = townFor(d.lat, d.lon, {}); } }
     var drive = orig && orig.lat === d.lat && orig.lon === d.lon && orig.drive_min ? { km: orig.drive_km, min: orig.drive_min } : (d.lat != null ? await driveFromHotel(d.lat, d.lon) : null);
-    var link = (d.link || "").trim(); if (link && !/^https?:\/\//i.test(link)) link = "https://" + link;
-    var row = { link: link || null, town: (d.town || "").trim() || null, drive_km: drive ? drive.km : null, drive_min: drive ? drive.min : null, id: d.id, cat: d.cat, status: d.status, name: d.name.trim(), area: d.area.trim(), note: d.note.trim(), rating: d.rating, price: d.price,
+    var row = { link: link || null, website: web || null, maps_url: maps || null, last_visit: newestVisit(orig && orig.last_visit, d.visits, d.lastVisit), town: (d.town || "").trim() || null, drive_km: drive ? drive.km : null, drive_min: drive ? drive.min : null, id: d.id, cat: d.cat, status: d.status, name: d.name.trim(), area: d.area.trim(), note: d.note.trim(), rating: d.rating, price: d.price,
       visits: d.visits, guess: d.guess, lat: d.lat, lon: d.lon, photos: paths, updated_at: new Date().toISOString() };
     var r = await sb.from("places").upsert(row);
     if (r.error) throw new Error("Stedet blev ikke gemt: " + r.error.message);
@@ -654,6 +697,7 @@ async function saveDraft() {
     if (gone.length) await sb.storage.from("photos").remove(gone);
     ui.status = d.status; ui.cat = d.cat; ui.draft = null; ui.msg = "Gemt.";
     await load();
+    if (!paths.length && (web || link)) await fetchWebImages(row.id, true);
     var el = document.getElementById(row.id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (e) {
     d.err = e.message || "Noget gik galt. Prøv igen.";
@@ -695,8 +739,11 @@ document.addEventListener("click", async function (e) {
   if (t.id === "new-manual") { ui.chooser = false; startManual(); return; }
   if (t.id === "find-map") { syncDraft(); findOnMap(); return; }
   if (t.dataset.edit) { editPlace(t.dataset.edit); return; }
+  if (t.dataset.fetchimg) { fetchWebImages(t.dataset.fetchimg, false); return; }
   if (t.dataset.move) {
-    var r = await sb.from("places").update({ status: "tried", updated_at: new Date().toISOString() }).eq("id", t.dataset.move);
+    var mp = places.filter(function (x) { return x.id === t.dataset.move; })[0] || {}, today = dayOf(new Date()), mv = (mp.visits || []).slice();
+    if (mv.indexOf(today.slice(0, 7)) < 0) mv.push(today.slice(0, 7));
+    var r = await sb.from("places").update({ status: "tried", visits: mv, last_visit: today, updated_at: new Date().toISOString() }).eq("id", t.dataset.move);
     ui.msg = r.error ? "Det blev ikke gemt. Prøv igen." : "Flyttet til \"Har prøvet\"."; await load(); return;
   }
   if (t.dataset.first) { syncDraft(); var it = ui.draft.items.splice(+t.dataset.first, 1)[0]; ui.draft.items.unshift(it); render(); return; }
@@ -740,7 +787,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 20;
+var APP_VERSION = 21;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
