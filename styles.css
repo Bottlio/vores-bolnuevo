@@ -59,7 +59,10 @@ header{display:flex;justify-content:space-between;align-items:flex-start;gap:12p
 .car{position:relative;margin-bottom:6px}
 .track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:10px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .track::-webkit-scrollbar{display:none}
-.track img{flex:0 0 100%;width:100%;aspect-ratio:3/2;object-fit:cover;scroll-snap-align:start;background:var(--sea-soft);display:block}
+/* Hele billedet vises (også stående billeder); siderne fyldes med en sløret udgave af samme billede */
+.slide{flex:0 0 100%;width:100%;aspect-ratio:4/3;max-height:560px;position:relative;overflow:hidden;scroll-snap-align:start;background:var(--sea-soft)}
+.slide::before{content:"";position:absolute;inset:-30px;background-image:var(--src);background-size:cover;background-position:center;filter:blur(24px) saturate(1.1);opacity:.75}
+.slide img{position:relative;width:100%;height:100%;object-fit:contain;display:block}
 .dots{display:flex;justify-content:center;gap:6px;margin-top:8px}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--line);border:0;padding:0;cursor:pointer}
 .dot.on{background:var(--sea)}

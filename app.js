@@ -67,7 +67,10 @@ function carousel(p) {
   var ph = p.photos || [];
   if (!ph.length) return "";
   var html = '<div class="car" data-car>';
-  html += '<div class="track">' + ph.map(function (x, i) { return '<img src="' + esc(photoUrl(x)) + '" alt="' + esc(p.name) + (ph.length > 1 ? ", billede " + (i + 1) : "") + '" loading="lazy">'; }).join("") + "</div>";
+  html += '<div class="track">' + ph.map(function (x, i) {
+    var u = esc(photoUrl(x));
+    return '<div class="slide" style="--src:url(&quot;' + u + '&quot;)"><img src="' + u + '" alt="' + esc(p.name) + (ph.length > 1 ? ", billede " + (i + 1) : "") + '" loading="lazy"></div>';
+  }).join("") + "</div>";
   if (ph.length > 1) {
     html += '<span class="count">1/' + ph.length + '</span><button class="arrow prev" type="button" data-step="-1" aria-label="Forrige billede">‹</button><button class="arrow next" type="button" data-step="1" aria-label="Næste billede">›</button>';
     html += '<div class="dots">' + ph.map(function (x, i) { return '<button class="dot' + (i === 0 ? " on" : "") + '" type="button" data-go="' + i + '" aria-label="Billede ' + (i + 1) + '"></button>'; }).join("") + "</div>";
