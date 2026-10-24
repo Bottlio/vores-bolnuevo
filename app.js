@@ -358,6 +358,7 @@ function placeCard(p, detail, showKat) {
     if (showKat) html += '<span class="tag kat">' + esc(CATNAME[p.cat] || p.cat) + "</span>";
     if (detail && p.visits && p.visits.length) html += '<span class="tag">' + esc(visitsText(p.visits)) + "</span>";
     if (subName(p.cat, p.subcat)) html += '<span class="tag kat">' + esc(subName(p.cat, p.subcat)) + "</span>";
+    html += factTags(p, detail);
     if (p.guess) html += '<span class="tag guess">Navnet er gættet ud fra billeder</span>';
     html += "</div>";
     html += '<div class="row"><a class="maps" href="' + esc(mapsUrl(p)) + '" target="_blank" rel="noopener">Åbn i Google Maps</a>';
@@ -836,6 +837,7 @@ function formHtml(f) {
     '<label>Sted/område (valgfrit)<input id="f-area" value="' + esc(f.area) + '" placeholder="Plaza del Muelle"></label>' +
     linkFields(f) +
     '<div class="grid"><label>Kategori<select id="f-cat">' + opts + "</select></label>" + (SUBCATS[f.cat] ? '<label>Underkategori<select id="f-subcat"><option value="">Ikke valgt</option>' + SUBCATS[f.cat].map(function (x) { return '<option value="' + x[0] + '"' + (f.subcat === x[0] ? " selected" : "") + ">" + esc(x[1]) + "</option>"; }).join("") + "</select></label>" : "") + '<label>Liste<select id="f-status"><option value="tried"' + (f.status === "tried" ? " selected" : "") + '>Har prøvet</option><option value="wish"' + (f.status === "wish" ? " selected" : "") + ">Vil prøve</option></select></label>" + '<label>Pris<select id="f-price">' + pr + "</select></label></div>" +
+    questionsHtml(f) +
     '<label>Vores beskrivelse<textarea id="f-note" placeholder="Bestil dagens fisk. Book bord lørdag aften.">' + esc(f.note) + "</textarea></label>" +
     '<div><p class="hint" style="margin-bottom:8px">Billeder (det første vises først, man swiper til de næste)</p><div class="photos">' + ph + "</div>" +
     '<label class="btn" style="display:inline-flex;margin-top:10px;color:var(--fg)">+ Tilføj billeder<input type="file" id="f-add" accept="image/*" multiple hidden></label></div>' +
@@ -847,6 +849,36 @@ function formHtml(f) {
 }
 
 /* Hurtig udgave til nyt sted: billeder + det fundne navn, alt andet er valgfrit */
+function cleanFacts(d) {
+  var f = {}, src = d.facts || {};
+  Object.keys(src).forEach(function (k) { if (src[k]) f[k] = src[k]; });   // svar fra en anden kategori bevares
+  if (f.saeson !== "ja") delete f.periode;
+  return f;
+}
+/* Faste spørgsmål pr. kategori (svar: "ja", "nej" eller ikke besvaret) */
+var QUESTIONS = {
+  dagligvarer: [["saeson", "Sæsonlukket?"], ["sondag", "Åbent om søndagen?"]],
+  spisesteder: [["saeson", "Sæsonlukket?"]]
+};
+function factTags(p, full) {
+  var f = p.facts || {}, q = QUESTIONS[p.cat] || [], out = [];
+  q.forEach(function (x) {
+    var v = f[x[0]];
+    if (x[0] === "saeson") { if (v === "ja") out.push(["warn", "Sæsonlukket" + (f.periode ? " (" + f.periode + ")" : "")]); else if (v === "nej" && full) out.push(["", "Åbent hele året"]); }
+    if (x[0] === "sondag") { if (v === "ja" && full) out.push(["", "Søndagsåbent"]); else if (v === "nej") out.push(["warn", "Lukket om søndagen"]); }
+  });
+  return out.map(function (t) { return '<span class="tag' + (t[0] ? " " + t[0] : "") + '">' + esc(t[1]) + "</span>"; }).join("");
+}
+function questionsHtml(f) {
+  var q = QUESTIONS[f.cat]; if (!q) return "";
+  var fa = f.facts || {};
+  return '<div class="questions">' + q.map(function (x) {
+    var v = fa[x[0]] || "";
+    return '<div class="qrow"><span>' + esc(x[1]) + '</span><div class="seg small" role="group" aria-label="' + esc(x[1]) + '">' +
+      [["ja", "Ja"], ["nej", "Nej"], ["", "Ved ikke"]].map(function (o) { return '<button type="button" data-q="' + x[0] + '" data-qv="' + o[0] + '" aria-pressed="' + (v === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div></div>" +
+      (x[0] === "saeson" && v === "ja" ? '<label class="qperiod">Hvornår er der lukket? (valgfrit)<input id="f-periode" value="' + esc(fa.periode || "") + '" placeholder="Fx november–marts"></label>' : "");
+  }).join("") + "</div>";
+}
 function subChooser(f) {
   if (!SUBCATS[f.cat]) return "";
   return '<div class="chips subchoose" role="group" aria-label="Underkategori (valgfri)"><span class="hint">Underkategori:</span>' + SUBCATS[f.cat].map(function (x) { return '<button class="chip" type="button" data-setsub="' + x[0] + '" aria-pressed="' + (f.subcat === x[0]) + '">' + esc(x[1]) + "</button>"; }).join("") + "</div>";
@@ -861,7 +893,7 @@ function quickHtml(f) {
     (f.choices ? '<div class="choices">' + f.choices.map(function (x, i) { return '<button class="btn" type="button" data-choose="' + i + '"><strong>' + esc(x.name) + "</strong> " + esc([x.addr, x.km != null ? Math.round(x.km) + " km fra hotellet" : ""].filter(Boolean).join(" · ")) + "</button>"; }).join("") + "</div>" : "") +
     (f.lat != null ? '<p class="meta">' + esc([f.town, dist].filter(Boolean).join(" · ")) + "</p>" : "") +
     linkFields(f) + '<p class="hint">Har I ingen billeder, henter siden selv et par stykker fra hjemmesiden eller bloggen, når I gemmer.</p>' +
-    '<div class="chips" role="group" aria-label="Kategori">' + chips + "</div>" + subChooser(f) +
+    '<div class="chips" role="group" aria-label="Kategori">' + chips + "</div>" + subChooser(f) + questionsHtml(f) +
     '<div class="seg" role="group" aria-label="Liste"><button type="button" data-setstatus="tried" aria-pressed="' + (f.status === "tried") + '">Har prøvet</button><button type="button" data-setstatus="wish" aria-pressed="' + (f.status === "wish") + '">Vil prøve</button></div>' +
     (thumbs ? '<div style="display:flex;gap:8px;overflow-x:auto">' + thumbs + "</div>" : "") +
     '<label class="btn" style="display:inline-flex;align-self:flex-start;color:var(--fg)">+ Tilføj billeder (valgfrit)<input type="file" id="f-add" accept="image/*" multiple hidden></label>' +
@@ -876,7 +908,7 @@ function quickHtml(f) {
       '<p class="meta">' + esc([f.area, dist].filter(Boolean).join(" · ") || "Ingen placering fundet") + "</p>" +
       (f.info ? '<p class="hint">' + esc(f.info) + "</p>" : "") +
       (f.lat == null ? '<div><button class="btn" type="button" id="my-loc">Brug min placering</button></div>' : "") +
-      '<div class="chips" role="group" aria-label="Kategori">' + chips + "</div>" + subChooser(f) +
+      '<div class="chips" role="group" aria-label="Kategori">' + chips + "</div>" + subChooser(f) + questionsHtml(f) +
       '<div class="seg" role="group" aria-label="Liste"><button type="button" data-setstatus="tried" aria-pressed="' + (f.status === "tried") + '">Har prøvet</button><button type="button" data-setstatus="wish" aria-pressed="' + (f.status === "wish") + '">Vil prøve</button></div>') +
     (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
     '<div class="row"><button class="btn primary" type="submit"' + (ui.busy || f.finding ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + "</button>" +
@@ -894,6 +926,7 @@ function syncDraft() {
   if (v("f-maps") != null) d.maps = v("f-maps").trim();
   if (v("f-cat") != null) { if (d.cat !== v("f-cat")) d.subcat = ""; d.cat = v("f-cat"); }
   if (v("f-subcat") != null) d.subcat = v("f-subcat");
+  if (v("f-periode") != null) { d.facts = d.facts || {}; d.facts.periode = v("f-periode").trim(); }
   if (v("f-status") != null) d.status = v("f-status");
   if (v("f-rating") != null) d.rating = v("f-rating") ? parseInt(v("f-rating"), 10) : null;
   if (v("f-price") != null) d.price = v("f-price");
@@ -908,7 +941,7 @@ function syncDraft() {
 
 function editPlace(id) {
   var p = places.filter(function (x) { return x.id === id; })[0]; if (!p) return;
-  ui.draft = { isNew: false, id: p.id, link: p.link || "", website: p.website || "", maps: p.maps_url || "", lastVisit: p.last_visit || null, town: p.town || "", cat: p.cat, subcat: p.subcat || "", status: p.status, name: p.name, area: p.area || "", note: p.note || "", rating: p.rating, price: p.price || "", visits: (p.visits || []).slice(), guess: !!p.guess, lat: p.lat, lon: p.lon,
+  ui.draft = { isNew: false, id: p.id, link: p.link || "", website: p.website || "", maps: p.maps_url || "", lastVisit: p.last_visit || null, town: p.town || "", cat: p.cat, subcat: p.subcat || "", facts: JSON.parse(JSON.stringify(p.facts || {})), status: p.status, name: p.name, area: p.area || "", note: p.note || "", rating: p.rating, price: p.price || "", visits: (p.visits || []).slice(), guess: !!p.guess, lat: p.lat, lon: p.lon,
     items: (p.photos || []).map(function (x) { return { path: x }; }), removed: [] };
   ui.msg = ""; render(); scrollToForm();
 }
@@ -980,7 +1013,7 @@ async function saveDraft() {
     if (isMapsLink(web)) web = ""; if (isMapsLink(link)) link = "";
     if (d.lat == null) { var gc = coordsFromLink(maps); if (gc) { d.lat = +gc[0].toFixed(5); d.lon = +gc[1].toFixed(5); if (!d.town) d.town = townFor(d.lat, d.lon, {}); } }
     var drive = orig && orig.lat === d.lat && orig.lon === d.lon && orig.drive_min ? { km: orig.drive_km, min: orig.drive_min } : (d.lat != null ? await driveFromHotel(d.lat, d.lon) : null);
-    var row = { link: link || null, website: web || null, maps_url: maps || null, last_visit: newestVisit(orig && orig.last_visit, d.visits, d.lastVisit), town: (d.town || "").trim() || null, drive_km: drive ? drive.km : null, drive_min: drive ? drive.min : null, id: d.id, cat: d.cat, subcat: subName(d.cat, d.subcat) ? d.subcat : null, status: d.status, name: d.name.trim(), area: d.area.trim(), note: d.note.trim(), price: d.price,
+    var row = { link: link || null, website: web || null, maps_url: maps || null, last_visit: newestVisit(orig && orig.last_visit, d.visits, d.lastVisit), town: (d.town || "").trim() || null, drive_km: drive ? drive.km : null, drive_min: drive ? drive.min : null, id: d.id, cat: d.cat, subcat: subName(d.cat, d.subcat) ? d.subcat : null, facts: cleanFacts(d), status: d.status, name: d.name.trim(), area: d.area.trim(), note: d.note.trim(), price: d.price,
       visits: d.visits, guess: d.guess, lat: d.lat, lon: d.lon, photos: paths, updated_at: new Date().toISOString() };
     // Vurderingen sættes i vurderingsvinduet. Skifter stedet kategori, beregnes den samlede score efter de nye kriterier.
     var oldR = (orig && orig.ratings) || {};
@@ -1150,6 +1183,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.rateopen) { openRating(t.dataset.rateopen, t.dataset.key); return; }
   if (t.dataset.minrating != null) { ui.minRating = +t.dataset.minrating; render(); return; }
   if (t.dataset.setcat) { syncDraft(); if (ui.draft.cat !== t.dataset.setcat) ui.draft.subcat = ""; ui.draft.cat = t.dataset.setcat; render(); return; }
+  if (t.dataset.q) { syncDraft(); ui.draft.facts = ui.draft.facts || {}; ui.draft.facts[t.dataset.q] = t.dataset.qv; render(); return; }
   if (t.dataset.setsub) { syncDraft(); ui.draft.subcat = ui.draft.subcat === t.dataset.setsub ? "" : t.dataset.setsub; render(); return; }
   if (t.dataset.setstatus) { syncDraft(); ui.draft.status = t.dataset.setstatus; render(); return; }
   if (t.id === "more") { syncDraft(); ui.draft.more = true; render(); return; }
@@ -1194,7 +1228,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 26;
+var APP_VERSION = 27;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

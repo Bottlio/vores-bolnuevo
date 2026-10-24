@@ -217,3 +217,10 @@ body.modal-open{overflow:hidden}
 .detailcard{max-width:760px}
 .rsum{margin:-2px 0 6px;color:var(--muted)}.rsum strong{color:var(--fg)}
 .choices{display:grid;gap:8px}.choices .btn{text-align:left}
+.questions{display:grid;gap:10px}
+.qrow{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.seg.small button{padding:6px 12px;font-size:.85rem}
+.qperiod{margin-top:-2px}
+.tag.warn{background:var(--ochre-soft);color:var(--ochre);border-color:transparent}
+.seg.small{flex:0 0 auto}.seg.small button[aria-pressed="true"]{background:var(--sea);color:var(--surface)}
+.seg.small button{white-space:nowrap}
