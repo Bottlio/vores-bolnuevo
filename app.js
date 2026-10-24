@@ -454,6 +454,20 @@ root.addEventListener("change", function (e) {
 });
 newInput.addEventListener("change", function () { var files = Array.prototype.slice.call(newInput.files); if (files.length) startNew(files); });
 
+/* ---------- automatisk opdatering ----------
+   Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
+   tjekker den version.json og henter selv den nye udgave, hvis der er en. */
+var APP_VERSION = 6;
+async function checkForUpdate() {
+  try {
+    var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
+    var j = await r.json();
+    if (j && j.v > APP_VERSION && !ui.draft && !ui.busy) location.replace(location.pathname + "?v=" + j.v + location.hash);
+  } catch (e) { /* ingen forbindelse; prøv igen næste gang */ }
+}
+document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") checkForUpdate(); });
+checkForUpdate();
+
 /* ---------- start ---------- */
 sb.auth.onAuthStateChange(function (ev) { if (ev === "SIGNED_OUT") { ui.user = null; ui.editor = false; } });
 render();
