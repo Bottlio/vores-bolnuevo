@@ -53,7 +53,7 @@ header{display:flex;justify-content:space-between;align-items:flex-start;gap:12p
 .tags{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .tag{font-size:.78rem;padding:2px 9px;border-radius:999px;background:var(--sea-soft);color:var(--sea)}
 .tag.guess{background:var(--ochre-soft);color:var(--ochre)}
-.tag.cat{background:transparent;border:1px solid var(--line);color:var(--muted)}
+.tag.kat{background:transparent;border:1px solid var(--line);color:var(--muted)}
 .maps{color:var(--sea);font-size:.9rem;text-decoration:none;font-weight:700}
 .maps:hover{text-decoration:underline}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -141,3 +141,16 @@ body:has(.searchwrap:not([hidden])) #root{padding-top:calc(80px + env(safe-area-
 .selects{display:flex;gap:8px;flex-wrap:wrap}
 .sel{flex-direction:row;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:0 4px 0 12px;background:var(--surface);color:var(--sea)}
 .sel select{border:0;background:transparent;padding:6px 4px;font-size:.88rem;color:var(--fg)}
+/* Bredere skærme (iPad, computer): stederne i et gitter i stedet for én lang kolonne */
+@media (min-width:700px){
+  #root{max-width:1180px}
+  .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:28px 24px;align-items:start;margin-top:18px}
+  .place{border-bottom:0;padding:0}
+  .place .note{font-size:.95rem}
+  .slide{aspect-ratio:4/3;max-height:none}
+  .panel,.notice{max-width:720px}
+  .practical{max-width:820px}
+  .towns{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+}
+.noimg-card{display:none}
+@media (min-width:700px){.noimg-card{display:flex;align-items:center;justify-content:center;aspect-ratio:4/3;border-radius:10px;background:var(--sea-soft);color:var(--sea);margin-bottom:6px}.noimg-card svg{width:56px;height:56px;opacity:.6}}

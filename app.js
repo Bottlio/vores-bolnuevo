@@ -95,7 +95,7 @@ async function checkUser() {
 /* ---------- visning ---------- */
 function carousel(p) {
   var ph = p.photos || [];
-  if (!ph.length) return "";
+  if (!ph.length) return '<div class="noimg-card" aria-hidden="true">' + (CAT_ICONS[p.cat] || "") + "</div>";
   var html = '<div class="car" data-car>';
   html += '<div class="track">' + ph.map(function (x, i) {
     var u = esc(photoUrl(x));
@@ -240,7 +240,7 @@ function render() {
     if (meta) html += '<p class="meta">' + esc(meta) + "</p>";
     html += p.note ? '<p class="note">' + esc(p.note) + "</p>" : (p.cat === "lejligheden" ? "" : '<p class="note empty">Mangler vores beskrivelse.</p>');
     html += '<div class="tags">';
-    if (ui.cat === "alle" || inTowns || searching) html += '<span class="tag cat">' + esc(CATNAME[p.cat] || p.cat) + "</span>";
+    if (ui.cat === "alle" || inTowns || searching) html += '<span class="tag kat">' + esc(CATNAME[p.cat] || p.cat) + "</span>";
     if (p.visits && p.visits.length) html += '<span class="tag">' + esc(visitsText(p.visits)) + "</span>";
     if (p.guess) html += '<span class="tag guess">Navnet er gættet ud fra billeder</span>';
     html += "</div>";
@@ -670,7 +670,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 14;
+var APP_VERSION = 16;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
