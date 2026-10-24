@@ -154,25 +154,38 @@ function render() {
     }
     list = inCat.filter(rated);
   }
+  var q = (ui.q || "").trim().toLowerCase(), searching = q.length > 0;
+  if (searching) {
+    var words = q.split(/\s+/);
+    list = places.filter(function (p) {
+      var hay = [p.name, p.area, p.town, p.note, CATNAME[p.cat], p.status === "wish" ? "vil prøve" : "har prøvet"].join(" ").toLowerCase();
+      return words.every(function (w) { return hay.indexOf(w) >= 0; });
+    });
+  }
   if (list) list.sort(function (a, b) { return (a.drive_min || km(a.lat, a.lon) || 0) - (b.drive_min || km(b.lat, b.lon) || 0); });
 
-  var html = '<header><div><p class="eyebrow">Laderita de Bolnuevo · Costa Cálida</p><h1>Vores Bolnuevo</h1></div>';
+  var html = '<header><div><p class="eyebrow">Laderita de Bolnuevo · Costa Cálida</p><h1>Vores Bolnuevo</h1></div><button class="iconbtn" type="button" data-open-search aria-label="Søg">' + ICON_SEARCH + "</button>";
   html += "</header>";
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
   if (ui.login) html += loginHtml();
   if (ui.draft) html += formHtml(ui.draft);
 
-  html += '<div class="bar">';
-  if (!inApt) html += '<div class="seg" role="group" aria-label="Vis"><button type="button" data-status="tried" aria-pressed="' + (ui.status === "tried") + '">Har prøvet (' + tried + ')</button><button type="button" data-status="wish" aria-pressed="' + (ui.status === "wish") + '">Vil prøve (' + wish + ")</button></div>";
-  html += '<div class="chips" role="group" aria-label="Kategori">' + chip("cat", "alle", "Alle", counts.alle, ui.cat === "alle") + chip("cat", "byer", "Byer", null, inTowns);
-  CATS.forEach(function (c) { html += chip("cat", c[0], c[1], counts[c[0]], ui.cat === c[0]); });
-  html += "</div>";
-  if (sub) html += '<div class="subchips">' + sub + "</div>";
-  if (!inApt && !(inTowns && !ui.town)) html += '<div class="chips" role="group" aria-label="Karakter"><span class="meta" style="align-self:center">Karakter:</span>' +
+  var f = "";
+  if (!inApt) f += '<div class="seg" role="group" aria-label="Vis"><button type="button" data-status="tried" aria-pressed="' + (ui.status === "tried") + '">Har prøvet (' + tried + ')</button><button type="button" data-status="wish" aria-pressed="' + (ui.status === "wish") + '">Vil prøve (' + wish + ")</button></div>";
+  f += '<div class="chips" role="group" aria-label="Kategori">' + chip("cat", "alle", "Alle", counts.alle, ui.cat === "alle") + chip("cat", "byer", "Byer", null, inTowns);
+  CATS.forEach(function (c) { f += chip("cat", c[0], c[1], counts[c[0]], ui.cat === c[0]); });
+  f += "</div>";
+  if (sub) f += '<div class="subchips">' + sub + "</div>";
+  if (!inApt && !(inTowns && !ui.town)) f += '<div class="chips" role="group" aria-label="Karakter"><span class="meta" style="align-self:center">Karakter:</span>' +
     [[0, "Alle"], [4, "★★★★ og op"], [5, "★★★★★"]].map(function (r) { return '<button class="chip" type="button" data-minrating="' + r[0] + '" aria-pressed="' + ((ui.minRating || 0) === r[0]) + '">' + r[1] + "</button>"; }).join("") + "</div>";
-  html += "</div>";
+  var summary = searching ? 'Søgning: "' + ui.q.trim() + '"' : [inApt ? "" : (ui.status === "wish" ? "Vil prøve" : "Har prøvet"), ui.cat === "alle" ? "Alle" : ui.cat === "byer" ? "Byer" : CATNAME[ui.cat], ui.town || "", ui.sub ? CATNAME[ui.sub] : "",
+    ui.time ? TIME_BUCKETS.filter(function (b) { return b[0] === ui.time; })[0][1] : "", ui.minRating ? ui.minRating + "+ ★" : ""].filter(Boolean).join(" · ");
+  if (searching) {
+    html += '<div class="bar" id="fullbar"><div class="row"><strong>' + list.length + (list.length === 1 ? " sted" : " steder") + ' matcher "' + esc(ui.q.trim()) + '"</strong><button class="btn small" type="button" id="q-clear">Ryd søgning</button></div></div>';
+  } else html += '<div class="bar" id="fullbar">' + f + "</div>";
+  slimBar(summary, f, list ? list.length : null);
 
-  if (inTowns && !ui.town) {
+  if (inTowns && !ui.town && !searching) {
     html += '<div class="towns">';
     var tlist = townsOf(byStatus);
     if (!tlist.length) html += '<p class="empty-state">Ingen byer her endnu.</p>';
@@ -188,6 +201,7 @@ function render() {
   html += '<div class="list">';
   if (!ui.loaded) html += '<p class="empty-state">Henter steder…</p>';
   else if (!list.length && inApt) html += '<p class="empty-state">Ingen billeder af lejligheden endnu.' + (ui.editor ? ' Tryk "+ Nyt sted" og vælg billeder taget på hotellet, så havner de her.' : "") + "</p>";
+  else if (!list.length && searching) html += '<p class="empty-state">Ingen steder matcher søgningen.</p>';
   else if (!list.length && !(inTowns && !ui.town)) html += '<p class="empty-state">' + (ui.status === "wish" ? "Ingen ønsker her endnu." : "Intet her endnu.") + (ui.editor ? ' Tryk "+ Nyt sted" for at tilføje et.' : "") + "</p>";
   list.forEach(function (p) {
     html += '<article class="place" id="' + esc(p.id) + '">' + carousel(p);
@@ -197,7 +211,7 @@ function render() {
     if (meta) html += '<p class="meta">' + esc(meta) + "</p>";
     html += p.note ? '<p class="note">' + esc(p.note) + "</p>" : (p.cat === "lejligheden" ? "" : '<p class="note empty">Mangler vores beskrivelse.</p>');
     html += '<div class="tags">';
-    if (ui.cat === "alle" || inTowns) html += '<span class="tag cat">' + esc(CATNAME[p.cat] || p.cat) + "</span>";
+    if (ui.cat === "alle" || inTowns || searching) html += '<span class="tag cat">' + esc(CATNAME[p.cat] || p.cat) + "</span>";
     if (p.visits && p.visits.length) html += '<span class="tag">' + esc(visitsText(p.visits)) + "</span>";
     if (p.guess) html += '<span class="tag guess">Navnet er gættet ud fra billeder</span>';
     html += "</div>";
@@ -220,7 +234,45 @@ function render() {
   if (ui.editor && !ui.draft) html += '<button class="fab" type="button" id="new" aria-label="Nyt sted"><span aria-hidden="true">+</span> Nyt sted</button>';
   root.innerHTML = html;
   wireCarousels();
+  watchBar();
 }
+
+/* ---------- smal menulinje øverst + søgning ---------- */
+var ICON_SEARCH = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><line x1="15.5" y1="15.5" x2="21" y2="21" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+var ICON_FILTER = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 6h18M6 12h12M10 18h4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+var slim = document.getElementById("slim"), panel = document.getElementById("filterpanel"), searchWrap = document.getElementById("searchwrap"), qInput = document.getElementById("q");
+function slimBar(summary, filters, n) {
+  slim.innerHTML = '<button type="button" class="slim-sum" data-toggle-panel>' + ICON_FILTER + '<span>' + esc(summary) + '</span></button><button class="iconbtn" type="button" data-open-search aria-label="Søg">' + ICON_SEARCH + "</button>";
+  panel.innerHTML = ui.panel ? '<div class="panel-inner">' + filters + '<div class="row"><button class="btn primary" type="button" data-toggle-panel>Vis ' + (n == null ? "" : n + " ") + "steder</button></div></div>" : "";
+  panel.hidden = !ui.panel;
+}
+var barObserver = null;
+function watchBar() {
+  if (barObserver) barObserver.disconnect();
+  var bar = document.getElementById("fullbar"); if (!bar || !("IntersectionObserver" in window)) return;
+  barObserver = new IntersectionObserver(function (e) {
+    var below = !e[0].isIntersecting && e[0].boundingClientRect.top < 0;
+    slim.classList.toggle("show", below || ui.panel);
+  }, { rootMargin: "-64px 0px 0px 0px" });
+  barObserver.observe(bar);
+}
+function openSearch() {
+  ui.panel = false; searchWrap.hidden = false; slim.classList.add("hidden-by-search");
+  qInput.value = ui.q || ""; qInput.focus();
+}
+function closeSearch() { searchWrap.hidden = true; slim.classList.remove("hidden-by-search"); ui.q = ""; qInput.value = ""; render(); }
+qInput.addEventListener("input", function () { ui.q = qInput.value; render(); window.scrollTo({ top: 0 }); });
+document.getElementById("q-close").addEventListener("click", closeSearch);
+document.addEventListener("click", function (e) {
+  var t = e.target.closest("button"); if (!t) return;
+  if (t.hasAttribute("data-open-search")) { openSearch(); return; }
+  if (t.hasAttribute("data-toggle-panel")) {
+    var wasOpen = ui.panel; ui.panel = !ui.panel; render();
+    if (wasOpen) { var b = document.getElementById("fullbar"); if (b) window.scrollTo({ top: b.getBoundingClientRect().bottom + window.scrollY - 58 }); }
+    return;
+  }
+  if (t.id === "q-clear") { closeSearch(); return; }
+});
 
 function wireCarousels() {
   root.querySelectorAll("[data-car]").forEach(function (car) {
@@ -523,7 +575,8 @@ async function deletePlace() {
 }
 
 /* ---------- hændelser ---------- */
-root.addEventListener("click", async function (e) {
+document.addEventListener("click", async function (e) {
+  if (!root.contains(e.target) && !panel.contains(e.target)) return;
   var t = e.target.closest("button"); if (!t) return;
   if (t.dataset.status) { ui.status = t.dataset.status; render(); return; }
   if (t.dataset.town != null) { ui.town = t.dataset.town || null; ui.sub = null; render(); window.scrollTo({ top: 0 }); return; }
@@ -579,7 +632,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 11;
+var APP_VERSION = 12;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

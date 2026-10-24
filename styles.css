@@ -31,7 +31,7 @@ header{display:flex;justify-content:space-between;align-items:flex-start;gap:12p
 .btn:disabled{opacity:.6;cursor:default}
 .linkbtn{font:inherit;background:none;border:0;padding:0;color:var(--sea);cursor:pointer;text-decoration:underline}
 :focus-visible{outline:2px solid var(--sea);outline-offset:2px}
-.bar{position:sticky;top:0;background:var(--bg);padding:calc(10px + env(safe-area-inset-top,0px)) 0 10px;margin-top:20px;z-index:5;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.bar{background:var(--bg);padding:10px 0;margin-top:20px;z-index:5;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{font:inherit;font-size:.88rem;border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:999px;padding:5px 12px;cursor:pointer}
 .chip[aria-pressed="true"]{background:var(--sea);border-color:var(--sea);color:var(--surface)}
@@ -111,3 +111,19 @@ footer{margin-top:32px;color:var(--muted);font-size:.85rem;display:flex;flex-dir
 .town .tmeta{font-size:.8rem;color:var(--muted);padding:0 10px}
 .match{background:var(--sea-soft);border-radius:10px;padding:12px;display:grid;gap:8px}
 .match p{margin:0}
+
+/* Smal menulinje, der dukker op, når man har scrollet forbi filtrene */
+.slim{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;align-items:center;gap:8px;background:var(--bg);border-bottom:1px solid var(--line);
+  padding:calc(6px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) 6px max(12px,env(safe-area-inset-left,0px));transform:translateY(-110%);transition:transform .2s ease}
+.slim.show{transform:none}
+.slim.hidden-by-search{transform:translateY(-110%)}
+.slim-sum{flex:1;min-width:0;display:flex;align-items:center;gap:8px;font:inherit;font-size:.92rem;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer;text-align:left}
+.slim-sum span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.iconbtn{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;flex:0 0 auto;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
+.filterpanel{position:fixed;left:0;right:0;top:calc(56px + env(safe-area-inset-top,0px));z-index:29;background:var(--bg);border-bottom:1px solid var(--line);box-shadow:0 10px 24px rgba(0,0,0,.15);max-height:75vh;overflow:auto}
+.panel-inner{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:10px;padding:12px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px))}
+.searchwrap{position:fixed;top:0;left:0;right:0;z-index:31;display:flex;gap:8px;background:var(--bg);border-bottom:1px solid var(--line);
+  padding:calc(8px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px))}
+.searchwrap input{flex:1}
+body:has(.searchwrap:not([hidden])) #root{padding-top:calc(80px + env(safe-area-inset-top,0px))}
+@media (prefers-reduced-motion:reduce){.slim{transition:none}}
