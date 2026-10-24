@@ -68,6 +68,13 @@ async function setRating(id, n) {
   var r = await sb.from("places").update({ rating: next, updated_at: new Date().toISOString() }).eq("id", id);
   if (r.error) { p.rating = old; ui.msg = "Karakteren blev ikke gemt. Prøv igen."; render(); }
 }
+/* Placering fra et Google Maps-link (den lange udgave med koordinater) */
+function coordsFromLink(u) {
+  if (!u) return null;
+  var m = u.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || u.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || u.match(/[?&](?:q|query|ll)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+  return m ? [+m[1], +m[2]] : null;
+}
+function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return "link"; } }
 function stars(r) { var s = ""; for (var i = 1; i <= 5; i++) s += i <= r ? "★" : "☆"; return s; }
 function photoUrl(path) { return /^img\//.test(path) ? path : CFG.supabaseUrl + "/storage/v1/object/public/photos/" + encodeURI(path); }
 function monthOf(d) { if (!d) return null; var t = d instanceof Date ? d : new Date(d); if (isNaN(t)) return null; return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0"); }
@@ -246,6 +253,7 @@ function render() {
     if (p.guess) html += '<span class="tag guess">Navnet er gættet ud fra billeder</span>';
     html += "</div>";
     html += '<div class="row"><a class="maps" href="' + esc(mapsUrl(p)) + '" target="_blank" rel="noopener">Åbn i Google Maps</a>';
+    if (p.link) html += '<a class="maps" href="' + esc(p.link) + '" target="_blank" rel="noopener">Læs mere (' + esc(hostOf(p.link)) + ") ↗</a>";
     if (ui.editor) {
       html += '<button class="btn small" type="button" data-edit="' + esc(p.id) + '">Ret</button><button class="btn small" type="button" data-addphotos="' + esc(p.id) + '">+ Billeder</button>';
       if (p.status === "wish") html += '<button class="btn small" type="button" data-move="' + esc(p.id) + '">Flyt til "Har prøvet"</button>';
@@ -261,7 +269,10 @@ function render() {
   if (ui.user) html += "<span>Logget ind som " + esc(ui.user.email) + '. <button class="linkbtn" type="button" id="logout">Log ud</button></span>';
   else html += '<span><button class="linkbtn" type="button" id="open-login">Log ind for at rette</button></span>';
   html += "</footer>";
-  if (ui.editor && !ui.draft) html += '<button class="fab" type="button" id="new" aria-label="Nyt sted"><span aria-hidden="true">+</span> Nyt sted</button>';
+  if (ui.editor && !ui.draft) {
+    if (ui.chooser) html += '<div class="chooser" role="menu"><button class="btn primary" type="button" id="new-photo">Vælg billeder</button><button class="btn" type="button" id="new-manual">Uden billede (fx et sted vi vil prøve)</button></div>';
+    html += '<button class="fab" type="button" id="new" aria-label="Nyt sted" aria-expanded="' + !!ui.chooser + '"><span aria-hidden="true">' + (ui.chooser ? "×" : "+") + "</span> " + (ui.chooser ? "Luk" : "Nyt sted") + "</button>";
+  }
   root.innerHTML = html;
   wireCarousels();
   watchBar();
@@ -435,6 +446,44 @@ async function startNew(files) {
   render(); scrollToForm();
 }
 
+function startManual() {
+  ui.msg = "";
+  ui.draft = { isNew: true, manual: true, id: uid(), cat: ["alle", "byer", "lejligheden"].indexOf(ui.cat) >= 0 ? "spisesteder" : ui.cat, status: "wish", name: "", area: "", town: "", note: "", rating: null, price: "",
+    visits: [], guess: false, lat: null, lon: null, link: "", items: [], removed: [], info: 'Skriv navnet og tryk "Find på kortet", så finder siden by, placering og køretid.' };
+  render(); scrollToForm(); var n = document.getElementById("f-name"); if (n) n.focus();
+}
+async function findOnMap() {
+  var d = ui.draft; if (!d || !d.name.trim()) { if (d) { d.err = "Skriv et navn først."; render(); } return; }
+  d.err = ""; d.info = "Søger…"; render();
+  try {
+    var hit = null, gm = coordsFromLink(d.link);
+    if (gm) {
+      var rv = await (await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=es&zoom=18&lat=" + gm[0] + "&lon=" + gm[1])).json();
+      hit = rv && rv.lat ? rv : { lat: gm[0], lon: gm[1], address: {} };
+    }
+    var words = d.name.trim().split(/\s+/), tries = [d.name.trim()];
+    var generic = /^(restaurante|restaurant|bar|cafe|café|cafetería|faro|playa|el|la|los|las)$/i;
+    var stripped = words.filter(function (w) { return !generic.test(w); }).join(" "); if (stripped && tries.indexOf(stripped) < 0) tries.push(stripped);
+    if (words.length > 2) tries.push(words.slice(0, 2).join(" "));
+    for (var i = 0; !hit && i < tries.length; i++) {
+      var u = "https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&accept-language=es&countrycodes=es&viewbox=-2.3,38.7,-0.3,37.2&q=" + encodeURIComponent(tries[i]);
+      var r = await (await fetch(u)).json();
+      if (r.length) hit = r[0];
+    }
+    if (ui.draft !== d) return;
+    if (!hit) { d.info = "Fandt ikke stedet på kortet. Tip: indsæt et link fra Google Maps i link-feltet og tryk igen. Du kan også gemme stedet uden placering."; render(); return; }
+    d.lat = +(+hit.lat).toFixed(5); d.lon = +(+hit.lon).toFixed(5);
+    d.town = townFor(d.lat, d.lon, hit.address); d.area = d.town;
+    var t = hit.type, c = hit.category;
+    if (c === "amenity" && FOOD.indexOf(t) >= 0) d.cat = "spisesteder";
+    else if (t === "charging_station") d.cat = "opladning";
+    else if (GROCERY.indexOf(t) >= 0) d.cat = "dagligvarer";
+    else if ((c === "natural" && t === "beach") || t === "beach_resort") d.cat = "strande";
+    d.info = "Fundet: " + (hit.display_name || "").split(",").slice(0, 3).join(",") + ". Passer det ikke, så ret navnet og prøv igen.";
+  } catch (e) { d.info = "Kortet svarer ikke lige nu. Du kan gemme stedet alligevel."; }
+  render();
+}
+
 function useMyLocation() {
   var d = ui.draft; if (!d) return;
   if (!navigator.geolocation) { d.info = "Telefonen kan ikke give placeringen her."; render(); return; }
@@ -465,6 +514,7 @@ function formHtml(f) {
     (f.lat == null && !f.finding ? '<div><button class="btn" type="button" id="my-loc">Brug min placering</button></div>' : "") +
     '<div class="grid"><label>Navn<input id="f-name" required value="' + esc(f.name) + '" placeholder="Restaurante La Siesta"></label><label>By<input id="f-town" value="' + esc(f.town || "") + '" placeholder="Puerto de Mazarrón"></label></div>' +
     '<label>Sted/område (valgfrit)<input id="f-area" value="' + esc(f.area) + '" placeholder="Plaza del Muelle"></label>' +
+    '<label>Link til blog, anmeldelse el.lign. (valgfrit)<input id="f-link" type="url" inputmode="url" value="' + esc(f.link || "") + '" placeholder="https://…"></label>' +
     '<div class="grid"><label>Kategori<select id="f-cat">' + opts + '</select></label><label>Liste<select id="f-status"><option value="tried"' + (f.status === "tried" ? " selected" : "") + '>Har prøvet</option><option value="wish"' + (f.status === "wish" ? " selected" : "") + ">Vil prøve</option></select></label><label>Karakter<select id=\"f-rating\">" + r + '</select></label><label>Pris<select id="f-price">' + pr + "</select></label></div>" +
     '<label>Vores beskrivelse<textarea id="f-note" placeholder="Bestil dagens fisk. Book bord lørdag aften.">' + esc(f.note) + "</textarea></label>" +
     '<div><p class="hint" style="margin-bottom:8px">Billeder (det første vises først, man swiper til de næste)</p><div class="photos">' + ph + "</div>" +
@@ -481,6 +531,18 @@ function quickHtml(f) {
   var thumbs = f.items.map(function (it) { return '<img src="' + esc(it.url || photoUrl(it.path)) + '" alt="" style="width:88px;height:88px;object-fit:cover;border-radius:8px;flex:0 0 auto">'; }).join("");
   var dist = f.lat != null ? distText(f) : "";
   var chips = CATS.map(function (c) { return '<button class="chip" type="button" data-setcat="' + c[0] + '" aria-pressed="' + (f.cat === c[0]) + '">' + c[1] + "</button>"; }).join("");
+  if (f.manual) return '<form class="panel" id="editor"><h2>Nyt sted</h2>' +
+    '<div class="row" style="align-items:flex-end"><label style="flex:1">Navn<input id="f-name" required value="' + esc(f.name) + '" placeholder="Restaurante El Puerto"></label><button class="btn" type="button" id="find-map">Find på kortet</button></div>' +
+    (f.info ? '<p class="hint">' + esc(f.info) + "</p>" : "") +
+    (f.lat != null ? '<p class="meta">' + esc([f.town, dist].filter(Boolean).join(" · ")) + "</p>" : "") +
+    '<label>Link til blog, anmeldelse el.lign. (valgfrit)<input id="f-link" type="url" inputmode="url" value="' + esc(f.link || "") + '" placeholder="https://…"></label>' +
+    '<div class="chips" role="group" aria-label="Kategori">' + chips + "</div>" +
+    '<div class="seg" role="group" aria-label="Liste"><button type="button" data-setstatus="tried" aria-pressed="' + (f.status === "tried") + '">Har prøvet</button><button type="button" data-setstatus="wish" aria-pressed="' + (f.status === "wish") + '">Vil prøve</button></div>' +
+    (thumbs ? '<div style="display:flex;gap:8px;overflow-x:auto">' + thumbs + "</div>" : "") +
+    '<label class="btn" style="display:inline-flex;align-self:flex-start;color:var(--fg)">+ Tilføj billeder (valgfrit)<input type="file" id="f-add" accept="image/*" multiple hidden></label>' +
+    (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
+    '<div class="row"><button class="btn primary" type="submit"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + "</button>" +
+    '<button class="btn" type="button" id="more">Tilføj beskrivelse, karakter m.m.</button><button class="btn" type="button" id="cancel">Annuller</button></div></form>';
   return '<form class="panel" id="editor"><h2>Nyt sted</h2>' +
     '<div style="display:flex;gap:8px;overflow-x:auto">' + thumbs + "</div>" +
     (f.match && !f.finding ? '<div class="match"><p>Billederne er taget ' + (f.match.m < 15 ? "ved" : f.match.m + " m fra") + " <strong>" + esc(f.match.name) + '</strong>.</p><button class="btn primary" type="button" id="add-to-match"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Tilføj billederne dér") + '</button><p class="hint">Eller opret et nyt sted nedenfor.</p></div>' : "") +
@@ -502,6 +564,7 @@ function syncDraft() {
   if (v("f-name") != null) d.name = v("f-name");
   if (v("f-area") != null) d.area = v("f-area");
   if (v("f-town") != null) d.town = v("f-town");
+  if (v("f-link") != null) d.link = v("f-link").trim();
   if (v("f-cat") != null) d.cat = v("f-cat");
   if (v("f-status") != null) d.status = v("f-status");
   if (v("f-rating") != null) d.rating = v("f-rating") ? parseInt(v("f-rating"), 10) : null;
@@ -517,7 +580,7 @@ function syncDraft() {
 
 function editPlace(id) {
   var p = places.filter(function (x) { return x.id === id; })[0]; if (!p) return;
-  ui.draft = { isNew: false, id: p.id, town: p.town || "", cat: p.cat, status: p.status, name: p.name, area: p.area || "", note: p.note || "", rating: p.rating, price: p.price || "", visits: (p.visits || []).slice(), guess: !!p.guess, lat: p.lat, lon: p.lon,
+  ui.draft = { isNew: false, id: p.id, link: p.link || "", town: p.town || "", cat: p.cat, status: p.status, name: p.name, area: p.area || "", note: p.note || "", rating: p.rating, price: p.price || "", visits: (p.visits || []).slice(), guess: !!p.guess, lat: p.lat, lon: p.lon,
     items: (p.photos || []).map(function (x) { return { path: x }; }), removed: [] };
   ui.msg = ""; render(); scrollToForm();
 }
@@ -581,7 +644,8 @@ async function saveDraft() {
     }
     var orig = places.filter(function (x) { return x.id === d.id; })[0];
     var drive = orig && orig.lat === d.lat && orig.lon === d.lon && orig.drive_min ? { km: orig.drive_km, min: orig.drive_min } : (d.lat != null ? await driveFromHotel(d.lat, d.lon) : null);
-    var row = { town: (d.town || "").trim() || null, drive_km: drive ? drive.km : null, drive_min: drive ? drive.min : null, id: d.id, cat: d.cat, status: d.status, name: d.name.trim(), area: d.area.trim(), note: d.note.trim(), rating: d.rating, price: d.price,
+    var link = (d.link || "").trim(); if (link && !/^https?:\/\//i.test(link)) link = "https://" + link;
+    var row = { link: link || null, town: (d.town || "").trim() || null, drive_km: drive ? drive.km : null, drive_min: drive ? drive.min : null, id: d.id, cat: d.cat, status: d.status, name: d.name.trim(), area: d.area.trim(), note: d.note.trim(), rating: d.rating, price: d.price,
       visits: d.visits, guess: d.guess, lat: d.lat, lon: d.lon, photos: paths, updated_at: new Date().toISOString() };
     var r = await sb.from("places").upsert(row);
     if (r.error) throw new Error("Stedet blev ikke gemt: " + r.error.message);
@@ -625,7 +689,10 @@ document.addEventListener("click", async function (e) {
   }
   if (t.dataset.addphotos) { addInput.dataset.target = t.dataset.addphotos; addInput.value = ""; addInput.click(); return; }
   if (t.id === "add-to-match") { addPhotosTo(ui.draft.match.id, ui.draft.items.map(function (x) { return x.file; })); return; }
-  if (t.id === "new") { newInput.value = ""; newInput.click(); return; }
+  if (t.id === "new") { ui.chooser = !ui.chooser; render(); return; }
+  if (t.id === "new-photo") { ui.chooser = false; render(); newInput.value = ""; newInput.click(); return; }
+  if (t.id === "new-manual") { ui.chooser = false; startManual(); return; }
+  if (t.id === "find-map") { syncDraft(); findOnMap(); return; }
   if (t.dataset.edit) { editPlace(t.dataset.edit); return; }
   if (t.dataset.move) {
     var r = await sb.from("places").update({ status: "tried", updated_at: new Date().toISOString() }).eq("id", t.dataset.move);
@@ -672,7 +739,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 17;
+var APP_VERSION = 19;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
