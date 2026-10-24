@@ -4,7 +4,7 @@
 var CFG = window.BOLNUEVO;
 var sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true } });
 
-var CATS = [["spisesteder","Spisesteder"],["strande","Strande"],["ture","Ture i nærområdet"],["dagsture","Dagsture"],["oplevelser","Oplevelser"],["shopping","Shopping"]];
+var CATS = [["lejligheden","Lejligheden"],["spisesteder","Spisesteder"],["strande","Strande"],["ture","Ture i nærområdet"],["dagsture","Dagsture"],["oplevelser","Oplevelser"],["shopping","Shopping"]];
 var CATNAME = {}; CATS.forEach(function (c) { CATNAME[c[0]] = c[1]; });
 var MONTHS = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
 var PRACTICAL = [
@@ -32,7 +32,22 @@ function km(lat, lon) {
   var x = Math.sin(dLa / 2) * Math.sin(dLa / 2) + Math.cos(a.lat * r) * Math.cos(lat * r) * Math.sin(dLo / 2) * Math.sin(dLo / 2);
   return 2 * R * Math.asin(Math.sqrt(x));
 }
-function distText(p) { var d = km(p.lat, p.lon); if (d == null) return ""; if (d < 1) return "gåafstand fra hotellet"; return Math.round(d) + " km fra hotellet"; }
+function distText(p) {
+  var d = km(p.lat, p.lon); if (d == null) return "";
+  if (d < 0.8) return "gåafstand fra hotellet";
+  if (p.drive_min) return (p.drive_km < 10 ? String(p.drive_km).replace(".", ",") : Math.round(p.drive_km)) + " km · ca. " + timeText(p.drive_min) + " i bil";
+  return Math.round(d) + " km fra hotellet";
+}
+function timeText(m) { if (m < 60) return m + " min"; var h = Math.floor(m / 60), r = m % 60; return h + " t" + (r ? " " + r + " min" : ""); }
+/* Køretid fra hotellet (vejnet fra OpenStreetMap, uden trafik) */
+async function driveFromHotel(lat, lon) {
+  try {
+    var u = "https://router.project-osrm.org/route/v1/driving/" + CFG.hotel.lon + "," + CFG.hotel.lat + ";" + lon + "," + lat + "?overview=false";
+    var j = await (await fetch(u)).json();
+    if (j.code !== "Ok" || !j.routes.length) return null;
+    return { km: Math.round(j.routes[0].distance / 100) / 10, min: Math.max(1, Math.round(j.routes[0].duration / 60)) };
+  } catch (e) { return null; }
+}
 function visitsText(v) { if (!v || !v.length) return ""; return "Besøgt " + v.map(function (m) { return MONTHS[parseInt(m.slice(5, 7), 10) - 1] + " " + m.slice(0, 4); }).join(", "); }
 function mapsUrl(p) {
   var q = (p.cat === "spisesteder" || p.cat === "shopping" || p.lat == null) ? (p.name + ", " + (p.area || "Mazarrón")) : (p.lat + "," + p.lon);
@@ -94,12 +109,16 @@ function carousel(p) {
 }
 
 function render() {
-  var byStatus = places.filter(function (p) { return p.status === ui.status; });
+  var APT = "lejligheden", inApt = ui.cat === APT;
+  var spots = places.filter(function (p) { return p.cat !== APT; });
+  var byStatus = spots.filter(function (p) { return p.status === ui.status; });
   var counts = { alle: byStatus.length };
   CATS.forEach(function (c) { counts[c[0]] = byStatus.filter(function (p) { return p.cat === c[0]; }).length; });
-  var list = byStatus.filter(function (p) { return (ui.cat === "alle" || p.cat === ui.cat) && (!ui.minRating || (p.rating || 0) >= ui.minRating); })
-    .sort(function (a, b) { return (km(a.lat, a.lon) || 0) - (km(b.lat, b.lon) || 0); });
-  var tried = places.filter(function (p) { return p.status === "tried"; }).length, wish = places.length - tried;
+  counts[APT] = places.filter(function (p) { return p.cat === APT; }).length;
+  var list = inApt ? places.filter(function (p) { return p.cat === APT; }) :
+    byStatus.filter(function (p) { return (ui.cat === "alle" || p.cat === ui.cat) && (!ui.minRating || (p.rating || 0) >= ui.minRating); });
+  list.sort(function (a, b) { return (a.drive_min || km(a.lat, a.lon) || 0) - (b.drive_min || km(b.lat, b.lon) || 0); });
+  var tried = spots.filter(function (p) { return p.status === "tried"; }).length, wish = spots.length - tried;
 
   var html = '<header><div><p class="eyebrow">Laderita de Bolnuevo · Costa Cálida</p><h1>Vores Bolnuevo</h1></div>';
   html += "</header>";
@@ -107,23 +126,25 @@ function render() {
   if (ui.login) html += loginHtml();
   if (ui.draft) html += formHtml(ui.draft);
 
-  html += '<div class="bar"><div class="seg" role="group" aria-label="Vis"><button type="button" data-status="tried" aria-pressed="' + (ui.status === "tried") + '">Har prøvet (' + tried + ')</button><button type="button" data-status="wish" aria-pressed="' + (ui.status === "wish") + '">Vil prøve (' + wish + ")</button></div>";
+  html += '<div class="bar">';
+  if (!inApt) html += '<div class="seg" role="group" aria-label="Vis"><button type="button" data-status="tried" aria-pressed="' + (ui.status === "tried") + '">Har prøvet (' + tried + ')</button><button type="button" data-status="wish" aria-pressed="' + (ui.status === "wish") + '">Vil prøve (' + wish + ")</button></div>";
   html += '<div class="chips" role="group" aria-label="Kategori"><button class="chip" type="button" data-cat="alle" aria-pressed="' + (ui.cat === "alle") + '">Alle<span class="n">' + counts.alle + "</span></button>";
   CATS.forEach(function (c) { html += '<button class="chip" type="button" data-cat="' + c[0] + '" aria-pressed="' + (ui.cat === c[0]) + '">' + c[1] + '<span class="n">' + counts[c[0]] + "</span></button>"; });
   html += "</div>";
-  html += '<div class="chips" role="group" aria-label="Karakter"><span class="meta" style="align-self:center">Karakter:</span>' +
+  if (!inApt) html += '<div class="chips" role="group" aria-label="Karakter"><span class="meta" style="align-self:center">Karakter:</span>' +
     [[0, "Alle"], [4, "★★★★ og op"], [5, "★★★★★"]].map(function (r) { return '<button class="chip" type="button" data-minrating="' + r[0] + '" aria-pressed="' + ((ui.minRating || 0) === r[0]) + '">' + r[1] + "</button>"; }).join("") + "</div>";
   html += "</div>";
 
   html += '<div class="list">';
   if (!ui.loaded) html += '<p class="empty-state">Henter steder…</p>';
+  else if (!list.length && inApt) html += '<p class="empty-state">Ingen billeder af lejligheden endnu.' + (ui.editor ? ' Tryk "+ Nyt sted" og vælg billeder taget på hotellet, så havner de her.' : "") + "</p>";
   else if (!list.length) html += '<p class="empty-state">' + (ui.status === "wish" ? "Ingen ønsker her endnu." : "Intet her endnu.") + (ui.editor ? ' Tryk "+ Nyt sted" for at tilføje et.' : "") + "</p>";
   list.forEach(function (p) {
     html += '<article class="place" id="' + esc(p.id) + '">' + carousel(p);
-    html += '<div class="place-top"><h3>' + esc(p.name) + "</h3>" + starsHtml(p) + "</div>";
-    var meta = [p.area, distText(p), p.price].filter(Boolean).join(" · ");
+    html += '<div class="place-top"><h3>' + esc(p.name) + "</h3>" + (p.cat === "lejligheden" ? "" : starsHtml(p)) + "</div>";
+    var meta = p.cat === "lejligheden" ? "" : [p.area, distText(p), p.price].filter(Boolean).join(" · ");
     if (meta) html += '<p class="meta">' + esc(meta) + "</p>";
-    html += p.note ? '<p class="note">' + esc(p.note) + "</p>" : '<p class="note empty">Mangler vores beskrivelse.</p>';
+    html += p.note ? '<p class="note">' + esc(p.note) + "</p>" : (p.cat === "lejligheden" ? "" : '<p class="note empty">Mangler vores beskrivelse.</p>');
     html += '<div class="tags">';
     if (ui.cat === "alle") html += '<span class="tag cat">' + esc(CATNAME[p.cat] || p.cat) + "</span>";
     if (p.visits && p.visits.length) html += '<span class="tag">' + esc(visitsText(p.visits)) + "</span>";
@@ -138,10 +159,10 @@ function render() {
   });
   html += "</div>";
 
-  html += '<section class="practical"><p class="eyebrow">Det praktiske, kort</p><h2>Når I bor i lejligheden</h2><dl>';
-  PRACTICAL.forEach(function (r) { html += "<dt>" + esc(r.k) + "</dt><dd>" + esc(r.v) + (r.link ? ' <a href="' + esc(r.link) + '" target="_blank" rel="noopener">' + esc(r.linkText) + "</a>" : "") + "</dd>"; });
-  html += "</dl></section>";
-  html += "<footer><span>Afstande er i luftlinje fra hotellet.</span>";
+  if (inApt) html += '<section class="practical"><p class="eyebrow">Det praktiske, kort</p><h2>Når I bor i lejligheden</h2><dl>';
+  if (inApt) PRACTICAL.forEach(function (r) { html += "<dt>" + esc(r.k) + "</dt><dd>" + esc(r.v) + (r.link ? ' <a href="' + esc(r.link) + '" target="_blank" rel="noopener">' + esc(r.linkText) + "</a>" : "") + "</dd>"; });
+  if (inApt) html += "</dl></section>";
+  html += "<footer><span>Afstand og tid er i bil fra hotellet, beregnet uden trafik.</span>";
   if (ui.user) html += "<span>Logget ind som " + esc(ui.user.email) + '. <button class="linkbtn" type="button" id="logout">Log ud</button></span>';
   else html += '<span><button class="linkbtn" type="button" id="open-login">Log ind for at rette</button></span>';
   html += "</footer>";
@@ -239,6 +260,7 @@ async function lookupPlace(lat, lon) {
     }
     if (where) out.area = where.village || where.town || where.city || where.suburb || "";
   } catch (e) { /* ingen forbindelse til kortopslag */ }
+  if (distM(lat, lon, CFG.hotel.lat, CFG.hotel.lon) < 150) { out.cat = "lejligheden"; out.name = "Laderita de Bolnuevo"; out.area = "Bolnuevo"; }
   if (!out.cat) out.cat = (km(lat, lon) || 0) > 25 ? "dagsture" : "ture";
   return out;
 }
@@ -380,7 +402,9 @@ async function saveDraft() {
       if (up.error) throw new Error("Et billede blev ikke uploadet: " + up.error.message);
       it.path = path; paths.push(path);
     }
-    var row = { id: d.id, cat: d.cat, status: d.status, name: d.name.trim(), area: d.area.trim(), note: d.note.trim(), rating: d.rating, price: d.price,
+    var orig = places.filter(function (x) { return x.id === d.id; })[0];
+    var drive = orig && orig.lat === d.lat && orig.lon === d.lon && orig.drive_min ? { km: orig.drive_km, min: orig.drive_min } : (d.lat != null ? await driveFromHotel(d.lat, d.lon) : null);
+    var row = { drive_km: drive ? drive.km : null, drive_min: drive ? drive.min : null, id: d.id, cat: d.cat, status: d.status, name: d.name.trim(), area: d.area.trim(), note: d.note.trim(), rating: d.rating, price: d.price,
       visits: d.visits, guess: d.guess, lat: d.lat, lon: d.lon, photos: paths, updated_at: new Date().toISOString() };
     var r = await sb.from("places").upsert(row);
     if (r.error) throw new Error("Stedet blev ikke gemt: " + r.error.message);
@@ -456,7 +480,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 7;
+var APP_VERSION = 9;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
