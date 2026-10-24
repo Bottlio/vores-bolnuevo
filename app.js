@@ -203,7 +203,7 @@ function render() {
     html += "</div>";
     html += '<div class="row"><a class="maps" href="' + esc(mapsUrl(p)) + '" target="_blank" rel="noopener">Åbn i Google Maps</a>';
     if (ui.editor) {
-      html += '<button class="btn small" type="button" data-edit="' + esc(p.id) + '">Ret</button>';
+      html += '<button class="btn small" type="button" data-edit="' + esc(p.id) + '">Ret</button><button class="btn small" type="button" data-addphotos="' + esc(p.id) + '">+ Billeder</button>';
       if (p.status === "wish") html += '<button class="btn small" type="button" data-move="' + esc(p.id) + '">Flyt til "Har prøvet"</button>';
     }
     html += "</div></article>";
@@ -336,6 +336,9 @@ async function startNew(files) {
   if (info.month) d.visits = [info.month];
   if (info.lat != null) {
     d.lat = +info.lat.toFixed(5); d.lon = +info.lon.toFixed(5);
+    var near = places.filter(function (p) { return p.lat != null; }).map(function (p) { return [p, distM(d.lat, d.lon, p.lat, p.lon)]; })
+      .filter(function (x) { return x[1] < 120; }).sort(function (a, b) { return a[1] - b[1]; })[0];
+    if (near) d.match = { id: near[0].id, name: near[0].name, m: Math.round(near[1]) };
     var found = await lookupPlace(d.lat, d.lon);
     if (ui.draft !== d) return;
     d.name = found.name; d.area = found.area; d.cat = found.cat; d.town = found.town || "";
@@ -395,6 +398,7 @@ function quickHtml(f) {
   var chips = CATS.map(function (c) { return '<button class="chip" type="button" data-setcat="' + c[0] + '" aria-pressed="' + (f.cat === c[0]) + '">' + c[1] + "</button>"; }).join("");
   return '<form class="panel" id="editor"><h2>Nyt sted</h2>' +
     '<div style="display:flex;gap:8px;overflow-x:auto">' + thumbs + "</div>" +
+    (f.match && !f.finding ? '<div class="match"><p>Billederne er taget ' + (f.match.m < 15 ? "ved" : f.match.m + " m fra") + " <strong>" + esc(f.match.name) + '</strong>.</p><button class="btn primary" type="button" id="add-to-match"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Tilføj billederne dér") + '</button><p class="hint">Eller opret et nyt sted nedenfor.</p></div>' : "") +
     (f.finding ? '<p class="hint">Finder stedet ud fra billedet…</p>' :
       '<label>Navn<input id="f-name" required value="' + esc(f.name) + '" placeholder="Skriv stedets navn"></label>' +
       '<p class="meta">' + esc([f.area, dist].filter(Boolean).join(" · ") || "Ingen placering fundet") + "</p>" +
@@ -446,6 +450,32 @@ function shrink(file) {
     im.onerror = function () { URL.revokeObjectURL(url); rej(new Error("Den filtype virker ikke. Vælg et almindeligt billede.")); };
     im.src = url;
   });
+}
+
+async function uploadFiles(placeId, files, onProgress) {
+  var paths = [];
+  for (var i = 0; i < files.length; i++) {
+    if (onProgress) onProgress(i + 1, files.length);
+    var blob = await shrink(files[i]);   // gemmes uden placering (canvas fjerner GPS-data)
+    var path = placeId + "/" + Date.now().toString(36) + i + ".jpg";
+    var up = await sb.storage.from("photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+    if (up.error) throw new Error("Et billede blev ikke uploadet: " + up.error.message);
+    paths.push(path);
+  }
+  return paths;
+}
+async function addPhotosTo(placeId, files) {
+  var p = places.filter(function (x) { return x.id === placeId; })[0]; if (!p || !files.length) return;
+  ui.busy = true;
+  try {
+    var paths = await uploadFiles(placeId, files, function (i, n) { ui.msg = "Uploader billede " + i + " af " + n + "…"; render(); });
+    var r = await sb.from("places").update({ photos: (p.photos || []).concat(paths), updated_at: new Date().toISOString() }).eq("id", placeId);
+    if (r.error) throw new Error("Billederne blev ikke gemt: " + r.error.message);
+    ui.msg = files.length + (files.length === 1 ? " billede" : " billeder") + " tilføjet til " + p.name + ".";
+    ui.draft = null; await load();
+    var el = document.getElementById(placeId); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (e) { ui.msg = e.message || "Billederne blev ikke uploadet. Prøv igen."; }
+  ui.busy = false; render();
 }
 
 async function saveDraft() {
@@ -506,6 +536,8 @@ root.addEventListener("click", async function (e) {
     var to = t.dataset.go != null ? +t.dataset.go : (cur + (+t.dataset.step) + n) % n;
     tr.scrollTo({ left: to * tr.clientWidth, behavior: "smooth" }); return;
   }
+  if (t.dataset.addphotos) { addInput.dataset.target = t.dataset.addphotos; addInput.value = ""; addInput.click(); return; }
+  if (t.id === "add-to-match") { addPhotosTo(ui.draft.match.id, ui.draft.items.map(function (x) { return x.file; })); return; }
   if (t.id === "new") { newInput.value = ""; newInput.click(); return; }
   if (t.dataset.edit) { editPlace(t.dataset.edit); return; }
   if (t.dataset.move) {
@@ -540,12 +572,14 @@ root.addEventListener("change", function (e) {
     render();
   }
 });
+var addInput = document.getElementById("add-photos");
+addInput.addEventListener("change", function () { var files = Array.prototype.slice.call(addInput.files); if (files.length) addPhotosTo(addInput.dataset.target, files); });
 newInput.addEventListener("change", function () { var files = Array.prototype.slice.call(newInput.files); if (files.length) startNew(files); });
 
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 10;
+var APP_VERSION = 11;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

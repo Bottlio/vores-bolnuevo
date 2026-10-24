@@ -109,3 +109,5 @@ footer{margin-top:32px;color:var(--muted);font-size:.85rem;display:flex;flex-dir
 .town img,.town .noimg{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:var(--sea-soft)}
 .town .tname{font-family:var(--display);font-weight:700;font-size:1.05rem;padding:4px 10px 0}
 .town .tmeta{font-size:.8rem;color:var(--muted);padding:0 10px}
+.match{background:var(--sea-soft);border-radius:10px;padding:12px;display:grid;gap:8px}
+.match p{margin:0}
