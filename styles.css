@@ -205,3 +205,4 @@ body.modal-open{overflow:hidden}
 .regionlink{font:inherit;font-family:var(--display);font-weight:700;font-size:1.1rem;color:var(--sea);text-decoration:none;padding:4px 0}
 .areahead{margin-top:14px;max-width:760px}
 .areahead h2{font-size:1.55rem}
+.subchoose{align-items:center}.subchoose .hint{margin-right:4px}
