@@ -145,12 +145,13 @@ function wireCarousels() {
 /* ---------- login ---------- */
 function loginHtml() {
   var l = ui.login;
-  return '<form class="panel" id="login-form"><h2>' + (l.mode === "signup" ? "Opret adgangskode" : "Log ind for at rette") + "</h2>" +
+  return '<form class="panel" id="login-form"><h2>Log ind for at rette</h2>' +
+    '<div class="seg" role="group" aria-label="Login"><button type="button" id="to-login" aria-pressed="' + (l.mode !== "signup") + '">Jeg har en adgangskode</button><button type="button" id="to-signup" aria-pressed="' + (l.mode === "signup") + '">Første gang: opret adgangskode</button></div>' +
+    (l.mode === "signup" ? '<p class="hint">Skriv din mail og vælg en adgangskode. Du får en mail, hvor du bekræfter, og så kan du logge ind.</p>' : "") +
     '<label>Mail<input type="email" id="l-email" autocomplete="email" required value="' + esc(l.email || "") + '"></label>' +
     '<label>Adgangskode<input type="password" id="l-pass" autocomplete="' + (l.mode === "signup" ? "new-password" : "current-password") + '" required minlength="8"></label>' +
     (l.info ? '<p class="hint">' + esc(l.info) + "</p>" : "") + (l.err ? '<p class="err" role="alert">' + esc(l.err) + "</p>" : "") +
-    '<div class="row"><button class="btn primary" type="submit">' + (l.mode === "signup" ? "Opret" : "Log ind") + '</button><button class="btn" type="button" id="close-login">Annuller</button></div>' +
-    '<p class="hint">' + (l.mode === "signup" ? 'Har du allerede en adgangskode? <button class="linkbtn" type="button" id="to-login">Log ind</button>' : 'Første gang? <button class="linkbtn" type="button" id="to-signup">Opret adgangskode</button>') + "</p></form>";
+    '<div class="row"><button class="btn primary" type="submit">' + (l.mode === "signup" ? "Opret adgangskode" : "Log ind") + '</button><button class="btn" type="button" id="close-login">Annuller</button></div></form>';
 }
 
 async function submitLogin() {
@@ -164,7 +165,7 @@ async function submitLogin() {
     ui.login.mode = "login"; ui.login.info = "Tjek din mail og tryk på linket for at bekræfte. Kom så tilbage og log ind her."; render(); return;
   }
   var r = await sb.auth.signInWithPassword({ email: email, password: pass });
-  if (r.error) { ui.login.err = /confirm/i.test(r.error.message) ? "Du skal først bekræfte din mail via linket, vi sendte." : "Forkert mail eller adgangskode."; render(); return; }
+  if (r.error) { ui.login.err = /confirm/i.test(r.error.message) ? "Du skal først bekræfte din mail via linket, vi sendte." : 'Forkert mail eller adgangskode. Er det første gang, så tryk "Første gang: opret adgangskode" ovenfor.'; render(); return; }
   ui.login = null; await afterLogin();
 }
 async function afterLogin() {
