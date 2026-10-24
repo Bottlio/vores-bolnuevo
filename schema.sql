@@ -59,3 +59,7 @@ alter table public.places add column if not exists website text, add column if n
 -- Vurderinger (24.10.2026)
 alter table public.places add column if not exists ratings jsonb not null default '{}'::jsonb, add column if not exists rating_score numeric(2,1);
 create table if not exists public.towns (name text primary key, ratings jsonb not null default '{}'::jsonb, rating_score numeric(2,1), rating integer, updated_at timestamptz not null default now());
+
+-- Byer og områder (24.10.2026)
+alter table public.towns add column if not exists region text, add column if not exists photos jsonb not null default '[]'::jsonb, add column if not exists note text, add column if not exists lat double precision, add column if not exists lon double precision, add column if not exists drive_km numeric, add column if not exists drive_min integer, add column if not exists visits text[] not null default '{}', add column if not exists last_visit date;
+create table if not exists public.regions (name text primary key, photos jsonb not null default '[]'::jsonb, note text, visits text[] not null default '{}', last_visit date, sort integer, updated_at timestamptz not null default now());

@@ -199,3 +199,9 @@ body.modal-open{overflow:hidden}
 .rnone{color:var(--muted);margin:6px 0 0}
 .rbtns{margin-top:18px}
 @media (max-width:420px){.rmodal{padding:18px 14px 14px}.rs{min-width:31px;font-size:1.5rem;padding:2px 1px}.rbig{font-size:2.2rem}}
+/* Byer, områder og dagsture */
+.subhead{font-size:1.1rem;margin:24px 0 6px}
+.regionsec .subhead{margin-top:22px}
+.regionlink{font:inherit;font-family:var(--display);font-weight:700;font-size:1.1rem;color:var(--sea);text-decoration:none;padding:4px 0}
+.areahead{margin-top:14px;max-width:760px}
+.areahead h2{font-size:1.55rem}
