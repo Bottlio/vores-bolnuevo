@@ -106,7 +106,8 @@ function carousel(p) {
   var html = '<div class="car" data-car>';
   html += '<div class="track">' + ph.map(function (x, i) {
     var u = esc(photoUrl(x));
-    return '<div class="slide" style="--src:url(&quot;' + u + '&quot;)"><img src="' + u + '" alt="' + esc(p.name) + (ph.length > 1 ? ", billede " + (i + 1) : "") + '" loading="lazy"></div>';
+    // Den slørede baggrund sættes først når billedet er hentet (se "load"-lytteren), så kun synlige billeder hentes.
+    return '<div class="slide"><img src="' + u + '" alt="' + esc(p.name) + (ph.length > 1 ? ", billede " + (i + 1) : "") + '" loading="lazy" decoding="async"></div>';
   }).join("") + "</div>";
   if (ph.length > 1) {
     html += '<span class="count">1/' + ph.length + '</span><button class="arrow prev" type="button" data-step="-1" aria-label="Forrige billede">‹</button><button class="arrow next" type="button" data-step="1" aria-label="Næste billede">›</button>';
@@ -739,7 +740,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 19;
+var APP_VERSION = 20;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -749,6 +750,14 @@ async function checkForUpdate() {
 }
 document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") checkForUpdate(); });
 checkForUpdate();
+
+/* Slørret baggrund bag hvert billede, sat når billedet er hentet */
+document.addEventListener("load", function (e) {
+  var t = e.target;
+  if (t && t.tagName === "IMG" && t.parentNode && t.parentNode.classList && t.parentNode.classList.contains("slide")) {
+    t.parentNode.style.setProperty("--src", 'url("' + (t.currentSrc || t.src).replace(/"/g, "%22") + '")');
+  }
+}, true);
 
 /* ---------- start ---------- */
 sb.auth.onAuthStateChange(function (ev) { if (ev === "SIGNED_OUT") { ui.user = null; ui.editor = false; } });
