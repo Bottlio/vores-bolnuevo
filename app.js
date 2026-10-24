@@ -4,7 +4,7 @@
 var CFG = window.BOLNUEVO;
 var sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true } });
 
-var CATS = [["lejligheden","Lejligheden"],["spisesteder","Spisesteder"],["strande","Strande"],["ture","Ture i nærområdet"],["dagsture","Dagsture"],["oplevelser","Oplevelser"],["shopping","Shopping"]];
+var CATS = [["lejligheden","Lejligheden"],["spisesteder","Spisesteder"],["strande","Strande"],["ture","Ture i nærområdet"],["dagsture","Dagsture"],["oplevelser","Oplevelser"],["dagligvarer","Dagligvarer"],["shopping","Shopping"]];
 var CATNAME = {}; CATS.forEach(function (c) { CATNAME[c[0]] = c[1]; });
 var MONTHS = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
 var PRACTICAL = [
@@ -108,7 +108,7 @@ function carousel(p) {
   return html + "</div>";
 }
 
-var TOWN_CATS = ["spisesteder","strande","ture","oplevelser","shopping"];
+var TOWN_CATS = ["spisesteder","strande","ture","oplevelser","dagligvarer","shopping"];
 var TIME_BUCKETS = [["kort","Under 45 min",0,45],["mellem","45–90 min",45,90],["lang","Over 1,5 time",90,9999]];
 function townsOf(list) {
   var c = {}; list.forEach(function (p) { if (p.town) c[p.town] = (c[p.town] || 0) + 1; });
@@ -162,7 +162,14 @@ function render() {
       return words.every(function (w) { return hay.indexOf(w) >= 0; });
     });
   }
-  if (list) list.sort(function (a, b) { return (a.drive_min || km(a.lat, a.lon) || 0) - (b.drive_min || km(b.lat, b.lon) || 0); });
+  var dist = function (p) { return p.drive_min != null ? p.drive_min : (km(p.lat, p.lon) || 0) * 1.2; };
+  var SORTS = {
+    nyeste: function (a, b) { return String(b.created_at || "").localeCompare(String(a.created_at || "")) || dist(a) - dist(b); },
+    naermeste: function (a, b) { return dist(a) - dist(b); },
+    stjerner: function (a, b) { return (b.rating || 0) - (a.rating || 0) || dist(a) - dist(b); },
+    navn: function (a, b) { return a.name.localeCompare(b.name, "da"); }
+  };
+  if (list) list.sort(SORTS[ui.sort] || SORTS.nyeste);
 
   var html = '<header><div><p class="eyebrow">Laderita de Bolnuevo · Costa Cálida</p><h1>Vores Bolnuevo</h1></div><button class="iconbtn" type="button" data-open-search aria-label="Søg">' + ICON_SEARCH + "</button>";
   html += "</header>";
@@ -178,8 +185,10 @@ function render() {
   if (sub) f += '<div class="subchips">' + sub + "</div>";
   if (!inApt && !(inTowns && !ui.town)) f += '<div class="chips" role="group" aria-label="Karakter"><span class="meta" style="align-self:center">Karakter:</span>' +
     [[0, "Alle"], [4, "★★★★ og op"], [5, "★★★★★"]].map(function (r) { return '<button class="chip" type="button" data-minrating="' + r[0] + '" aria-pressed="' + ((ui.minRating || 0) === r[0]) + '">' + r[1] + "</button>"; }).join("") + "</div>";
+  f += '<div class="chips" role="group" aria-label="Sortér"><span class="meta" style="align-self:center">Sortér:</span>' +
+    [["nyeste", "Nyeste"], ["naermeste", "Nærmeste"], ["stjerner", "Flest stjerner"], ["navn", "Navn A–Å"]].map(function (o) { return chip("sort", o[0], o[1], null, (ui.sort || "nyeste") === o[0]); }).join("") + "</div>";
   var summary = searching ? 'Søgning: "' + ui.q.trim() + '"' : [inApt ? "" : (ui.status === "wish" ? "Vil prøve" : "Har prøvet"), ui.cat === "alle" ? "Alle" : ui.cat === "byer" ? "Byer" : CATNAME[ui.cat], ui.town || "", ui.sub ? CATNAME[ui.sub] : "",
-    ui.time ? TIME_BUCKETS.filter(function (b) { return b[0] === ui.time; })[0][1] : "", ui.minRating ? ui.minRating + "+ ★" : ""].filter(Boolean).join(" · ");
+    ui.time ? TIME_BUCKETS.filter(function (b) { return b[0] === ui.time; })[0][1] : "", ui.minRating ? ui.minRating + "+ ★" : "", ui.sort && ui.sort !== "nyeste" ? { naermeste: "nærmeste først", stjerner: "flest stjerner", navn: "A–Å" }[ui.sort] : ""].filter(Boolean).join(" · ");
   if (searching) {
     html += '<div class="bar" id="fullbar"><div class="row"><strong>' + list.length + (list.length === 1 ? " sted" : " steder") + ' matcher "' + esc(ui.q.trim()) + '"</strong><button class="btn small" type="button" id="q-clear">Ryd søgning</button></div></div>';
   } else html += '<div class="bar" id="fullbar">' + f + "</div>";
@@ -348,6 +357,7 @@ function townFor(lat, lon, addr) {
   addr = addr || {};
   return addr.village || addr.town || addr.city || addr.neighbourhood || addr.hamlet || addr.municipality || "";
 }
+var GROCERY = ["supermarket","convenience","bakery","butcher","greengrocer","seafood","deli","marketplace","alcohol","beverages","frozen_food"];
 var FOOD = ["restaurant","cafe","bar","pub","fast_food","ice_cream","biergarten","food_court"];
 var FUN = ["spa","water_park","marina","sports_centre","golf_course","theme_park","zoo","aquarium","public_bath","dive_centre","boat_rental","horse_riding","swimming_pool"];
 async function lookupPlace(lat, lon) {
@@ -361,6 +371,7 @@ async function lookupPlace(lat, lon) {
       var c = poi.category, t = poi.type;
       if (c === "amenity" && FOOD.indexOf(t) >= 0) out.cat = "spisesteder";
       else if ((c === "natural" && t === "beach") || t === "beach_resort") out.cat = "strande";
+      else if (GROCERY.indexOf(t) >= 0) out.cat = "dagligvarer";
       else if (c === "shop" || t === "marketplace" || t === "mall") out.cat = "shopping";
       else if (FUN.indexOf(t) >= 0) out.cat = "oplevelser";
     }
@@ -581,6 +592,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.status) { ui.status = t.dataset.status; render(); return; }
   if (t.dataset.town != null) { ui.town = t.dataset.town || null; ui.sub = null; render(); window.scrollTo({ top: 0 }); return; }
   if (t.dataset.sub != null) { ui.sub = t.dataset.sub || null; render(); return; }
+  if (t.dataset.sort) { ui.sort = t.dataset.sort; render(); return; }
   if (t.dataset.time != null) { ui.time = t.dataset.time || null; render(); return; }
   if (t.dataset.cat) { ui.town = null; ui.sub = null; ui.time = null; ui.cat = t.dataset.cat; try { history.replaceState(null, "", ui.cat === "alle" ? location.pathname : "#" + ui.cat); } catch (x) {} render(); return; }
   if (t.dataset.step || t.dataset.go) {
@@ -632,7 +644,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 12;
+var APP_VERSION = 13;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
