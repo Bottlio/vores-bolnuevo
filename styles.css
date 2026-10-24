@@ -42,7 +42,11 @@ header{display:flex;justify-content:space-between;align-items:flex-start;gap:12p
 .list{display:flex;flex-direction:column;margin-top:6px}
 .place{padding:18px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px;min-width:0}
 .place-top{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
-.rating{color:var(--ochre);white-space:nowrap;font-size:.95rem}
+.rating{color:var(--ochre);white-space:nowrap;font-size:1.15rem;letter-spacing:1px}
+.stars{display:flex;white-space:nowrap;flex:0 0 auto}
+.star{font:inherit;font-size:1.35rem;line-height:1;color:var(--ochre);background:none;border:0;padding:4px 3px;cursor:pointer;min-width:30px;min-height:34px}
+.star:not(.on){opacity:.45}
+.star:hover{opacity:1}
 .meta{color:var(--muted);font-size:.9rem;margin:0}
 .note{margin:2px 0 0;max-width:65ch;white-space:pre-line}
 .note.empty{color:var(--muted);font-style:italic}
