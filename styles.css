@@ -100,3 +100,12 @@ footer{margin-top:32px;color:var(--muted);font-size:.85rem;display:flex;flex-dir
 .fab{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:20;display:flex;align-items:center;gap:6px;font:inherit;font-weight:700;font-size:1rem;color:var(--surface);background:var(--sea);border:0;border-radius:999px;padding:14px 20px;box-shadow:0 6px 18px rgba(0,0,0,.22);cursor:pointer}
 .fab span{font-size:1.4rem;line-height:1}
 #root{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+/* Underkategorier (byer / køretid) */
+.subchips{padding-left:10px;border-left:2px solid var(--sea-soft)}
+.subchips .chip{font-size:.82rem;padding:4px 10px}
+/* Byer som kort */
+.towns{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:16px}
+.town{display:flex;flex-direction:column;gap:4px;text-align:left;font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:0 0 10px;overflow:hidden;cursor:pointer}
+.town img,.town .noimg{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:var(--sea-soft)}
+.town .tname{font-family:var(--display);font-weight:700;font-size:1.05rem;padding:4px 10px 0}
+.town .tmeta{font-size:.8rem;color:var(--muted);padding:0 10px}
