@@ -634,7 +634,33 @@ function townFor(lat, lon, addr) {
   LOCAL_TOWNS.forEach(function (t) { var d = distM(lat, lon, t[1], t[2]) / 1000; if (d < t[3] && (!best || d < best[1])) best = [t[0], d]; });
   if (best) return best[0];
   addr = addr || {};
-  return addr.village || addr.town || addr.city || addr.neighbourhood || addr.hamlet || addr.municipality || "";
+  // 1) en by fra guiden meget tæt på, 2) landsbyen/byen fra kortet, 3) en by fra guiden inden for 8 km,
+  // 4) først til sidst kommunen. Kommuner som Cartagena dækker hele kyster, så de giver forkerte byer.
+  var g = nearestGuideTown(lat, lon, 1.5); if (g) return g.name;
+  var local = addr.village || addr.town || addr.hamlet || addr.neighbourhood || "";
+  if (local) return local;
+  g = nearestGuideTown(lat, lon, 8); if (g) return g.name;
+  return addr.city || addr.municipality || "";
+}
+function townCenter(name) {
+  var t = towns[name]; if (t && t.lat != null) return [t.lat, t.lon];
+  var ps = places.filter(function (p) { return p.town === name && p.lat != null; }); if (!ps.length) return null;
+  return [ps.reduce(function (s, p) { return s + p.lat; }, 0) / ps.length, ps.reduce(function (s, p) { return s + p.lon; }, 0) / ps.length];
+}
+function nearestGuideTown(lat, lon, maxKm) {
+  var best = null;
+  allTownNames().forEach(function (n) { var c = townCenter(n); if (!c) return; var d = distM(lat, lon, c[0], c[1]) / 1000; if (d <= maxKm && (!best || d < best.km)) best = { name: n, km: d }; });
+  return best;
+}
+/* En ny by oprettes med placering, køretid og et gæt på området (den nærmeste by i guiden inden for 15 km) */
+async function ensureTown(name, lat, lon) {
+  if (!name || towns[name]) return "";
+  var row = { name: name, region: null };
+  var near = lat != null ? nearestGuideTown(lat, lon, 15) : null, reg = near && towns[near.name] && towns[near.name].region;
+  if (reg) row.region = reg;
+  var r = await sb.from("towns").insert(row);
+  if (r.error) return "";
+  return reg ? ' Den nye by "' + name + '" er lagt i området "' + reg + '" (gæt ud fra ' + near.name + "). Ret det under Byer, hvis det er forkert." : ' Den nye by "' + name + '" har intet område endnu. Vælg det under Byer → ' + name + " → Ret.";
 }
 var GROCERY = ["supermarket","convenience","bakery","butcher","greengrocer","seafood","deli","marketplace","alcohol","beverages","frozen_food"];
 var FOOD = ["restaurant","cafe","bar","pub","fast_food","ice_cream","biergarten","food_court"];
@@ -1040,7 +1066,8 @@ async function saveDraft() {
     if (r.error) throw new Error("Stedet blev ikke gemt: " + r.error.message);
     var gone = d.removed.filter(function (x) { return !/^img\//.test(x); });
     if (gone.length) await sb.storage.from("photos").remove(gone);
-    ui.status = d.status; ui.cat = d.cat; ui.draft = null; ui.msg = "Gemt.";
+    var townMsg = await ensureTown(row.town, row.lat, row.lon);
+    ui.status = d.status; ui.cat = d.cat; ui.draft = null; ui.msg = "Gemt." + townMsg;
     await load();
     if (!paths.length && (web || link)) await fetchWebImages(row.id, true);
     var el = document.getElementById(row.id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1256,7 +1283,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 30;
+var APP_VERSION = 31;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
