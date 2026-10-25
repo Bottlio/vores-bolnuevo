@@ -33,8 +33,10 @@ var PRACTICAL = [
 ];
 
 var places = [];
-var ui = { view: (function () { try { return localStorage.getItem("bol-view") || "liste"; } catch (e) { return "liste"; } })(), cat: "alle", status: "tried", editor: false, user: null, draft: null, login: null, msg: "", busy: false, loaded: false };
-var h = (location.hash || "").slice(1); if (CATNAME[h] || h === "byer" || h === "dagsture") ui.cat = h;
+var ui = { view: "liste", cat: "alle", status: "tried", editor: false, user: null, draft: null, login: null, msg: "", busy: false, loaded: false };
+// Som app på hjemmeskærmen starter den altid på "Alle" (undtagen lige efter en automatisk opdatering)
+var isApp = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+var h = (location.hash || "").slice(1); if ((CATNAME[h] || h === "byer" || h === "dagsture") && (!isApp || /[?&]v=/.test(location.search))) ui.cat = h;
 if (/^sted\//.test(h)) ui.place = decodeURIComponent(h.slice(5));
 var root = document.getElementById("root");
 var newInput = document.getElementById("new-photos");
@@ -1318,7 +1320,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.filtertown != null) { ui.ftown = t.dataset.filtertown || null; render(); return; }
   if (t.dataset.sub != null) { ui.sub = t.dataset.sub || null; render(); return; }
   if (t.dataset.sort) { ui.sort = t.dataset.sort; render(); return; }
-  if (t.dataset.view) { ui.view = t.dataset.view; try { localStorage.setItem("bol-view", ui.view); } catch (x) {} render(); return; }
+  if (t.dataset.view) { ui.view = t.dataset.view; render(); return; }
   if (t.dataset.cat) { ui.town = null; ui.region = null; ui.ftown = null; ui.subcat = null; ui.fOpen = false; ui.fSun = false; ui.fEarly = false; ui.sub = null; ui.cat = t.dataset.cat; try { history.replaceState(null, "", ui.cat === "alle" ? location.pathname : "#" + ui.cat); } catch (x) {} render(); return; }
   if (t.dataset.step || t.dataset.go) {
     var tr = t.closest("[data-car]").querySelector(".track"), n = tr.children.length;
@@ -1397,7 +1399,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 41;
+var APP_VERSION = 42;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -1405,7 +1407,20 @@ async function checkForUpdate() {
     if (j && j.v > APP_VERSION && !ui.draft && !ui.busy && !(window.BOL && window.BOL.importing)) location.replace(location.pathname + "?v=" + j.v + location.hash);
   } catch (e) { /* ingen forbindelse; prøv igen næste gang */ }
 }
-document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") checkForUpdate(); });
+/* Åbnes appen igen efter mere end 30 minutter, starter den forfra på "Alle" som liste */
+var hiddenAt = 0;
+function resetToStart() {
+  if (ui.draft || ui.areaDraft || ui.busy || (window.BOL && window.BOL.importing)) return;
+  ui.cat = "alle"; ui.view = "liste"; ui.town = null; ui.region = null; ui.ftown = null; ui.subcat = null; ui.sub = null; ui.place = null;
+  ui.fOpen = ui.fSun = ui.fEarly = false; ui.minRating = 0; ui.q = ""; ui.msg = "";
+  try { history.replaceState(null, "", location.pathname); } catch (e) {}
+  render(); window.scrollTo({ top: 0 });
+}
+document.addEventListener("visibilitychange", function () {
+  if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
+  if (hiddenAt && Date.now() - hiddenAt > 30 * 60 * 1000) resetToStart();
+  checkForUpdate();
+});
 checkForUpdate();
 
 /* Slørret baggrund bag hvert billede, sat når billedet er hentet */
