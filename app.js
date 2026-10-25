@@ -279,7 +279,8 @@ var CAT_ICONS = {
   shopping: svg('<path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>')
 };
 var TOWN_CATS = ["spisesteder","strande","natur","sevaerdigheder","oplevelser","sport","dagligvarer","opladning","parkering","shopping"];
-var DAYTRIP_MIN = 30;   // områder hvor det nærmeste sted er mindst så mange minutter væk, vises under Dagsture
+var DAYTRIP_MIN = 30;
+var FAR_MIN = 240;      // områder længere væk end 4 timer vises for sig: steder vi besøger på bilturen til/fra Danmark   // områder hvor det nærmeste sted er mindst så mange minutter væk, vises under Dagsture
 var NO_REGION = "Uden område";
 var regions = {};
 function townsOf(list) {
@@ -419,7 +420,9 @@ function render() {
     if (!grid) grid = '<p class="empty-state">Ingen byer her endnu.</p>';
   } else if (inTrips) {
     grid = '<p class="hint">Områder, hvor det nærmeste sted ligger mindst ' + DAYTRIP_MIN + ' minutters kørsel fra hotellet. Tryk på et område for at se byer og steder.</p>';
-    grid += tripRegions.length ? '<div class="towns">' + tripRegions.map(function (r) { return areaCard("region", r, ui.status); }).join("") + "</div>" : '<p class="empty-state">Ingen dagsture her endnu.</p>';
+    var nearR = tripRegions.filter(function (r) { return regionDrive(r) < FAR_MIN; }), farR = tripRegions.filter(function (r) { return regionDrive(r) >= FAR_MIN; });
+    grid += nearR.length ? '<div class="towns">' + nearR.map(function (r) { return areaCard("region", r, ui.status); }).join("") + "</div>" : '<p class="empty-state">Ingen dagsture her endnu.</p>';
+    if (farR.length) grid += '<h2 class="subhead">På bilturen til og fra Danmark</h2><p class="hint">Steder mere end ' + FAR_MIN / 60 + ' timers kørsel fra hotellet.</p><div class="towns">' + farR.map(function (r) { return areaCard("region", r, ui.status); }).join("") + "</div>";
   } else {
     var inCat = byStatus.filter(function (p) { return ui.cat === "alle" || p.cat === ui.cat; });
     if (SUBCATS[ui.cat]) {
@@ -1283,7 +1286,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 32;
+var APP_VERSION = 33;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
