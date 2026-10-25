@@ -295,5 +295,5 @@ kbd{font:inherit;font-size:.85em;border:1px solid var(--line);border-radius:4px;
 .viewbtn{border-radius:8px;width:44px;height:auto;min-height:38px}
 .viewbtn:hover{border-color:var(--sea);color:var(--sea)}
 @media (max-width:420px){.statusrow .seg button{font-size:.84rem;padding:7px 4px}}
-.leaflet-tooltip.arealabel{background:rgba(255,255,255,.85);border:0;box-shadow:none;color:#0d5c6b;font-weight:700;font-family:var(--body);font-size:.82rem;padding:1px 6px;border-radius:6px;pointer-events:none}
+.leaflet-tooltip.arealabel{background:rgba(255,255,255,.85);border:0;box-shadow:none;color:#0d5c6b;font-weight:700;font-family:var(--body);font-size:.82rem;padding:1px 6px;border-radius:6px;pointer-events:auto;cursor:pointer}
 .leaflet-tooltip.arealabel:before{display:none}

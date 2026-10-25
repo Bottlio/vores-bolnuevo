@@ -505,7 +505,9 @@ function render() {
 
   if (detail) { list = [detail]; head = grid = ""; }
   // På kortet erstatter kortet oversigten med by- og områdekort; overskriften for en valgt by/område bliver stående
-  if (!searching) html += head + (ui.view === "kort" && !detail ? (inTrips && !ui.region ? '<p class="hint">Steder i områder mindst ' + DAYTRIP_MIN + ' minutters kørsel fra hotellet.</p>' : "") : grid);
+  // Valgt by/område på kortet: kortet øverst, derefter overskrift og byerne i området
+  var areaDetail = ui.view === "kort" && !detail && !searching && (inTowns || inTrips) && !!(ui.town || ui.region);
+  if (!searching && !areaDetail) html += head + (ui.view === "kort" && !detail ? (inTrips && !ui.region ? '<p class="hint">Steder i områder mindst ' + DAYTRIP_MIN + ' minutters kørsel fra hotellet.</p>' : "") : grid);
   if (!searching && !listView && !detail) list = [];
   var mapList = null;
   if (ui.view === "kort" && !detail) {
@@ -519,6 +521,7 @@ function render() {
     html += '<div class="mapwrap"><div id="map" role="region" aria-label="Kort over stederne"></div><p class="hint">' + mapList.filter(function (p) { return p.lat != null; }).length + " af " + mapList.length + " steder har en placering og vises på kortet.</p>" +
       '<p class="legend">' + CATS.filter(function (c) { return mapList.some(function (p) { return p.cat === c[0] && p.lat != null; }); }).map(function (c) { return '<span><i style="background:' + CAT_COLORS[c[0]] + '"></i>' + esc(c[1]) + "</span>"; }).join("") + "</p></div>";
     list = [];
+    if (areaDetail) html += head + grid;
   }
   html += '<div class="list">';
   if (!ui.loaded) html += '<p class="empty-state">Henter steder…</p>';
@@ -551,7 +554,7 @@ function render() {
       townsInRegion(r).filter(townShown).forEach(function (n) { var c = townCenter(n); if (c) pts = pts.concat([{ lat: c[0], lon: c[1] }]); });
       return { kind: "region", name: r, pts: pts };
     });
-    drawMap(mapList, areas);
+    drawMap(mapList, areas, areaDetail);
   }
   wireCarousels();
   watchBar();
@@ -575,19 +578,25 @@ function goArea(kind, name) {
   else { ui.region = name; ui.town = null; if (ui.cat !== "byer") ui.cat = "dagsture"; }
   ui.sub = null; render(); window.scrollTo({ top: 0 });
 }
-function drawMap(list, areas) {
+function drawMap(list, areas, focus) {
   var el = document.getElementById("map"); if (!el || !window.L) return;
   if (mapObj) { mapView = { c: mapObj.getCenter(), z: mapObj.getZoom(), key: mapObj._bolKey }; mapObj.remove(); mapObj = null; }
   var m = L.map(el, { scrollWheelZoom: true, tap: true });
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(m);
   var pts = [];
-  var labels = [];
+  var labels = [], circles = [];
+  var sizeCircles = function () {
+    var z = m.getZoom();
+    circles.forEach(function (ci) { var lat = ci.getLatLng().lat, mpp = 40075016.686 * Math.cos(lat * Math.PI / 180) / Math.pow(2, z + 8); ci.setRadius(Math.max(22, ci._bolR / mpp)); });
+  };
   (areas || []).forEach(function (a) {
     var c = areaCircle(a); if (!c) return;
     pts.push([c.lat, c.lon]);
-    var circ = L.circle([c.lat, c.lon], { radius: c.r, color: "#0d5c6b", weight: 1.5, opacity: 0.55, fillColor: "#0d5c6b", fillOpacity: 0.08 }).addTo(m)
-      .bindTooltip(esc(a.name), { permanent: true, direction: "center", className: "arealabel" })
+    // Cirklen følger det rigtige område i meter, men er aldrig mindre end 22 punkter, så den altid kan rammes
+    var circ = L.circleMarker([c.lat, c.lon], { radius: 22, color: "#0d5c6b", weight: 1.5, opacity: 0.55, fillColor: "#0d5c6b", fillOpacity: 0.1 }).addTo(m)
+      .bindTooltip(esc(a.name), { permanent: true, interactive: true, direction: "center", className: "arealabel" })
       .on("click", function () { goArea(a.kind, a.name); });
+    circ._bolR = c.r; circles.push(circ);
     labels.push({ t: circ.getTooltip(), n: c.n });
   });
   // Navne der ville ligge oven i hinanden skjules; byen med flest steder vinder. Zoom ind for at se resten.
@@ -600,6 +609,7 @@ function drawMap(list, areas) {
       if (hit) el.style.visibility = "hidden"; else taken.push(r);
     });
   };
+  m.on("zoomend", sizeCircles);
   m.on("zoomend moveend", declutter);
   L.marker([CFG.hotel.lat, CFG.hotel.lon], { title: "Laderita de Bolnuevo", icon: L.divIcon({ className: "hotelpin", html: "⌂", iconSize: [26, 26] }) }).addTo(m).bindPopup("<strong>Laderita de Bolnuevo</strong><br>Hotellet");
   list.forEach(function (p) {
@@ -617,10 +627,13 @@ function drawMap(list, areas) {
   else if (pts.length) {
     // Zoom ind på de nære steder; et enkelt sted langt væk (fx Barcelona) må ikke gøre kortet til hele Spanien
     var near = pts.filter(function (x) { return distM(x[0], x[1], CFG.hotel.lat, CFG.hotel.lon) < 250000; });
-    m.fitBounds(L.latLngBounds((near.length ? near : pts).concat([[CFG.hotel.lat, CFG.hotel.lon]])), { padding: [30, 30], maxZoom: 15 });
+    // En valgt by/et område: zoom ind på det (uden hotellet). Ellers: de nære steder plus hotellet.
+    var box = focus ? pts : (near.length ? near : pts).concat([[CFG.hotel.lat, CFG.hotel.lon]]);
+    if (focus) (areas || []).forEach(function (a) { var c = areaCircle(a); if (c) { var d = c.r / 111320; box = box.concat([[c.lat - d, c.lon - d], [c.lat + d, c.lon + d]]); } });
+    m.fitBounds(L.latLngBounds(box), { padding: [30, 30], maxZoom: focus ? 14 : 15 });
   } else m.setView([CFG.hotel.lat, CFG.hotel.lon], 11);
   mapObj = m;
-  setTimeout(declutter, 50);
+  sizeCircles(); setTimeout(declutter, 50);
 }
 
 /* ---------- smal menulinje øverst + søgning ---------- */
@@ -1384,7 +1397,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 39;
+var APP_VERSION = 41;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
