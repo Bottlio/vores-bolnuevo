@@ -280,7 +280,7 @@ var CAT_ICONS = {
 };
 var TOWN_CATS = ["spisesteder","strande","natur","sevaerdigheder","oplevelser","sport","dagligvarer","opladning","parkering","shopping"];
 var DAYTRIP_MIN = 30;
-var FAR_MIN = 240;      // områder længere væk end 4 timer vises for sig: steder vi besøger på bilturen til/fra Danmark   // områder hvor det nærmeste sted er mindst så mange minutter væk, vises under Dagsture
+var FAR_MIN = 150;      // områder mere end 2½ time væk vises for sig som "Længere ture" (fx Granada, Málaga, Sevilla, bilturen til/fra Danmark)   // områder hvor det nærmeste sted er mindst så mange minutter væk, vises under Dagsture
 var NO_REGION = "Uden område";
 var regions = {};
 function townsOf(list) {
@@ -422,7 +422,7 @@ function render() {
     grid = '<p class="hint">Områder, hvor det nærmeste sted ligger mindst ' + DAYTRIP_MIN + ' minutters kørsel fra hotellet. Tryk på et område for at se byer og steder.</p>';
     var nearR = tripRegions.filter(function (r) { return regionDrive(r) < FAR_MIN; }), farR = tripRegions.filter(function (r) { return regionDrive(r) >= FAR_MIN; });
     grid += nearR.length ? '<div class="towns">' + nearR.map(function (r) { return areaCard("region", r, ui.status); }).join("") + "</div>" : '<p class="empty-state">Ingen dagsture her endnu.</p>';
-    if (farR.length) grid += '<h2 class="subhead">På bilturen til og fra Danmark</h2><p class="hint">Steder mere end ' + FAR_MIN / 60 + ' timers kørsel fra hotellet.</p><div class="towns">' + farR.map(function (r) { return areaCard("region", r, ui.status); }).join("") + "</div>";
+    if (farR.length) grid += '<h2 class="subhead">Længere ture</h2><p class="hint">Steder mere end 2½ times kørsel fra hotellet – med overnatning eller på bilturen til og fra Danmark.</p><div class="towns">' + farR.map(function (r) { return areaCard("region", r, ui.status); }).join("") + "</div>";
   } else {
     var inCat = byStatus.filter(function (p) { return ui.cat === "alle" || p.cat === ui.cat; });
     if (SUBCATS[ui.cat]) {
@@ -1286,7 +1286,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 33;
+var APP_VERSION = 34;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
