@@ -289,3 +289,9 @@ kbd{font:inherit;font-size:.85em;border:1px solid var(--line);border-radius:4px;
 .hotelpin{background:#0d5c6b;color:#fff;border:2px solid #fff;border-radius:50%;display:grid;place-items:center;font-size:15px;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.4)}
 .legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.82rem;color:var(--muted);margin:6px 0 0}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:baseline}
+.statusrow{display:flex;gap:10px;align-items:stretch;max-width:480px}
+.statusrow .seg{flex:1 1 auto;min-width:0;max-width:none}
+.statusrow .seg button{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.viewbtn{border-radius:8px;width:44px;height:auto;min-height:38px}
+.viewbtn:hover{border-color:var(--sea);color:var(--sea)}
+@media (max-width:420px){.statusrow .seg button{font-size:.84rem;padding:7px 4px}}
