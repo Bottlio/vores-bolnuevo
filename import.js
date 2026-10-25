@@ -166,8 +166,8 @@ function groups() {
     var near = ps.map(function (p) { return [p, Math.min.apply(null, items.map(function (it) { return BOL.distM(it.lat, it.lon, p.lat, p.lon); }))]; }).sort(function (a, b) { return a[1] - b[1]; })[0];
     var title, hint;
     if (near && near[1] < 120) { title = near[0].name; hint = near[1] < 30 ? "" : "ca. " + Math.round(near[1] / 10) * 10 + " m fra stedet"; }
-    else { title = "Ukendt sted"; hint = near ? "nærmeste kendte sted: " + near[0].name + " (" + (near[1] < 1000 ? Math.round(near[1] / 10) * 10 + " m" : (near[1] / 1000).toFixed(1).replace(".", ",") + " km") + ")" : ""; }
-    out.push({ key: "g" + items[0].i, title: title, place: near && near[1] < 120 ? near[0] : null, hint: [hint, spanText(items)].filter(Boolean).join(" · "), items: items, lat: lat, lon: lon, home: BOL.distM(lat, lon, BOL.cfg.hotel.lat, BOL.cfg.hotel.lon) });
+    else { var geo = geoCache[geoKey(lat, lon)]; title = geo && geo.town ? "Ukendt sted i " + geo.town : "Ukendt sted"; hint = (geo && geo.place ? "måske " + geo.place + " · " : "") + (geo && geo.area && geo.area !== geo.town ? geo.area + " · " : "") + (near ? "nærmeste kendte sted: " + near[0].name + " (" + (near[1] < 1000 ? Math.round(near[1] / 10) * 10 + " m" : (near[1] / 1000).toFixed(1).replace(".", ",") + " km") + ")" : ""); }
+    out.push({ key: "g" + items[0].i, unknown: !(near && near[1] < 120), title: title, place: near && near[1] < 120 ? near[0] : null, hint: [hint, spanText(items)].filter(Boolean).join(" · "), items: items, lat: lat, lon: lon, home: BOL.distM(lat, lon, BOL.cfg.hotel.lat, BOL.cfg.hotel.lon) });
   });
   out.sort(function (a, b) { return a.home - b.home; });
   if (none.length) out.push({ key: "nogps", title: "Uden placering", hint: "ingen GPS gemt i billedet · sorteret efter dato", items: none.sort(function (a, b) { return a.date - b.date; }) });
@@ -231,12 +231,44 @@ function drawGrid() {
   var h = "";
   groups().forEach(function (g) {
     var n = g.items.length;
-    h += '<section class="imp-day"><div class="imp-dayhead"><h2>' + esc(g.title) + '</h2><span class="hint">' + n + (n === 1 ? " billede" : " billeder") + (g.hint ? " · " + esc(g.hint) : "") + "</span>" +
+    h += '<section class="imp-day" data-g="' + esc(g.key) + '"><div class="imp-dayhead"><h2>' + esc(g.title) + '</h2><span class="hint">' + n + (n === 1 ? " billede" : " billeder") + (g.hint ? " · " + esc(g.hint) : "") + "</span>" +
       (g.lat != null ? '<a class="linkbtn small" href="https://www.google.com/maps/search/?api=1&query=' + g.lat.toFixed(5) + "," + g.lon.toFixed(5) + '" target="_blank" rel="noopener">Vis på kort</a>' : "") +
       '<button class="btn small" type="button" data-imp-day="' + esc(g.key) + '">Vælg ' + (S.mode === "dato" ? "dagen" : "gruppen") + '</button></div><div class="imp-tiles">' + g.items.map(tileHtml).join("") + "</div></section>";
   });
   if (S.items.length && !h) h = '<p class="empty-state">Ingen billeder her.</p>';
   gridEl.innerHTML = h;
+  if (S.mode === "sted") lookupUnknown();
+}
+
+/* ---------- by og område for ukendte steder (OpenStreetMap, højst ét opslag i sekundet) ---------- */
+var geoCache = (function () { try { return JSON.parse(localStorage.getItem("bol-import-geo") || "{}"); } catch (e) { return {}; } })();
+function geoKey(lat, lon) { return lat.toFixed(3) + "," + lon.toFixed(3); }
+var geoBusy = false;
+async function lookupUnknown() {
+  if (geoBusy) return; geoBusy = true;
+  try {
+    for (;;) {
+      var g = groups().filter(function (x) { return x.unknown && x.lat != null && !geoCache[geoKey(x.lat, x.lon)]; })[0];
+      if (!g || S.mode !== "sted") break;
+      var k = geoKey(g.lat, g.lon), out = { town: "", area: "", place: "" };
+      try {
+        var r = await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=es&zoom=18&addressdetails=1&lat=" + g.lat.toFixed(5) + "&lon=" + g.lon.toFixed(5));
+        var j = await r.json(), a = (j && j.address) || {};
+        out.town = a.village || a.town || a.city || a.municipality || a.hamlet || a.suburb || "";
+        out.area = a.county || a.state || "";
+        var road = a.road || a.pedestrian || a.square || "";
+        out.place = j && j.name && j.name !== out.town ? j.name + (road && road !== j.name ? ", " + road : "") : road;
+      } catch (e) { out.failed = true; }
+      geoCache[k] = out;
+      if (!out.failed) try { localStorage.setItem("bol-import-geo", JSON.stringify(geoCache)); } catch (e) {}
+      var sec = gridEl && gridEl.querySelector('.imp-day[data-g="' + g.key + '"]'), fresh = groups().filter(function (x) { return x.key === g.key; })[0];
+      if (sec && fresh) {
+        sec.querySelector("h2").textContent = fresh.title;
+        var n = fresh.items.length; sec.querySelector(".imp-dayhead .hint").textContent = n + (n === 1 ? " billede" : " billeder") + (fresh.hint ? " · " + fresh.hint : "");
+      }
+      await new Promise(function (res) { setTimeout(res, 1100); });
+    }
+  } finally { geoBusy = false; }
 }
 
 function selItems() { return S.items.filter(function (it) { return S.sel.has(it.i); }).sort(function (a, b) { return a.date - b.date; }); }
