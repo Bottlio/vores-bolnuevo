@@ -10,7 +10,7 @@ var MON = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt",
 var SAME = 14;          // så tæt to billed-fingeraftryk skal være for at tælle som samme billede
 var NEAR_M = 250;       // billeder med placering foreslår steder inden for så mange meter
 
-var S = { items: [], sel: new Set(), last: null, hideUsed: false, album: "", newest: true, msg: "", busy: false, skipped: 0, scanning: false };
+var S = { items: [], sel: new Set(), last: null, hideUsed: false, albumOff: new Set(), mode: "dato", pending: null, newest: true, msg: "", busy: false, skipped: 0, scanning: false };
 var placeHash = {};     // stedets billedsti -> fingeraftryk
 var box = null, backBtn = null, gridEl = null, barEl = null;
 
@@ -59,18 +59,34 @@ var isImg = function (f) { return /\.(jpe?g|png|webp)$/i.test(f.name); };
 var isHeic = function (f) { return /\.(heic|heif)$/i.test(f.name); };
 function dayKey(t) { return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0"); }
 
-async function readFolder(fileList) {
-  var all = Array.prototype.slice.call(fileList);
-  var files = all.filter(isImg);
-  S.skipped = all.filter(isHeic).length;
-  S.items.forEach(function (it) { if (it.thumb) URL.revokeObjectURL(it.thumb); });
-  S.items = files.map(function (f, i) {
-    var parts = (f.webkitRelativePath || f.name).split("/");
-    return { i: i, file: f, album: parts.length > 1 ? parts[parts.length - 2] : "", date: new Date(f.lastModified), lat: null, lon: null };
-  });
-  S.sel.clear(); S.last = null; S.album = ""; S.scanning = true;
-  S.msg = "Læser datoer og placeringer… 0 af " + S.items.length; draw();
-  var n = 0, q = S.items.slice();
+var albumOf = function (f) { var parts = (f.webkitRelativePath || f.name).split("/"); return parts.length > 1 ? parts[parts.length - 2] : ""; };
+/* Trin 1: en mappe er valgt. Vis albummerne i den, så man kan sætte flueben ved dem, der skal med. */
+function pickFolder(fileList) {
+  var all = Array.prototype.slice.call(fileList), by = {};
+  all.forEach(function (f) { if (!isImg(f) && !isHeic(f)) return; var a = albumOf(f); (by[a] = by[a] || { img: [], heic: 0 }); if (isImg(f)) by[a].img.push(f); else by[a].heic++; });
+  var names = Object.keys(by).sort(function (a, b) { return a.localeCompare(b, "da"); });
+  var loaded = {}; S.items.forEach(function (it) { loaded[it.album] = true; });
+  var bol = names.filter(function (n) { return /bolnuevo/i.test(n); });
+  S.pending = { by: by, names: names, on: new Set((bol.length ? bol : names).filter(function (n) { return !loaded[n]; })), loaded: loaded };
+  S.msg = ""; draw();
+}
+/* Trin 2: indlæs de albummer, der har flueben */
+async function loadPending() {
+  var P = S.pending; if (!P) return;
+  var files = [], heic = 0;
+  P.names.forEach(function (n) { if (P.on.has(n)) { files = files.concat(P.by[n].img); heic += P.by[n].heic; } });
+  S.pending = null;
+  if (!files.length) { S.msg = "Ingen album valgt."; draw(); return; }
+  var have = {}; S.items.forEach(function (it) { have[it.album + "/" + it.file.name] = true; });
+  var start = S.items.length, fresh = [];
+  files.forEach(function (f) { var a = albumOf(f); if (have[a + "/" + f.name]) return; var it = { i: start + fresh.length, file: f, album: a, date: new Date(f.lastModified), lat: null, lon: null }; fresh.push(it); });
+  S.items = S.items.concat(fresh);
+  S.skipped += heic; S.scanning = true;
+  S.msg = "Læser datoer og placeringer… 0 af " + fresh.length; draw();
+  await scan(fresh);
+}
+async function scan(fresh) {
+  var n = 0, q = fresh.slice();
   var meta = async function () {
     while (q.length) {
       var it = q.shift();
@@ -81,13 +97,13 @@ async function readFolder(fileList) {
           if (typeof m.latitude === "number" && isFinite(m.latitude)) { it.lat = m.latitude; it.lon = m.longitude; }
         }
       } catch (e) { /* intet EXIF; filens dato bruges */ }
-      if (++n % 25 === 0) { S.msg = "Læser datoer og placeringer… " + n + " af " + S.items.length; drawStatus(); }
+      if (++n % 25 === 0) { S.msg = "Læser datoer og placeringer… " + n + " af " + fresh.length; drawStatus(); }
     }
   };
   await Promise.all([meta(), meta(), meta(), meta()]);
   S.msg = "Laver små billeder og tjekker, hvilke der allerede er brugt…"; draw();
   await hashPlacePhotos();
-  var order = sorted(), k = 0;
+  var order = sorted().filter(function (it) { return fresh.indexOf(it) >= 0; }), k = 0;
   var thumbs = async function () {
     while (order.length) {
       var it = order.shift();
@@ -99,21 +115,70 @@ async function readFolder(fileList) {
         matchUsed(it);
       } catch (e) { it.bad = true; }
       updateTile(it);
-      if (++k % 20 === 0) { S.msg = "Laver små billeder… " + k + " af " + S.items.length; drawStatus(); }
+      if (++k % 20 === 0) { S.msg = "Laver små billeder… " + k + " af " + fresh.length; drawStatus(); }
     }
   };
   await Promise.all([thumbs(), thumbs(), thumbs()]);
   S.scanning = false;
   var used = S.items.filter(function (x) { return x.used; }).length;
-  S.msg = S.items.length + " billeder indlæst. " + used + " af dem ligger allerede på et sted (markeret med grønt)." + (S.skipped ? " " + S.skipped + " HEIC-billeder er sprunget over, fordi browseren ikke kan vise dem." : "");
+  S.msg = S.items.length + " billeder indlæst fra " + albumList().length + (albumList().length === 1 ? " album. " : " album. ") + used + " af dem ligger allerede på et sted (markeret med grønt)." + (S.skipped ? " " + S.skipped + " HEIC-billeder er sprunget over, fordi browseren ikke kan vise dem." : "");
   draw();
 }
 
 /* ---------- visning ---------- */
 function visible() {
-  return S.items.filter(function (it) { return (!S.album || it.album === S.album) && !(S.hideUsed && it.used) && !it.bad; });
+  return S.items.filter(function (it) { return !S.albumOff.has(it.album) && !(S.hideUsed && it.used) && !it.bad; });
 }
-function sorted() { var l = visible(); l.sort(function (a, b) { return S.newest ? b.date - a.date : a.date - b.date; }); return l; }
+function albumList() { var a = []; S.items.forEach(function (it) { if (a.indexOf(it.album) < 0) a.push(it.album); }); return a.sort(function (x, y) { return x.localeCompare(y, "da"); }); }
+/* Grupper: pr. dag, eller pr. sted (billeder taget inden for CLUSTER_M af hinanden hører sammen) */
+var CLUSTER_M = 70;
+function groups() {
+  var l = visible(), out = [];
+  if (S.mode === "dato") {
+    l.sort(function (a, b) { return S.newest ? b.date - a.date : a.date - b.date; });
+    l.forEach(function (it) {
+      var k = dayKey(it.date), g = out[out.length - 1];
+      if (!g || g.key !== k) { g = { key: k, title: dayTitle(it.date), items: [] }; out.push(g); }
+      g.items.push(it);
+    });
+    out.forEach(function (g) { g.hint = albumsText(g.items); });
+    return out;
+  }
+  var gps = l.filter(function (it) { return it.lat != null; }), none = l.filter(function (it) { return it.lat == null; });
+  // samle billeder, der ligger tæt (en kæde af billeder under CLUSTER_M fra hinanden)
+  var parent = gps.map(function (_, i) { return i; });
+  var find = function (i) { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  var cos = Math.cos(37.6 * Math.PI / 180), lim = Math.pow(CLUSTER_M / 111320, 2);
+  var idx = gps.map(function (it, i) { return i; }).sort(function (a, b) { return gps[a].lat - gps[b].lat; });
+  for (var x = 0; x < idx.length; x++) {
+    var A = gps[idx[x]];
+    for (var y = x + 1; y < idx.length; y++) {
+      var B = gps[idx[y]], dl = B.lat - A.lat; if (dl * dl > lim) break;
+      var dn = (B.lon - A.lon) * cos; if (dl * dl + dn * dn <= lim) parent[find(idx[x])] = find(idx[y]);
+    }
+  }
+  var by = {};
+  gps.forEach(function (it, i) { var r = find(i); (by[r] = by[r] || []).push(it); });
+  var ps = BOL.places().filter(function (p) { return p.lat != null; });
+  Object.keys(by).forEach(function (r) {
+    var items = by[r].sort(function (a, b) { return a.date - b.date; });
+    var lat = items.reduce(function (s, it) { return s + it.lat; }, 0) / items.length, lon = items.reduce(function (s, it) { return s + it.lon; }, 0) / items.length;
+    var near = ps.map(function (p) { return [p, Math.min.apply(null, items.map(function (it) { return BOL.distM(it.lat, it.lon, p.lat, p.lon); }))]; }).sort(function (a, b) { return a[1] - b[1]; })[0];
+    var title, hint;
+    if (near && near[1] < 120) { title = near[0].name; hint = near[1] < 30 ? "" : "ca. " + Math.round(near[1] / 10) * 10 + " m fra stedet"; }
+    else { title = "Ukendt sted"; hint = near ? "nærmeste kendte sted: " + near[0].name + " (" + (near[1] < 1000 ? Math.round(near[1] / 10) * 10 + " m" : (near[1] / 1000).toFixed(1).replace(".", ",") + " km") + ")" : ""; }
+    out.push({ key: "g" + items[0].i, title: title, place: near && near[1] < 120 ? near[0] : null, hint: [hint, spanText(items)].filter(Boolean).join(" · "), items: items, lat: lat, lon: lon, home: BOL.distM(lat, lon, BOL.cfg.hotel.lat, BOL.cfg.hotel.lon) });
+  });
+  out.sort(function (a, b) { return a.home - b.home; });
+  if (none.length) out.push({ key: "nogps", title: "Uden placering", hint: "ingen GPS gemt i billedet · sorteret efter dato", items: none.sort(function (a, b) { return a.date - b.date; }) });
+  return out;
+}
+function albumsText(items) { var a = []; items.forEach(function (x) { if (a.indexOf(x.album) < 0) a.push(x.album); }); return a.join(", "); }
+function spanText(items) {
+  var ds = []; items.forEach(function (it) { var k = MON[it.date.getMonth()] + " " + it.date.getFullYear(); if (ds.indexOf(k) < 0) ds.push(k); });
+  return ds.length > 4 ? ds.slice(0, 2).join(", ") + " … " + ds[ds.length - 1] + " (" + ds.length + " besøg)" : ds.join(", ");
+}
+function sorted() { var l = []; groups().forEach(function (g) { l = l.concat(g.items); }); return l; }
 function dayTitle(t) { return DAYS[t.getDay()] + " " + t.getDate() + ". " + MON[t.getMonth()] + " " + t.getFullYear(); }
 
 function tileHtml(it) {
@@ -123,7 +188,7 @@ function tileHtml(it) {
     '<span class="imp-check" aria-hidden="true">✓</span>' +
     (it.lat != null ? '<span class="imp-pin" title="Har placering"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 22s7-7.1 7-12.2A7 7 0 0 0 5 9.8C5 14.9 12 22 12 22z" fill="#d6452f" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="9.8" r="2.6" fill="#fff"/></svg></span>' : "") +
     (it.used ? '<span class="imp-used">På: ' + esc(it.used.name) + "</span>" : "") +
-    '<span class="imp-time">' + String(it.date.getHours()).padStart(2, "0") + ":" + String(it.date.getMinutes()).padStart(2, "0") + "</span></button>";
+    '<span class="imp-time">' + (S.mode === "sted" ? it.date.getDate() + ". " + MON[it.date.getMonth()] + " " + String(it.date.getFullYear()).slice(2) : String(it.date.getHours()).padStart(2, "0") + ":" + String(it.date.getMinutes()).padStart(2, "0")) + "</span></button>";
 }
 function updateTile(it) {
   if (!gridEl) return;
@@ -133,20 +198,27 @@ function updateTile(it) {
 
 function draw() {
   if (!box) return;
-  var albums = []; S.items.forEach(function (it) { if (albums.indexOf(it.album) < 0) albums.push(it.album); }); albums.sort();
+  var albums = albumList();
   var h = '<div class="imp-head"><div><p class="eyebrow">Midlertidigt værktøj</p><h1>Importér billeder</h1></div><button class="btn" type="button" data-imp="close">Luk</button></div>';
   if (!BOL.isEditor()) {
     h += '<p class="notice">Du skal være logget ind som redaktør for at bruge værktøjet. Luk og log ind nederst på siden.</p>';
     box.innerHTML = h; return;
   }
-  h += '<div class="imp-tools"><label class="btn primary imp-pick">Vælg mappe…<input type="file" id="imp-dir" webkitdirectory directory multiple hidden></label>';
+  h += '<div class="imp-tools"><label class="btn ' + (S.items.length ? "" : "primary ") + 'imp-pick">' + (S.items.length ? "Tilføj flere album…" : "Vælg mappe…") + '<input type="file" id="imp-dir" webkitdirectory directory multiple hidden></label>';
   if (S.items.length) {
-    h += '<label class="sel">Album <select data-imp-album><option value="">Alle (' + S.items.length + ")</option>" + albums.map(function (a) { var n = S.items.filter(function (x) { return x.album === a; }).length; return '<option value="' + esc(a) + '"' + (S.album === a ? " selected" : "") + ">" + esc(a || "(uden mappe)") + " (" + n + ")</option>"; }).join("") + "</select></label>";
+    h += '<div class="seg small" role="group" aria-label="Sortér"><button type="button" data-imp-mode="dato" aria-pressed="' + (S.mode === "dato") + '">Efter dato</button><button type="button" data-imp-mode="sted" aria-pressed="' + (S.mode === "sted") + '">Efter sted (GPS)</button></div>';
+    if (S.mode === "dato") h += '<button class="chip" type="button" data-imp="order">' + (S.newest ? "Nyeste først" : "Ældste først") + " ⇅</button>";
     h += '<button class="chip" type="button" data-imp="hideused" aria-pressed="' + S.hideUsed + '">Skjul dem, der allerede er brugt</button>';
-    h += '<button class="chip" type="button" data-imp="order">' + (S.newest ? "Nyeste først" : "Ældste først") + " ⇅</button>";
   }
   h += "</div>";
-  if (!S.items.length) h += '<div class="imp-intro"><p>Vælg mappen <strong>iCloud Photos → Delt</strong> (eller ét af Bolnuevo-albummerne i den). Så vises alle billederne her, sorteret efter dato.</p><ol><li>Klik på et billede for at vælge det. Hold <kbd>Shift</kbd> nede for at vælge alle billeder imellem to klik.</li><li>Dobbeltklik for at se billedet stort.</li><li>Vælg et sted nederst og tryk <strong>Tilføj</strong>, eller tryk <strong>Opret nyt sted</strong>.</li></ol><p class="hint">Billederne bliver på din PC. Kun dem, du vælger at tilføje, uploades, og de gemmes mindre og uden GPS-placering. Billeder, der allerede ligger på et sted, bliver markeret med grønt.</p></div>';
+  if (albums.length > 1) h += '<div class="imp-tools imp-albums" role="group" aria-label="Album"><span class="hint">Vis album:</span>' + albums.map(function (a) { var n = S.items.filter(function (x) { return x.album === a; }).length; return '<button class="chip" type="button" data-imp-alb="' + esc(a) + '" aria-pressed="' + !S.albumOff.has(a) + '">' + esc(a || "(uden mappe)") + ' <span class="n">' + n + "</span></button>"; }).join("") + "</div>";
+  if (S.pending) {
+    var P = S.pending;
+    h += '<div class="imp-pending"><h2>Hvilke album skal med?</h2><p class="hint">Sæt flueben ved de album, du vil gennemgå. Kun dem bliver læst.</p><div class="imp-albpick">' +
+      P.names.map(function (n) { var c = P.by[n].img.length; return '<label class="imp-albrow' + (P.loaded[n] ? " done" : "") + '"><input type="checkbox" data-imp-pend="' + esc(n) + '"' + (P.on.has(n) ? " checked" : "") + (P.loaded[n] ? " disabled" : "") + "> " + esc(n || "(billeder direkte i mappen)") + ' <span class="hint">' + c + (c === 1 ? " billede" : " billeder") + (P.loaded[n] ? " · allerede indlæst" : "") + "</span></label>"; }).join("") +
+      '</div><div class="row"><button class="btn primary" type="button" data-imp="loadpend">Indlæs valgte album (' + P.names.filter(function (n) { return P.on.has(n); }).reduce(function (s, n) { return s + P.by[n].img.length; }, 0) + ' billeder)</button><button class="linkbtn" type="button" data-imp="pendall">Vælg alle</button><button class="linkbtn" type="button" data-imp="pendnone">Fravælg alle</button><button class="linkbtn" type="button" data-imp="pendcancel">Annuller</button></div></div>';
+  }
+  if (!S.items.length && !S.pending) h += '<div class="imp-intro"><p>Vælg mappen <strong>iCloud Photos → Delt</strong>. Bagefter sætter du flueben ved de album, der skal med (Bolnuevo-albummerne er valgt på forhånd).</p><ol><li>Klik på et billede for at vælge det. Hold <kbd>Shift</kbd> nede for at vælge alle billeder imellem to klik.</li><li>Dobbeltklik for at se billedet stort.</li><li>Vælg et sted nederst og tryk <strong>Tilføj</strong>, eller tryk <strong>Opret nyt sted</strong>.</li></ol><p class="hint">Billederne bliver på din PC. Kun dem, du vælger at tilføje, uploades, og de gemmes mindre og uden GPS-placering. Billeder, der allerede ligger på et sted, bliver markeret med grønt.</p></div>';
   h += '<p class="notice imp-status" role="status"' + (S.msg ? "" : " hidden") + ">" + esc(S.msg) + "</p>";
   h += '<div class="imp-grid"></div><div class="imp-bar"></div>';
   box.innerHTML = h;
@@ -156,20 +228,14 @@ function draw() {
 function drawStatus() { var el = box && box.querySelector(".imp-status"); if (el) { el.hidden = !S.msg; el.textContent = S.msg; } }
 function drawGrid() {
   if (!gridEl) return;
-  var l = sorted(), h = "", cur = null;
-  l.forEach(function (it) {
-    var k = dayKey(it.date);
-    if (k !== cur) {
-      if (cur) h += "</div></section>";
-      cur = k;
-      var same = l.filter(function (x) { return dayKey(x.date) === k; });
-      var alb = []; same.forEach(function (x) { if (alb.indexOf(x.album) < 0) alb.push(x.album); });
-      h += '<section class="imp-day"><div class="imp-dayhead"><h2>' + esc(dayTitle(it.date)) + '</h2><span class="hint">' + same.length + (same.length === 1 ? " billede · " : " billeder · ") + esc(alb.join(", ")) + '</span><button class="btn small" type="button" data-imp-day="' + k + '">Vælg dagen</button></div><div class="imp-tiles">';
-    }
-    h += tileHtml(it);
+  var h = "";
+  groups().forEach(function (g) {
+    var n = g.items.length;
+    h += '<section class="imp-day"><div class="imp-dayhead"><h2>' + esc(g.title) + '</h2><span class="hint">' + n + (n === 1 ? " billede" : " billeder") + (g.hint ? " · " + esc(g.hint) : "") + "</span>" +
+      (g.lat != null ? '<a class="linkbtn small" href="https://www.google.com/maps/search/?api=1&query=' + g.lat.toFixed(5) + "," + g.lon.toFixed(5) + '" target="_blank" rel="noopener">Vis på kort</a>' : "") +
+      '<button class="btn small" type="button" data-imp-day="' + esc(g.key) + '">Vælg ' + (S.mode === "dato" ? "dagen" : "gruppen") + '</button></div><div class="imp-tiles">' + g.items.map(tileHtml).join("") + "</div></section>";
   });
-  if (cur) h += "</div></section>";
-  if (S.items.length && !l.length) h += '<p class="empty-state">Ingen billeder her.</p>';
+  if (S.items.length && !h) h = '<p class="empty-state">Ingen billeder her.</p>';
   gridEl.innerHTML = h;
 }
 
@@ -297,7 +363,14 @@ function onClick(e) {
     S.last = i; S.confirm = null; drawBar(); return;
   }
   var t = e.target.closest("button"); if (!t) return;
-  if (t.dataset.impDay) { var day = sorted().filter(function (x) { return dayKey(x.date) === t.dataset.impDay; }), all = day.every(function (x) { return S.sel.has(x.i); }); day.forEach(function (x) { if (all) S.sel.delete(x.i); else S.sel.add(x.i); updateTile(x); }); drawBar(); return; }
+  if (t.dataset.impMode) { S.mode = t.dataset.impMode; draw(); return; }
+  if (t.dataset.impAlb != null) { if (S.albumOff.has(t.dataset.impAlb)) S.albumOff.delete(t.dataset.impAlb); else S.albumOff.add(t.dataset.impAlb); draw(); return; }
+  var a3 = t.dataset.imp;
+  if (a3 === "loadpend") { loadPending(); return; }
+  if (a3 === "pendall") { S.pending.names.forEach(function (n) { if (!S.pending.loaded[n]) S.pending.on.add(n); }); draw(); return; }
+  if (a3 === "pendnone") { S.pending.on.clear(); draw(); return; }
+  if (a3 === "pendcancel") { S.pending = null; draw(); return; }
+  if (t.dataset.impDay) { var gr = groups().filter(function (g) { return g.key === t.dataset.impDay; })[0], day = gr ? gr.items : [], all = day.every(function (x) { return S.sel.has(x.i); }); day.forEach(function (x) { if (all) S.sel.delete(x.i); else S.sel.add(x.i); updateTile(x); }); drawBar(); return; }
   if (t.dataset.impAdd) { addTo(t.dataset.impAdd); return; }
   var a2 = t.dataset.imp;
   if (a2 === "close") { hide(false); return; }
@@ -317,8 +390,8 @@ function onClick(e) {
 }
 function onDbl(e) { var tile = e.target.closest(".imp-tile"); if (!tile) return; e.preventDefault(); toggle(+tile.dataset.i); updateTile(S.items[+tile.dataset.i]); drawBar(); openLightbox(+tile.dataset.i); }
 function onChange(e) {
-  if (e.target.id === "imp-dir" && e.target.files.length) { readFolder(e.target.files); return; }
-  if (e.target.matches("[data-imp-album]")) { S.album = e.target.value; draw(); }
+  if (e.target.id === "imp-dir" && e.target.files.length) { pickFolder(e.target.files); return; }
+  if (e.target.dataset.impPend != null) { if (e.target.checked) S.pending.on.add(e.target.dataset.impPend); else S.pending.on.delete(e.target.dataset.impPend); draw(); }
 }
 document.addEventListener("click", function (e) {
   if (!lb || lb.hidden) return; var t = e.target.closest("[data-lb]");

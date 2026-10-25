@@ -265,3 +265,12 @@ html.imp-open{overflow:hidden}
 .imp-lbnav{position:absolute;top:50%;transform:translateY(-50%);font-size:2.6rem;line-height:1;background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:50%;width:56px;height:56px;cursor:pointer}
 .imp-lbnav.prev{left:16px}.imp-lbnav.next{right:16px}
 kbd{font:inherit;font-size:.85em;border:1px solid var(--line);border-radius:4px;padding:0 4px;background:var(--surface)}
+.imp-albums{margin-top:10px}
+.imp-albums .chip{font-size:.82rem;padding:4px 10px}
+.imp-pending{max-width:1500px;margin:18px auto 0;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.imp-pending h2{font-size:1.1rem}
+.imp-albpick{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:4px 18px;margin:12px 0 14px}
+.imp-albrow{display:flex;gap:8px;align-items:baseline;cursor:pointer;padding:3px 0}
+.imp-albrow.done{opacity:.6}
+.imp-pending .row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.imp-dayhead .linkbtn.small{font-size:.85rem}
