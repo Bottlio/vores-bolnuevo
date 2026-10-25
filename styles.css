@@ -274,3 +274,18 @@ kbd{font:inherit;font-size:.85em;border:1px solid var(--line);border-radius:4px;
 .imp-albrow.done{opacity:.6}
 .imp-pending .row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .imp-dayhead .linkbtn.small{font-size:.85rem}
+
+/* ---------- kortvisning ---------- */
+.selects{flex-wrap:wrap}
+.viewseg{max-width:180px}
+.mapwrap{margin-top:16px}
+#map{height:min(70vh,620px);border-radius:12px;border:1px solid var(--line);z-index:0}
+.mapwrap .hint{margin-top:6px}
+.leaflet-popup-content{font-family:var(--body);font-size:.9rem;line-height:1.4;margin:10px 12px}
+.leaflet-popup-content .btn{margin-top:6px}
+.leaflet-popup-content .muted{color:#5d6a6b}
+.popimg{display:block;width:100%;height:120px;object-fit:cover;border-radius:6px;margin-bottom:6px}
+.popstars .on{color:#d4a017}.popstars .off{color:#ccc}
+.hotelpin{background:#0d5c6b;color:#fff;border:2px solid #fff;border-radius:50%;display:grid;place-items:center;font-size:15px;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.82rem;color:var(--muted);margin:6px 0 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:baseline}

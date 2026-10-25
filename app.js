@@ -33,7 +33,7 @@ var PRACTICAL = [
 ];
 
 var places = [];
-var ui = { cat: "alle", status: "tried", editor: false, user: null, draft: null, login: null, msg: "", busy: false, loaded: false };
+var ui = { view: (function () { try { return localStorage.getItem("bol-view") || "liste"; } catch (e) { return "liste"; } })(), cat: "alle", status: "tried", editor: false, user: null, draft: null, login: null, msg: "", busy: false, loaded: false };
 var h = (location.hash || "").slice(1); if (CATNAME[h] || h === "byer" || h === "dagsture") ui.cat = h;
 if (/^sted\//.test(h)) ui.place = decodeURIComponent(h.slice(5));
 var root = document.getElementById("root");
@@ -487,6 +487,7 @@ function render() {
     [[0, "Alle karakterer"], [4, "4 stjerner og op"], [5, "Kun 5 stjerner"]].map(function (r) { return '<option value="' + r[0] + '"' + ((ui.minRating || 0) === r[0] ? " selected" : "") + ">" + r[1] + "</option>"; }).join("") + "</select></label>";
   f += '<label class="sel"><span aria-hidden="true">⇅</span><select data-select="sort" aria-label="Sortér">' +
     [["senest", "Senest besøgt"], ["nyeste", "Senest tilføjet"], ["naermeste", "Nærmeste først"], ["stjerner", "Flest stjerner"], ["navn", "Navn A–Å"]].map(function (o) { return '<option value="' + o[0] + '"' + ((ui.sort || "senest") === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>";
+  f += '<div class="seg small viewseg" role="group" aria-label="Visning"><button type="button" data-view="liste" aria-pressed="' + (ui.view !== "kort") + '">Liste</button><button type="button" data-view="kort" aria-pressed="' + (ui.view === "kort") + '">Kort</button></div>';
   f += "</div>";
   function catBtn(id, label, n) {
     return '<button type="button" class="cat" data-cat="' + id + '" aria-pressed="' + (ui.cat === id) + '">' + (CAT_ICONS[id] || "") + '<span class="cl">' + esc(label) + "</span>" + (n != null ? '<span class="cn">' + n + "</span>" : "") + "</button>";
@@ -503,6 +504,19 @@ function render() {
   if (detail) { list = [detail]; head = grid = ""; }
   if (!searching) html += head + grid;
   if (!searching && !listView && !detail) list = [];
+  var mapList = null;
+  if (ui.view === "kort" && !detail) {
+    // Kortet viser de samme steder som listen. I Byer og Dagsture vises stederne i de byer/områder, der står på siden.
+    mapList = list.length || searching ? list : byStatus.filter(function (p) {
+      if (inTowns) return townShown(p.town);
+      if (inTrips) return tripRegions.indexOf(regionOf(p.town)) >= 0;
+      return false;
+    });
+    if (!searching && !listView && !list.length && (inTowns || inTrips) && (ui.town || ui.region)) mapList = list;
+    html += '<div class="mapwrap"><div id="map" role="region" aria-label="Kort over stederne"></div><p class="hint">' + mapList.filter(function (p) { return p.lat != null; }).length + " af " + mapList.length + " steder har en placering og vises på kortet.</p>" +
+      '<p class="legend">' + CATS.filter(function (c) { return mapList.some(function (p) { return p.cat === c[0] && p.lat != null; }); }).map(function (c) { return '<span><i style="background:' + CAT_COLORS[c[0]] + '"></i>' + esc(c[1]) + "</span>"; }).join("") + "</p></div>";
+    list = [];
+  }
   html += '<div class="list">';
   if (!ui.loaded) html += '<p class="empty-state">Henter steder…</p>';
   else if (!list.length && inApt) html += '<p class="empty-state">Ingen billeder af lejligheden endnu.' + (ui.editor ? ' Tryk "+ Nyt sted" og vælg billeder taget på hotellet, så havner de her.' : "") + "</p>";
@@ -524,8 +538,39 @@ function render() {
     html += '<button class="fab" type="button" id="new" aria-label="Nyt sted" aria-expanded="' + !!ui.chooser + '"><span aria-hidden="true">' + (ui.chooser ? "×" : "+") + "</span> " + (ui.chooser ? "Luk" : "Nyt sted") + "</button>";
   }
   root.innerHTML = html;
+  if (mapList) drawMap(mapList);
   wireCarousels();
   watchBar();
+}
+
+/* ---------- kortvisning (Leaflet + OpenStreetMap) ---------- */
+var CAT_COLORS = { lejligheden: "#0d5c6b", spisesteder: "#c0392b", strande: "#e1a21b", natur: "#2e8b57", sevaerdigheder: "#7d3c98", oplevelser: "#d35400", sport: "#1f77b4", dagligvarer: "#6b8e23", opladning: "#16a085", parkering: "#5d6d7e", shopping: "#c2185b" };
+var mapObj = null, mapView = null;
+function drawMap(list) {
+  var el = document.getElementById("map"); if (!el || !window.L) return;
+  if (mapObj) { mapView = { c: mapObj.getCenter(), z: mapObj.getZoom(), key: mapObj._bolKey }; mapObj.remove(); mapObj = null; }
+  var m = L.map(el, { scrollWheelZoom: true, tap: true });
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(m);
+  var pts = [];
+  L.marker([CFG.hotel.lat, CFG.hotel.lon], { title: "Laderita de Bolnuevo", icon: L.divIcon({ className: "hotelpin", html: "⌂", iconSize: [26, 26] }) }).addTo(m).bindPopup("<strong>Laderita de Bolnuevo</strong><br>Hotellet");
+  list.forEach(function (p) {
+    if (p.lat == null) return;
+    pts.push([p.lat, p.lon]);
+    var v = overall(p), img = (p.photos || [])[0];
+    var pop = (img ? '<img class="popimg" src="' + esc(photoUrl(img)) + '" alt="">' : "") + "<strong>" + esc(p.name) + "</strong><br>" +
+      '<span class="muted">' + esc([CATNAME[p.cat], p.town].filter(Boolean).join(" · ")) + "</span>" + (v ? '<br><span class="popstars">' + starRow(v.stars) + "</span>" : "") +
+      '<br><button class="btn small" type="button" data-open="' + esc(p.id) + '">Åbn</button>';
+    L.circleMarker([p.lat, p.lon], { radius: 8, weight: 2, color: "#fff", fillColor: CAT_COLORS[p.cat] || "#333", fillOpacity: 0.95 }).addTo(m).bindPopup(pop, { maxWidth: 240 }).bindTooltip(esc(p.name));
+  });
+  var key = list.map(function (p) { return p.id; }).join(",");
+  m._bolKey = key;
+  if (mapView && mapView.key === key) m.setView(mapView.c, mapView.z);
+  else if (pts.length) {
+    // Zoom ind på de nære steder; et enkelt sted langt væk (fx Barcelona) må ikke gøre kortet til hele Spanien
+    var near = pts.filter(function (x) { return distM(x[0], x[1], CFG.hotel.lat, CFG.hotel.lon) < 250000; });
+    m.fitBounds(L.latLngBounds((near.length ? near : pts).concat([[CFG.hotel.lat, CFG.hotel.lon]])), { padding: [30, 30], maxZoom: 15 });
+  } else m.setView([CFG.hotel.lat, CFG.hotel.lon], 11);
+  mapObj = m;
 }
 
 /* ---------- smal menulinje øverst + søgning ---------- */
@@ -1208,6 +1253,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.filtertown != null) { ui.ftown = t.dataset.filtertown || null; render(); return; }
   if (t.dataset.sub != null) { ui.sub = t.dataset.sub || null; render(); return; }
   if (t.dataset.sort) { ui.sort = t.dataset.sort; render(); return; }
+  if (t.dataset.view) { ui.view = t.dataset.view; try { localStorage.setItem("bol-view", ui.view); } catch (x) {} render(); return; }
   if (t.dataset.cat) { ui.town = null; ui.region = null; ui.ftown = null; ui.subcat = null; ui.fOpen = false; ui.fSun = false; ui.fEarly = false; ui.sub = null; ui.cat = t.dataset.cat; try { history.replaceState(null, "", ui.cat === "alle" ? location.pathname : "#" + ui.cat); } catch (x) {} render(); return; }
   if (t.dataset.step || t.dataset.go) {
     var tr = t.closest("[data-car]").querySelector(".track"), n = tr.children.length;
@@ -1286,7 +1332,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 34;
+var APP_VERSION = 35;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
