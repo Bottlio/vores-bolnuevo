@@ -541,7 +541,18 @@ function render() {
     html += '<button class="fab" type="button" id="new" aria-label="Nyt sted" aria-expanded="' + !!ui.chooser + '"><span aria-hidden="true">' + (ui.chooser ? "×" : "+") + "</span> " + (ui.chooser ? "Luk" : "Nyt sted") + "</button>";
   }
   root.innerHTML = html;
-  if (mapList) drawMap(mapList);
+  if (mapList) {
+    // Store, næsten gennemsigtige cirkler om byerne (Byer) eller områderne (Dagsture); tryk på en cirkel åbner byen/området
+    var areas = [];
+    if (inTowns && !ui.town && !ui.region) areas = allTownNames().filter(townShown).map(function (n) { return { kind: "town", name: n, pts: placesIn(n) }; });
+    else if ((inTowns || inTrips) && ui.region) areas = townsInRegion(ui.region).filter(townShown).map(function (n) { return { kind: "town", name: n, pts: placesIn(n) }; });
+    else if (inTrips) areas = tripRegions.map(function (r) {
+      var pts = byStatus.filter(function (p) { return regionOf(p.town) === r; });
+      townsInRegion(r).filter(townShown).forEach(function (n) { var c = townCenter(n); if (c) pts = pts.concat([{ lat: c[0], lon: c[1] }]); });
+      return { kind: "region", name: r, pts: pts };
+    });
+    drawMap(mapList, areas);
+  }
   wireCarousels();
   watchBar();
 }
@@ -549,12 +560,47 @@ function render() {
 /* ---------- kortvisning (Leaflet + OpenStreetMap) ---------- */
 var CAT_COLORS = { lejligheden: "#0d5c6b", spisesteder: "#c0392b", strande: "#e1a21b", natur: "#2e8b57", sevaerdigheder: "#7d3c98", oplevelser: "#d35400", sport: "#1f77b4", dagligvarer: "#6b8e23", opladning: "#16a085", parkering: "#5d6d7e", shopping: "#c2185b" };
 var mapObj = null, mapView = null;
-function drawMap(list) {
+function areaCircle(a) {
+  var pts = a.pts.filter(function (p) { return p.lat != null; });
+  var t = a.kind === "town" ? towns[a.name] : null;
+  if (!pts.length && t && t.lat != null) pts = [{ lat: t.lat, lon: t.lon }];
+  if (!pts.length) return null;
+  var lat = pts.reduce(function (s, p) { return s + p.lat; }, 0) / pts.length, lon = pts.reduce(function (s, p) { return s + p.lon; }, 0) / pts.length;
+  var r = Math.max.apply(null, pts.map(function (p) { return distM(lat, lon, p.lat, p.lon); }));
+  return { lat: lat, lon: lon, n: a.pts.length, r: Math.max(r * 1.25 + (a.kind === "town" ? 400 : 1500), a.kind === "town" ? 1500 : 4000) };
+}
+function goArea(kind, name) {
+  ui.place = null;
+  if (kind === "town") { ui.town = name; ui.region = null; ui.cat = "byer"; }
+  else { ui.region = name; ui.town = null; if (ui.cat !== "byer") ui.cat = "dagsture"; }
+  ui.sub = null; render(); window.scrollTo({ top: 0 });
+}
+function drawMap(list, areas) {
   var el = document.getElementById("map"); if (!el || !window.L) return;
   if (mapObj) { mapView = { c: mapObj.getCenter(), z: mapObj.getZoom(), key: mapObj._bolKey }; mapObj.remove(); mapObj = null; }
   var m = L.map(el, { scrollWheelZoom: true, tap: true });
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(m);
   var pts = [];
+  var labels = [];
+  (areas || []).forEach(function (a) {
+    var c = areaCircle(a); if (!c) return;
+    pts.push([c.lat, c.lon]);
+    var circ = L.circle([c.lat, c.lon], { radius: c.r, color: "#0d5c6b", weight: 1.5, opacity: 0.55, fillColor: "#0d5c6b", fillOpacity: 0.08 }).addTo(m)
+      .bindTooltip(esc(a.name), { permanent: true, direction: "center", className: "arealabel" })
+      .on("click", function () { goArea(a.kind, a.name); });
+    labels.push({ t: circ.getTooltip(), n: c.n });
+  });
+  // Navne der ville ligge oven i hinanden skjules; byen med flest steder vinder. Zoom ind for at se resten.
+  var declutter = function () {
+    var taken = [];
+    labels.slice().sort(function (a, b) { return b.n - a.n; }).forEach(function (l) {
+      var el = l.t.getElement(); if (!el) return; el.style.visibility = "";
+      var r = el.getBoundingClientRect();
+      var hit = taken.some(function (o) { return r.left < o.right + 4 && r.right > o.left - 4 && r.top < o.bottom + 2 && r.bottom > o.top - 2; });
+      if (hit) el.style.visibility = "hidden"; else taken.push(r);
+    });
+  };
+  m.on("zoomend moveend", declutter);
   L.marker([CFG.hotel.lat, CFG.hotel.lon], { title: "Laderita de Bolnuevo", icon: L.divIcon({ className: "hotelpin", html: "⌂", iconSize: [26, 26] }) }).addTo(m).bindPopup("<strong>Laderita de Bolnuevo</strong><br>Hotellet");
   list.forEach(function (p) {
     if (p.lat == null) return;
@@ -574,6 +620,7 @@ function drawMap(list) {
     m.fitBounds(L.latLngBounds((near.length ? near : pts).concat([[CFG.hotel.lat, CFG.hotel.lon]])), { padding: [30, 30], maxZoom: 15 });
   } else m.setView([CFG.hotel.lat, CFG.hotel.lon], 11);
   mapObj = m;
+  setTimeout(declutter, 50);
 }
 
 /* ---------- smal menulinje øverst + søgning ---------- */
@@ -1337,7 +1384,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 37;
+var APP_VERSION = 39;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
