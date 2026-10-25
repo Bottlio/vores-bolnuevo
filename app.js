@@ -504,7 +504,8 @@ function render() {
   slimBar(summary, f, list ? list.length : null);
 
   if (detail) { list = [detail]; head = grid = ""; }
-  if (!searching) html += head + grid;
+  // På kortet erstatter kortet oversigten med by- og områdekort; overskriften for en valgt by/område bliver stående
+  if (!searching) html += head + (ui.view === "kort" && !detail ? (inTrips && !ui.region ? '<p class="hint">Steder i områder mindst ' + DAYTRIP_MIN + ' minutters kørsel fra hotellet.</p>' : "") : grid);
   if (!searching && !listView && !detail) list = [];
   var mapList = null;
   if (ui.view === "kort" && !detail) {
@@ -1336,7 +1337,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 36;
+var APP_VERSION = 37;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
