@@ -512,6 +512,7 @@ function render() {
   if (inApt) PRACTICAL.forEach(function (r) { html += "<dt>" + esc(r.k) + "</dt><dd>" + esc(r.v) + (r.link ? ' <a href="' + esc(r.link) + '" target="_blank" rel="noopener">' + esc(r.linkText) + "</a>" : "") + "</dd>"; });
   if (inApt) html += "</dl></section>";
   html += "<footer><span>Afstand og tid er i bil fra hotellet, beregnet uden trafik.</span>";
+  if (ui.editor) html += '<span><button class="linkbtn" type="button" id="open-import">Importér billeder fra PC</button></span>';
   if (ui.user) html += "<span>Logget ind som " + esc(ui.user.email) + '. <button class="linkbtn" type="button" id="logout">Log ud</button></span>';
   else html += '<span><button class="linkbtn" type="button" id="open-login">Log ind for at rette</button></span>';
   html += "</footer>";
@@ -722,7 +723,8 @@ async function lookupPlace(lat, lon) {
 }
 function distM(a, b, c, d) { var r = Math.PI / 180, x = (d - b) * r * Math.cos((a + c) / 2 * r), y = (c - a) * r; return Math.sqrt(x * x + y * y) * 6371000; }
 
-async function startNew(files) {
+async function startNew(files, opts) {
+  opts = opts || {};
   ui.msg = "";
   ui.draft = { isNew: true, id: uid(), cat: CATNAME[ui.cat] && ui.cat !== "lejligheden" ? ui.cat : "spisesteder", status: ui.status, name: "", area: "", note: "", rating: null, price: "", visits: [], guess: false, lat: null, lon: null,
     items: files.map(function (f) { return { file: f, url: URL.createObjectURL(f) }; }), removed: [], finding: true, info: "" };
@@ -731,6 +733,8 @@ async function startNew(files) {
   var d = ui.draft; if (!d) return;
   if (info.month) d.visits = [info.month];
   d.lastVisit = info.date;
+  if (opts.visits && opts.visits.length) d.visits = opts.visits.slice(); if (opts.last) d.lastVisit = opts.last;
+  d.fromImport = !!opts.fromImport;
   if (info.lat != null) {
     d.lat = +info.lat.toFixed(5); d.lon = +info.lon.toFixed(5);
     var near = places.filter(function (p) { return p.lat != null; }).map(function (p) { return [p, distM(d.lat, d.lon, p.lat, p.lon)]; })
@@ -742,6 +746,7 @@ async function startNew(files) {
     d.info = found.name ? "Navn, type og placering er fundet ud fra billedet. Ret dem, hvis de ikke passer." : "Placeringen er fundet ud fra billedet, men stedet har intet navn på kortet. Skriv navnet selv.";
   } else {
     // iPhone fjerner tit placeringen, når et billede uploades fra browseren. Er billedet taget for nylig, bruger vi telefonens placering.
+    if (opts.fromImport) { d.finding = false; d.info = 'Billederne har ingen placering gemt. Skriv navnet og tryk "Find på kortet".'; render(); scrollToForm(); var fn = document.getElementById("f-name"); if (fn) fn.focus(); return; }
     var ft = files[0] && files[0].lastModified ? files[0].lastModified : 0;
     var recent = (info.date && info.date === dayOf(new Date())) || (ft && Date.now() - ft < 6 * 3600 * 1000);
     d.finding = false;
@@ -984,21 +989,23 @@ async function uploadFiles(placeId, files, onProgress) {
   }
   return paths;
 }
-async function addPhotosTo(placeId, files) {
+async function addPhotosTo(placeId, files, opts) {
+  opts = opts || {};
   var p = places.filter(function (x) { return x.id === placeId; })[0]; if (!p || !files.length) return;
   ui.busy = true;
   try {
     var paths = await uploadFiles(placeId, files, function (i, n) { ui.msg = "Uploader billede " + i + " af " + n + "…"; render(); });
     var pi = await readPhotoInfo(files), visits = (p.visits || []).slice();
-    if (pi.month && visits.indexOf(pi.month) < 0) { visits.push(pi.month); visits.sort(); }
-    var upd = { photos: (p.photos || []).concat(paths), visits: visits, last_visit: newestVisit(p.last_visit, visits, pi.date), updated_at: new Date().toISOString() };
+    (opts.months || [pi.month]).forEach(function (m) { if (m && visits.indexOf(m) < 0) visits.push(m); }); visits.sort();
+    var upd = { photos: (p.photos || []).concat(paths), visits: visits, last_visit: newestVisit(p.last_visit, visits, opts.last || pi.date), updated_at: new Date().toISOString() };
     var r = await sb.from("places").update(upd).eq("id", placeId);
     if (r.error) throw new Error("Billederne blev ikke gemt: " + r.error.message);
     ui.msg = files.length + (files.length === 1 ? " billede" : " billeder") + " tilføjet til " + p.name + ".";
     ui.draft = null; await load();
     var el = document.getElementById(placeId); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    ui.busy = false; render(); if (BOL.afterSave) BOL.afterSave(placeId); return true;
   } catch (e) { ui.msg = e.message || "Billederne blev ikke uploadet. Prøv igen."; }
-  ui.busy = false; render();
+  ui.busy = false; render(); return false;
 }
 
 async function saveDraft() {
@@ -1037,6 +1044,7 @@ async function saveDraft() {
     await load();
     if (!paths.length && (web || link)) await fetchWebImages(row.id, true);
     var el = document.getElementById(row.id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (BOL.afterSave) { ui.busy = false; render(); BOL.afterSave(row.id); return; }
   } catch (e) {
     d.err = e.message || "Noget gik galt. Prøv igen.";
   }
@@ -1208,6 +1216,7 @@ document.addEventListener("click", async function (e) {
   if (t.id === "close-login") { ui.login = null; render(); return; }
   if (t.id === "to-signup") { ui.login.mode = "signup"; ui.login.err = ""; render(); return; }
   if (t.id === "to-login") { ui.login.mode = "login"; ui.login.err = ""; render(); return; }
+  if (t.id === "open-import") { if (BOL.openImport) BOL.openImport(); return; }
   if (t.id === "logout") { await sb.auth.signOut(); ui.user = null; ui.editor = false; ui.draft = null; render(); return; }
 });
 root.addEventListener("submit", function (e) {
@@ -1242,12 +1251,12 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 28;
+var APP_VERSION = 29;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
     var j = await r.json();
-    if (j && j.v > APP_VERSION && !ui.draft && !ui.busy) location.replace(location.pathname + "?v=" + j.v + location.hash);
+    if (j && j.v > APP_VERSION && !ui.draft && !ui.busy && !(window.BOL && window.BOL.importing)) location.replace(location.pathname + "?v=" + j.v + location.hash);
   } catch (e) { /* ingen forbindelse; prøv igen næste gang */ }
 }
 document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") checkForUpdate(); });
@@ -1260,6 +1269,12 @@ document.addEventListener("load", function (e) {
     t.parentNode.style.setProperty("--src", 'url("' + (t.currentSrc || t.src).replace(/"/g, "%22") + '")');
   }
 }, true);
+
+/* ---------- bindeled til import-værktøjet (import.js) ---------- */
+var BOL = window.BOL = window.BOL || {};
+BOL.sb = sb; BOL.cfg = CFG; BOL.places = function () { return places; }; BOL.isEditor = function () { return ui.editor; }; BOL.loaded = function () { return ui.loaded; };
+BOL.startNew = startNew; BOL.addPhotosTo = addPhotosTo; BOL.photoUrl = photoUrl; BOL.distM = distM; BOL.CATNAME = CATNAME; BOL.esc = esc;
+BOL.busy = function () { return ui.busy; }; BOL.cancelDraft = function () { ui.draft = null; render(); };
 
 /* ---------- start ---------- */
 sb.auth.onAuthStateChange(function (ev) { if (ev === "SIGNED_OUT") { ui.user = null; ui.editor = false; } });

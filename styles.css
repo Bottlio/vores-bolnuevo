@@ -224,3 +224,44 @@ body.modal-open{overflow:hidden}
 .tag.warn{background:var(--ochre-soft);color:var(--ochre);border-color:transparent}
 .seg.small{flex:0 0 auto}.seg.small button[aria-pressed="true"]{background:var(--sea);color:var(--surface)}
 .seg.small button{white-space:nowrap}
+
+/* ---------- import-værktøj (PC) ---------- */
+html.imp-open{overflow:hidden}
+.imp{position:fixed;inset:0;z-index:60;background:var(--bg);overflow:auto;padding:24px 28px 0}
+.imp-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;max-width:1500px;margin:0 auto}
+.imp-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:18px auto 0;max-width:1500px}
+.imp-tools .sel{display:flex;gap:6px;align-items:center;font-size:.9rem}
+.imp-tools select{font:inherit;font-size:.9rem;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+.imp-pick{display:inline-block}
+.imp-intro{max-width:70ch;margin:20px 0 0}
+.imp-intro ol{padding-left:1.3em}
+.imp .notice{max-width:1500px;margin:14px auto 0}
+.imp-grid{max-width:1500px;margin:0 auto;padding-bottom:40px}
+.imp-day{margin-top:26px}
+.imp-dayhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px;position:sticky;top:-24px;background:var(--bg);padding:8px 0;z-index:2}
+.imp-dayhead h2{font-size:1.1rem}
+.imp-dayhead h2::first-letter{text-transform:uppercase}
+.imp-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.imp-tile{position:relative;aspect-ratio:1;padding:0;border:3px solid transparent;border-radius:10px;overflow:hidden;background:var(--line);cursor:pointer;user-select:none}
+.imp-tile img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.imp-tile.used img{opacity:.55}
+.imp-tile.on{border-color:var(--sea)}
+.imp-tile.on img{opacity:.85}
+.imp-wait{display:grid;place-items:center;height:100%;color:var(--muted)}
+.imp-check{position:absolute;top:6px;left:6px;width:24px;height:24px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.25);color:transparent;display:grid;place-items:center;font-size:.85rem;font-weight:700}
+.imp-tile.on .imp-check{background:var(--sea);color:#fff}
+.imp-pin{position:absolute;top:6px;right:6px;line-height:0;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
+.imp-used{position:absolute;left:0;right:0;bottom:0;background:#2e6b3a;color:#fff;font-size:.72rem;line-height:1.25;padding:3px 6px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.imp-time{position:absolute;right:6px;bottom:4px;color:#fff;font-size:.72rem;text-shadow:0 1px 2px rgba(0,0,0,.7)}
+.imp-tile.used .imp-time{bottom:22px}
+.imp-bar{position:sticky;bottom:0;z-index:3;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 18px rgba(0,0,0,.12);margin:0 -28px;padding:12px 28px 14px;display:flex;flex-direction:column;gap:8px}
+.imp-barrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;max-width:1500px;width:100%;margin:0 auto}
+.imp-barrow input{font:inherit;font-size:.95rem;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);min-width:min(420px,100%);flex:0 1 420px}
+.imp-warn{background:var(--ochre-soft);color:var(--ochre);border-radius:8px;padding:8px 10px}
+.imp-back{position:fixed;left:16px;bottom:18px;z-index:30;box-shadow:0 6px 18px rgba(0,0,0,.22)}
+.imp-lb{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center}
+.imp-lb img{max-width:94vw;max-height:84vh;object-fit:contain}
+.imp-lbbar{position:absolute;left:0;right:0;bottom:0;display:flex;gap:10px;align-items:center;justify-content:center;padding:12px;color:#fff;font-size:.9rem;flex-wrap:wrap}
+.imp-lbnav{position:absolute;top:50%;transform:translateY(-50%);font-size:2.6rem;line-height:1;background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:50%;width:56px;height:56px;cursor:pointer}
+.imp-lbnav.prev{left:16px}.imp-lbnav.next{right:16px}
+kbd{font:inherit;font-size:.85em;border:1px solid var(--line);border-radius:4px;padding:0 4px;background:var(--surface)}
