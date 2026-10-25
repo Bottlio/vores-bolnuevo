@@ -1138,20 +1138,25 @@ async function saveArea() {
   } catch (e) { f.err = e.message || "Noget gik galt. Prøv igen."; }
   ui.busy = false; render();
 }
-async function addPhotosToArea(kind, name, files) {
+async function addPhotosToArea(kind, name, files, opts) {
+  opts = opts || {};
   ui.busy = true;
   try {
     var o = (kind === "town" ? towns[name] : regions[name]) || {};
     var paths = await uploadFiles(kind + "-" + slug(name), files, function (i, n) { ui.msg = "Uploader billede " + i + " af " + n + "…"; render(); });
     var pi = await readPhotoInfo(files), visits = (o.visits || []).slice();
-    if (pi.month && visits.indexOf(pi.month) < 0) { visits.push(pi.month); visits.sort(); }
-    var row = { name: name, photos: (o.photos || []).concat(paths), visits: visits, last_visit: newestVisit(o.last_visit, visits, pi.date), updated_at: new Date().toISOString() };
-    if (kind === "town" && !towns[name]) row.region = null;
+    (opts.months || [pi.month]).forEach(function (m) { if (m && visits.indexOf(m) < 0) visits.push(m); }); visits.sort();
+    var row = { name: name, photos: (o.photos || []).concat(paths), visits: visits, last_visit: newestVisit(o.last_visit, visits, opts.last || pi.date), updated_at: new Date().toISOString() };
+    if (kind === "town" && !towns[name]) {
+      row.region = opts.region || null;
+      if (opts.lat != null) { row.lat = +opts.lat.toFixed(5); row.lon = +opts.lon.toFixed(5); var dr = await driveFromHotel(row.lat, row.lon); if (dr) { row.drive_km = dr.km; row.drive_min = dr.min; } }
+    }
     var r = await sb.from(kind === "town" ? "towns" : "regions").upsert(row);
     if (r.error) throw new Error("Billederne blev ikke gemt: " + r.error.message);
     ui.msg = files.length + (files.length === 1 ? " billede" : " billeder") + " tilføjet til " + name + "."; await load();
+    ui.busy = false; render(); return true;
   } catch (e) { ui.msg = e.message || "Billederne blev ikke uploadet. Prøv igen."; }
-  ui.busy = false; render();
+  ui.busy = false; render(); return false;
 }
 
 /* ---------- hændelser ---------- */
@@ -1251,7 +1256,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 29;
+var APP_VERSION = 30;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -1274,6 +1279,7 @@ document.addEventListener("load", function (e) {
 var BOL = window.BOL = window.BOL || {};
 BOL.sb = sb; BOL.cfg = CFG; BOL.places = function () { return places; }; BOL.isEditor = function () { return ui.editor; }; BOL.loaded = function () { return ui.loaded; };
 BOL.startNew = startNew; BOL.addPhotosTo = addPhotosTo; BOL.photoUrl = photoUrl; BOL.distM = distM; BOL.CATNAME = CATNAME; BOL.esc = esc;
+BOL.towns = function () { return towns; }; BOL.regions = function () { return regions; }; BOL.addPhotosToArea = addPhotosToArea; BOL.allTownNames = allTownNames;
 BOL.busy = function () { return ui.busy; }; BOL.cancelDraft = function () { ui.draft = null; render(); };
 
 /* ---------- start ---------- */

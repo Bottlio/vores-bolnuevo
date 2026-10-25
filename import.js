@@ -31,7 +31,9 @@ function writeCache() { try { localStorage.setItem("bol-import-hash", JSON.strin
 
 async function hashPlacePhotos() {
   var cached = readCache(), todo = [];
-  BOL.places().forEach(function (p) { (p.photos || []).forEach(function (path) { if (cached[path]) placeHash[path] = cached[path]; else if (!placeHash[path]) todo.push(path); }); });
+  var addP = function (path) { if (cached[path]) placeHash[path] = cached[path]; else if (!placeHash[path]) todo.push(path); };
+  BOL.places().forEach(function (p) { (p.photos || []).forEach(addP); });
+  [BOL.towns(), BOL.regions()].forEach(function (m) { Object.keys(m).forEach(function (n) { (m[n].photos || []).forEach(addP); }); });
   var run = async function () {
     while (todo.length) {
       var path = todo.shift();
@@ -45,7 +47,23 @@ async function hashPlacePhotos() {
   await Promise.all([run(), run(), run(), run()]);
   writeCache();
 }
-function placeOfPath(path) { var ps = BOL.places(); for (var i = 0; i < ps.length; i++) if ((ps[i].photos || []).indexOf(path) >= 0) return ps[i]; return null; }
+function placeOfPath(path) {
+  var ps = BOL.places(); for (var i = 0; i < ps.length; i++) if ((ps[i].photos || []).indexOf(path) >= 0) return ps[i];
+  var tw = BOL.towns(); for (var n in tw) if ((tw[n].photos || []).indexOf(path) >= 0) return { id: "town:" + n, name: "byen " + n };
+  var rg = BOL.regions(); for (var r in rg) if ((rg[r].photos || []).indexOf(path) >= 0) return { id: "region:" + r, name: r };
+  return null;
+}
+function photosOf(id) {
+  if (/^town:/.test(id)) { var t = BOL.towns()[id.slice(5)]; return (t && t.photos) || []; }
+  if (/^region:/.test(id)) { var r = BOL.regions()[id.slice(7)]; return (r && r.photos) || []; }
+  var p = BOL.places().filter(function (x) { return x.id === id; })[0]; return (p && p.photos) || [];
+}
+function targetName(id) {
+  if (/^town:/.test(id)) return "byen " + id.slice(5);
+  if (/^region:/.test(id)) return id.slice(7);
+  var p = BOL.places().filter(function (x) { return x.id === id; })[0]; return p ? p.name : "";
+}
+function townNames() { var a = BOL.allTownNames ? BOL.allTownNames() : Object.keys(BOL.towns()); return a.slice().sort(function (x, y) { return x.localeCompare(y, "es"); }); }
 function matchUsed(it) {
   if (!it.hash) return;
   var best = null;
@@ -166,7 +184,7 @@ function groups() {
     var near = ps.map(function (p) { return [p, Math.min.apply(null, items.map(function (it) { return BOL.distM(it.lat, it.lon, p.lat, p.lon); }))]; }).sort(function (a, b) { return a[1] - b[1]; })[0];
     var title, hint;
     if (near && near[1] < 120) { title = near[0].name; hint = near[1] < 30 ? "" : "ca. " + Math.round(near[1] / 10) * 10 + " m fra stedet"; }
-    else { var geo = geoCache[geoKey(lat, lon)]; title = geo && geo.town ? "Ukendt sted i " + geo.town : "Ukendt sted"; hint = (geo && geo.place ? "måske " + geo.place + " · " : "") + (geo && geo.area && geo.area !== geo.town ? geo.area + " · " : "") + (near ? "nærmeste kendte sted: " + near[0].name + " (" + (near[1] < 1000 ? Math.round(near[1] / 10) * 10 + " m" : (near[1] / 1000).toFixed(1).replace(".", ",") + " km") + ")" : ""); }
+    else { var geo = geoCache[geoKey(lat, lon)]; if (geo && geo.town) items.forEach(function (it) { it.geoTown = geo.town; }); title = geo && geo.town ? "Ukendt sted i " + geo.town : "Ukendt sted"; hint = (geo && geo.place ? "måske " + geo.place + " · " : "") + (geo && geo.area && geo.area !== geo.town ? geo.area + " · " : "") + (near ? "nærmeste kendte sted: " + near[0].name + " (" + (near[1] < 1000 ? Math.round(near[1] / 10) * 10 + " m" : (near[1] / 1000).toFixed(1).replace(".", ",") + " km") + ")" : ""); }
     out.push({ key: "g" + items[0].i, unknown: !(near && near[1] < 120), title: title, place: near && near[1] < 120 ? near[0] : null, hint: [hint, spanText(items)].filter(Boolean).join(" · "), items: items, lat: lat, lon: lon, home: BOL.distM(lat, lon, BOL.cfg.hotel.lat, BOL.cfg.hotel.lon) });
   });
   out.sort(function (a, b) { return a.home - b.home; });
@@ -260,6 +278,7 @@ async function lookupUnknown() {
         out.place = j && j.name && j.name !== out.town ? j.name + (road && road !== j.name ? ", " + road : "") : road;
       } catch (e) { out.failed = true; }
       geoCache[k] = out;
+      if (out.town) g.items.forEach(function (it) { it.geoTown = out.town; });
       if (!out.failed) try { localStorage.setItem("bol-import-geo", JSON.stringify(geoCache)); } catch (e) {}
       var sec = gridEl && gridEl.querySelector('.imp-day[data-g="' + g.key + '"]'), fresh = groups().filter(function (x) { return x.key === g.key; })[0];
       if (sec && fresh) {
@@ -281,8 +300,12 @@ function suggestions(sel) {
       var d = Math.min.apply(null, withGps.map(function (it) { return BOL.distM(it.lat, it.lon, p.lat, p.lon); })); return [p, d];
     }).filter(function (x) { return x[1] < NEAR_M; }).sort(function (a, b) { return a[1] - b[1]; }).slice(0, 4).forEach(function (x) { add(x[0], Math.round(x[1]) + " m væk"); });
   }
-  if (S.recent) S.recent.forEach(function (id) { add(BOL.places().filter(function (p) { return p.id === id; })[0], "brugt lige før"); });
-  return out.slice(0, 6);
+  if (S.recent) S.recent.forEach(function (id) { add(/^(town|region):/.test(id) ? { id: id, name: targetName(id) } : BOL.places().filter(function (p) { return p.id === id; })[0], "brugt lige før"); });
+  // byen ud fra GPS (eller byen for det sted, billedet ligger tæt på)
+  var tn = []; sel.forEach(function (it) { var t = it.geoTown; if (t && tn.indexOf(t) < 0) tn.push(t); });
+  out = out.slice(0, 6);
+  tn.slice(0, 2).forEach(function (t) { add({ id: "town:" + t, name: "Byen " + t }, BOL.towns()[t] ? "by i guiden" : "ny by"); });
+  return out;
 }
 function placeLabel(p) { return p.name + (p.town ? " – " + p.town : "") + " (" + (BOL.CATNAME[p.cat] || p.cat) + ")"; }
 function drawBar() {
@@ -291,13 +314,14 @@ function drawBar() {
   if (!sel.length) { barEl.hidden = true; barEl.innerHTML = ""; return; }
   barEl.hidden = false;
   var sug = suggestions(sel);
-  var opts = BOL.places().slice().sort(function (a, b) { return a.name.localeCompare(b.name, "es"); }).map(function (p) { return '<option value="' + esc(placeLabel(p)) + '"></option>'; }).join("");
+  var opts = BOL.places().slice().sort(function (a, b) { return a.name.localeCompare(b.name, "es"); }).map(function (p) { return '<option value="' + esc(placeLabel(p)) + '"></option>'; }).join("") +
+    townNames().map(function (t) { return '<option value="' + esc("By: " + t) + '"></option>'; }).join("");
   var used = sel.filter(function (it) { return it.used; }).length;
   var h = '<div class="imp-barrow"><strong>' + sel.length + (sel.length === 1 ? " billede valgt" : " billeder valgt") + "</strong>" +
     '<span class="hint">' + esc(dayTitle(sel[0].date)) + (dayKey(sel[0].date) !== dayKey(sel[sel.length - 1].date) ? " – " + esc(dayTitle(sel[sel.length - 1].date)) : "") + (used ? " · " + used + " ligger allerede på et sted" : "") + "</span>" +
     '<button class="linkbtn" type="button" data-imp="clear">Fravælg alle</button></div>';
   if (sug.length) h += '<div class="imp-barrow"><span class="hint">Forslag:</span>' + sug.map(function (s) { return '<button class="chip" type="button" data-imp-add="' + esc(s.p.id) + '">' + esc(s.p.name) + ' <span class="n">' + esc(s.why) + "</span></button>"; }).join("") + "</div>";
-  h += '<div class="imp-barrow"><input id="imp-place" list="imp-places" placeholder="Skriv for at finde et sted…" autocomplete="off"><datalist id="imp-places">' + opts + '</datalist>' +
+  h += '<div class="imp-barrow"><input id="imp-place" list="imp-places" placeholder="Skriv for at finde et sted eller en by…" autocomplete="off"><datalist id="imp-places">' + opts + '</datalist>' +
     '<button class="btn primary" type="button" data-imp="add"' + (S.busy ? " disabled" : "") + ">" + (S.busy ? "Gemmer…" : "Tilføj til stedet") + "</button>" +
     '<span class="hint">eller</span><button class="btn" type="button" data-imp="new"' + (S.busy ? " disabled" : "") + ">Opret nyt sted med dem</button></div>";
   if (S.confirm) h += '<div class="imp-barrow imp-warn"><span>' + S.confirm.dups + " af billederne ligner nogle, der allerede ligger på " + esc(S.confirm.name) + '.</span><button class="btn small primary" type="button" data-imp="skipdups">Spring dem over</button><button class="btn small" type="button" data-imp="adddups">Tilføj alle alligevel</button><button class="linkbtn" type="button" data-imp="nocfm">Fortryd</button></div>';
@@ -309,31 +333,44 @@ function monthsOf(sel) { var m = []; sel.forEach(function (it) { var k = dayKey(
 function lastOf(sel) { return dayKey(sel[sel.length - 1].date); }
 
 async function addTo(id, force) {
-  var p = BOL.places().filter(function (x) { return x.id === id; })[0]; if (!p) return;
+  var name = targetName(id), isTown = /^town:/.test(id), isRegion = /^region:/.test(id);
+  if (!name && !isTown) return;
   var sel = selItems();
-  if (!force) {
-    var hs = (p.photos || []).map(function (x) { return placeHash[x]; }).filter(Boolean);
-    var dups = sel.filter(function (it) { return it.hash && hs.some(function (h) { return ham(it.hash, h) <= SAME; }); });
-    if (dups.length) { S.confirm = { id: id, name: p.name, dups: dups.length }; drawBar(); return; }
-  }
-  if (force === "skip") sel = sel.filter(function (it) { var hs = (p.photos || []).map(function (x) { return placeHash[x]; }).filter(Boolean); return !(it.hash && hs.some(function (h) { return ham(it.hash, h) <= SAME; })); });
+  var hs = photosOf(id).map(function (x) { return placeHash[x]; }).filter(Boolean);
+  var isDup = function (it) { return it.hash && hs.some(function (h) { return ham(it.hash, h) <= SAME; }); };
+  if (!force) { var dups = sel.filter(isDup); if (dups.length) { S.confirm = { id: id, name: name, dups: dups.length }; drawBar(); return; } }
+  if (force === "skip") sel = sel.filter(function (it) { return !isDup(it); });
   S.confirm = null;
-  if (!sel.length) { S.msg = "Alle de valgte ligger allerede på " + p.name + ". Intet tilføjet."; S.sel.clear(); draw(); return; }
-  S.busy = true; S.msg = "Uploader " + sel.length + " billeder til " + p.name + "…"; drawStatus(); drawBar();
+  if (!sel.length) { S.msg = "Alle de valgte ligger allerede på " + name + ". Intet tilføjet."; S.sel.clear(); draw(); return; }
+  S.busy = true; S.msg = "Uploader " + sel.length + " billeder til " + name + "…"; drawStatus(); drawBar();
   BOL.afterSave = null;
-  var ok = await BOL.addPhotosTo(id, sel.map(function (it) { return it.file; }), { months: monthsOf(sel), last: lastOf(sel) });
+  var files = sel.map(function (it) { return it.file; }), opts = { months: monthsOf(sel), last: lastOf(sel) }, ok, extra = "";
+  if (isTown || isRegion) {
+    var key = id.replace(/^(town|region):/, "");
+    if (isTown && !BOL.towns()[key]) {
+      var g = sel.filter(function (it) { return it.lat != null; });
+      if (g.length) { opts.lat = g.reduce(function (s, it) { return s + it.lat; }, 0) / g.length; opts.lon = g.reduce(function (s, it) { return s + it.lon; }, 0) / g.length;
+        // område: gæt ud fra den nærmeste by i guiden (højst 15 km væk)
+        var best = null;
+        BOL.places().forEach(function (p) { if (p.lat == null || !p.town) return; var t = BOL.towns()[p.town]; if (!t || !t.region) return; var d = BOL.distM(opts.lat, opts.lon, p.lat, p.lon); if (d < 15000 && (!best || d < best[1])) best = [t.region, d]; });
+        if (best) { opts.region = best[0]; extra = ' Byen er lagt i området "' + best[0] + '" (et gæt ud fra den nærmeste by). Ret det under Byer, hvis det er forkert.'; }
+        else extra = " Byen har intet område endnu. Vælg det under Byer.";
+      }
+    }
+    ok = await BOL.addPhotosToArea(isTown ? "town" : "region", key, files, opts);
+  } else ok = await BOL.addPhotosTo(id, files, opts);
   S.busy = false;
   if (ok) {
     S.recent = [id].concat((S.recent || []).filter(function (x) { return x !== id; })).slice(0, 3);
     await afterChange(sel, id);
-    S.msg = sel.length + (sel.length === 1 ? " billede" : " billeder") + " tilføjet til " + p.name + ".";
+    S.msg = sel.length + (sel.length === 1 ? " billede" : " billeder") + " tilføjet til " + name + "." + extra;
   } else S.msg = "Billederne blev ikke gemt. Prøv igen.";
   draw();
 }
 /* Efter upload: regn fingeraftryk for stedets nye billeder, så de vises som brugt */
 async function afterChange(sel, id) {
   await hashPlacePhotos();
-  sel.forEach(function (it) { it.used = null; matchUsed(it); if (!it.used) { var p = BOL.places().filter(function (x) { return x.id === id; })[0]; if (p) it.used = { id: p.id, name: p.name }; } });
+  sel.forEach(function (it) { it.used = null; matchUsed(it); if (!it.used && targetName(id)) it.used = { id: id, name: targetName(id) }; });
   S.sel.clear(); S.last = null;
 }
 function startNewPlace() {
@@ -415,6 +452,8 @@ function onClick(e) {
   if (a2 === "adddups") { addTo(S.confirm.id, "all"); return; }
   if (a2 === "add") {
     var v = (box.querySelector("#imp-place") || {}).value || "";
+    var tm = v.match(/^\s*By:\s*(.+?)\s*$/i);
+    if (tm) { var tn = townNames().filter(function (t) { return t.toLowerCase() === tm[1].toLowerCase(); })[0] || tm[1]; addTo("town:" + tn); return; }
     var p = BOL.places().filter(function (x) { return placeLabel(x) === v; })[0] || BOL.places().filter(function (x) { return x.name.toLowerCase() === v.trim().toLowerCase(); })[0];
     if (!p) { S.msg = v.trim() ? 'Fandt ikke "' + v.trim() + '". Vælg et sted fra listen, der dukker op, når du skriver.' : "Skriv navnet på stedet først, og vælg det fra listen."; drawStatus(); return; }
     addTo(p.id); return;
