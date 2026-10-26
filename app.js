@@ -38,10 +38,10 @@ var raw = { places: [], towns: [], regions: [], exps: [], photos: [] };
 var me = null;          // { andel, label, role, name, admin } for den indloggede
 var authors = {};       // bruger-id -> { name, label }
 var andelLabels = {};   // andel-id -> "101-043"
-var ui = { checking: true, view: "liste", scope: "alle", cat: "alle", status: "tried", editor: false, user: null, draft: null, login: null, msg: "", busy: false, loaded: false };
+var ui = { checking: true, view: "liste", scope: "alle", cat: "hjem", home: (function () { try { return localStorage.getItem("bol-home") || "A"; } catch (e) { return "A"; } })(), status: "tried", editor: false, user: null, draft: null, login: null, msg: "", busy: false, loaded: false };
 // Som app på hjemmeskærmen starter den altid på "Alle" (undtagen lige efter en automatisk opdatering)
 var isApp = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
-var h = (location.hash || "").slice(1); if ((CATNAME[h] || h === "byer" || h === "dagsture") && (!isApp || /[?&]v=/.test(location.search))) ui.cat = h;
+var h = (location.hash || "").slice(1); if ((CATNAME[h] || h === "byer" || h === "dagsture" || h === "alle") && (!isApp || /[?&]v=/.test(location.search))) ui.cat = h;
 if (/^sted\//.test(h)) ui.place = decodeURIComponent(h.slice(5));
 var root = document.getElementById("root");
 var newInput = document.getElementById("new-photos");
@@ -460,11 +460,82 @@ function placeCard(p, detail, showKat) {
     return html + "</article>";
 }
 
+/* ---------- forside (to bud, A og B, kan skiftes øverst) ---------- */
+var HOME_TILES = [["spisesteder", "Spisesteder"], ["strande", "Strande"], ["natur", "Natur og udsigt"], ["sevaerdigheder", "Seværdigheder"], ["oplevelser", "Oplevelser"], ["dagsture", "Dagsture"],
+  ["byer", "Byer"], ["dagligvarer", "Indkøb"], ["sport", "Sport"], ["lejligheden", "Hotellet"], ["alle", "Alle steder"], ["kort", "Kort"]];
+/* Forsidebillede til et felt: det bedst bedømte sted med billede – og aldrig samme sted på to felter */
+function coverFor(list, used) {
+  used = used || {};
+  var w = list.filter(function (p) { return p.photos && p.photos.length && !used[p.id]; }).sort(function (a, b) { return (b.status === "tried") - (a.status === "tried") || scoreOf(b) - scoreOf(a); })[0];
+  if (!w) return "";
+  used[w.id] = 1; return photoUrl(w.photos[0]);
+}
+function miniCard(p, extra) {
+  var v = overall(p), img = p.photos && p.photos[0] ? photoUrl(p.photos[0]) : "";
+  return '<button type="button" class="hcard" data-open="' + esc(p.id) + '">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">' : '<span class="hnoimg">' + (CAT_ICONS[p.cat] || "") + "</span>") +
+    '<span class="hname">' + esc(p.name) + '</span><span class="hmeta">' + (v ? '<span class="hstars">' + starRow(v.stars) + "</span> " : "") + esc([p.town, CATNAME[p.cat]].filter(Boolean).join(" · ")) + "</span>" +
+    (extra ? '<span class="hextra">' + extra + "</span>" : "") + "</button>";
+}
+function homeRow(title, items, empty) {
+  return '<section class="hrow"><h2 class="subhead">' + esc(title) + "</h2>" + (items.length ? '<div class="hscroll">' + items.join("") + "</div>" : '<p class="hint">' + esc(empty) + "</p>") + "</section>";
+}
+function newsItems() {
+  var byId = {}; places.forEach(function (p) { byId[p.id] = p; });
+  return raw.exps.filter(function (e) { return e.kind === "place" && byId[e.target] && (e.note || e.rating_score != null); })
+    .sort(function (a, b) { return String(b.updated_at).localeCompare(String(a.updated_at)); }).slice(0, 10)
+    .map(function (e) { return miniCard(byId[e.target], esc(authorText(e)) + (e.rating_score != null ? " · " + dec(+e.rating_score) + " ★" : "") + (e.note ? '<span class="hquote">"' + esc(e.note.length > 70 ? e.note.slice(0, 68) + "…" : e.note) + '"</span>' : "")); });
+}
+function wishItems() {
+  return places.filter(function (p) { return p.mine && p.mine.status === "wish"; }).sort(function (a, b) { return scoreOf(b) - scoreOf(a); }).slice(0, 10).map(function (p) { return miniCard(p); });
+}
+function renderHome() {
+  var spots = places.filter(function (p) { return !isApt(p.cat); });
+  var hotel = places.filter(function (p) { return p.cat === "lejligheden" && p.photos && p.photos.length; })[0];
+  var hero = hotel ? photoUrl(hotel.photos[0]) : coverFor(spots);
+  var html = headerHtml(false);
+  if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
+  if (ui.draft) html += formHtml(ui.draft);
+  if (ui.areaDraft) html += areaFormHtml(ui.areaDraft);
+  html += '<div class="homeswitch" role="group" aria-label="Prøv forside"><span class="hint">Prøv forside:</span><div class="seg small"><button type="button" data-home="A" aria-pressed="' + (ui.home === "A") + '">A · Felter</button><button type="button" data-home="B" aria-pressed="' + (ui.home === "B") + '">B · Hvad skal vi i dag?</button></div></div>';
+  html += '<section class="hero"' + (hero ? ' style="--hero:url(&quot;' + esc(hero) + '&quot;)"' : "") + '><div class="herotext"><p>Hej ' + esc(me.name || "") + '</p><p class="herosub">Andel ' + esc(me.label) + " · " + spots.length + " steder i guiden</p></div></section>";
+  html += '<button type="button" class="homesearch" data-open-search>' + ICON_SEARCH + "<span>Hvad leder du efter?</span></button>";
+  if (ui.home === "A") {
+    var used = {}; if (hotel) used[hotel.id] = 1;
+    html += '<div class="tiles">' + HOME_TILES.map(function (t) {
+      var list = t[0] === "alle" || t[0] === "kort" ? spots : t[0] === "dagsture" ? spots.filter(function (p) { return regionDrive(regionOf(p.town)) >= DAYTRIP_MIN; }) : t[0] === "byer" ? spots : places.filter(function (p) { return p.cat === t[0]; });
+      var n = t[0] === "byer" ? allTownNames().filter(function (x) { return placesIn(x).length; }).length : t[0] === "kort" ? null : list.length;
+      var img = coverFor(list, used);
+      return '<button type="button" class="tile" data-hometile="' + t[0] + '"' + (img ? ' style="--img:url(&quot;' + esc(img) + '&quot;)"' : "") + ">" + (img ? "" : '<span class="ticon">' + (CAT_ICONS[t[0] === "kort" ? "dagsture" : t[0]] || CAT_ICONS.alle) + "</span>") + '<span class="tlabel">' + esc(t[1]) + (n != null ? ' <span class="tn">' + n + "</span>" : "") + "</span></button>";
+    }).join("") + "</div>";
+    html += homeRow("Nyt fra andelshaverne", newsItems(), "Når andelshaverne skriver og giver stjerner, kommer det her.");
+    html += homeRow('Jeres "Vil prøve"', wishItems(), 'Tryk "Sæt på vores Vil prøve" på et sted, så kommer det her.');
+  } else {
+    html += homeRow("Nyt fra andelshaverne", newsItems(), "Når andelshaverne skriver og giver stjerner, kommer det her.");
+    html += homeRow('Jeres "Vil prøve"', wishItems(), 'Tryk "Sæt på vores Vil prøve" på et sted, så kommer det her.');
+    var near = ui.nearMe ? spots.filter(function (p) { return p.lat != null; }).map(function (p) { return [p, distM(ui.nearMe[0], ui.nearMe[1], p.lat, p.lon)]; }).sort(function (a, b) { return a[1] - b[1]; }).slice(0, 10)
+      .map(function (x) { return miniCard(x[0], x[1] < 1000 ? Math.round(x[1] / 10) * 10 + " m herfra" : (x[1] / 1000).toFixed(1).replace(".", ",") + " km herfra"); }) : null;
+    html += near ? homeRow("Tæt på dig lige nu", near, "") : '<section class="hrow"><h2 class="subhead">Tæt på dig lige nu</h2><button class="btn" type="button" id="near-me">Vis steder tæt på mig</button>' + (ui.nearErr ? '<p class="hint">' + esc(ui.nearErr) + "</p>" : "") + "</section>";
+    html += homeRow("Bedst bedømt", spots.filter(function (p) { return overall(p); }).sort(function (a, b) { return scoreOf(b) - scoreOf(a); }).slice(0, 10).map(function (p) { return miniCard(p); }), "");
+    html += homeRow("Senest besøgt af jer", spots.filter(function (p) { return p.mine && p.mine.status === "tried"; }).sort(function (a, b) { return lastKey(b).localeCompare(lastKey(a)); }).slice(0, 10).map(function (p) { return miniCard(p); }), "");
+    var trips = regionNames().filter(function (r) { return r !== NO_REGION && regionDrive(r) >= DAYTRIP_MIN && regionDrive(r) < FAR_MIN && townsInRegion(r).some(function (n) { return placesIn(n).length; }); });
+    html += '<section class="hrow"><h2 class="subhead">Dagsture</h2><div class="hscroll">' + trips.map(function (r) { var a = areaObj("region", r); return '<button type="button" class="hcard" data-region="' + esc(r) + '">' + (a.cover ? '<img src="' + esc(photoUrl(a.cover)) + '" alt="" loading="lazy">' : '<span class="hnoimg"></span>') + '<span class="hname">' + esc(r) + '</span><span class="hmeta">ca. ' + timeText(a.drive) + " i bil</span></button>"; }).join("") + "</div></section>";
+    html += '<section class="hrow"><h2 class="subhead">Gå til</h2><div class="chips">' + HOME_TILES.map(function (t) { return '<button class="chip" type="button" data-hometile="' + t[0] + '">' + esc(t[1]) + "</button>"; }).join("") + "</div></section>";
+  }
+  html += footerHtml();
+  if (ui.editor && !ui.draft) {
+    if (ui.chooser) html += '<div class="chooser" role="menu"><button class="btn primary" type="button" id="new-photo">Vælg billeder</button><button class="btn" type="button" id="new-manual">Uden billede (fx et sted vi vil prøve)</button></div>';
+    html += '<button class="fab" type="button" id="new" aria-label="Nyt sted" aria-expanded="' + !!ui.chooser + '"><span aria-hidden="true">' + (ui.chooser ? "×" : "+") + "</span> " + (ui.chooser ? "Luk" : "Nyt sted") + "</button>";
+  }
+  root.innerHTML = html;
+  slim.innerHTML = ""; slim.classList.remove("show"); panel.hidden = true;
+}
+
 var APTS = ["lejligheden", "vores"];
 function isApt(c) { return APTS.indexOf(c) >= 0; }
 function render() {
   // Ikke logget ind / ingen andel: kun velkomst og login. Egne sider: Vores andel, Regler og privatliv.
   if (!ui.member || ui.page) { renderGate(); return; }
+  if (ui.cat === "hjem" && !ui.place && !(ui.q || "").trim()) { renderHome(); return; }
   var APT = ui.cat, inApt = isApt(ui.cat), inTowns = ui.cat === "byer", inTrips = ui.cat === "dagsture";
   var spots = places.filter(function (p) { return !isApt(p.cat); });
   var byStatus = spots.filter(function (p) { return p.status === ui.status; });
@@ -1531,11 +1602,11 @@ async function deletePlace() {
    Tilbage-pilen (og telefonens egen tilbage) går ét skridt tilbage; huset går til forsiden. */
 var navStack = [];
 function snap() { return { cat: ui.cat, town: ui.town, region: ui.region, sub: ui.sub, subcat: ui.subcat, ftown: ui.ftown, place: ui.place, page: ui.page, y: window.scrollY }; }
-function atStart() { return ui.cat === "alle" && !ui.town && !ui.region && !ui.place && !ui.page && !ui.subcat && !ui.ftown && !ui.sub && !ui.fOpen && !ui.fSun && !ui.fEarly; }
+function atStart() { return ui.cat === "hjem" && !ui.town && !ui.region && !ui.place && !ui.page && !ui.subcat && !ui.ftown && !ui.sub && !ui.fOpen && !ui.fSun && !ui.fEarly; }
 function nav(change) {
   navStack.push(snap()); if (navStack.length > 60) navStack.shift();
   change(); ui.panel = false;
-  try { history.pushState({ nav: navStack.length }, "", ui.place ? "#sted/" + ui.place : (isApt(ui.cat) || CATNAME[ui.cat] || ui.cat === "byer" || ui.cat === "dagsture") && ui.cat !== "alle" ? "#" + ui.cat : location.pathname); } catch (x) {}
+  try { history.pushState({ nav: navStack.length }, "", ui.place ? "#sted/" + ui.place : (isApt(ui.cat) || CATNAME[ui.cat] || ui.cat === "byer" || ui.cat === "dagsture" || ui.cat === "alle") ? "#" + ui.cat : location.pathname); } catch (x) {}
   render(); window.scrollTo({ top: 0 });
 }
 function goBack() {
@@ -1693,6 +1764,14 @@ document.addEventListener("click", async function (e) {
     var rw = await saveExp("place", t.dataset.wish, { status: "wish" });
     ui.msg = rw.error ? "Det blev ikke gemt. Prøv igen." : "Lagt på jeres \"Vil prøve\"-liste."; decorate(); render(); return;
   }
+  if (t.dataset.home) { ui.home = t.dataset.home; try { localStorage.setItem("bol-home", ui.home); } catch (x) {} render(); return; }
+  if (t.dataset.hometile) { var ht = t.dataset.hometile; nav(function () { ui.place = null; ui.town = null; ui.region = null; ui.sub = null; ui.subcat = null; ui.ftown = null; if (ht === "kort") { ui.cat = "alle"; ui.view = "kort"; } else { ui.cat = ht; ui.view = "liste"; } }); return; }
+  if (t.id === "near-me") {
+    if (!navigator.geolocation) { ui.nearErr = "Telefonen kan ikke give placeringen her."; render(); return; }
+    t.textContent = "Finder din placering…";
+    navigator.geolocation.getCurrentPosition(function (pos) { ui.nearMe = [pos.coords.latitude, pos.coords.longitude]; ui.nearErr = ""; render(); }, function () { ui.nearErr = "Placeringen blev ikke givet."; render(); }, { timeout: 15000 });
+    return;
+  }
   if (t.dataset.page != null) { var pg = t.dataset.page; ui.inviteText = ""; andelData = null; adminData = null; if (!pg && navStack.length) { goBack(); return; } nav(function () { ui.page = pg || null; }); return; }
   if (t.dataset.rmmember) { removeMember(t.dataset.rmmember); return; }
   if (t.dataset.irole) { ui.irole = t.dataset.irole; render(); return; }
@@ -1756,7 +1835,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 51;
+var APP_VERSION = 52;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -1768,7 +1847,7 @@ async function checkForUpdate() {
 var hiddenAt = 0;
 function resetToStart() {
   if (ui.draft || ui.areaDraft || ui.busy || (window.BOL && window.BOL.importing)) return;
-  ui.cat = "alle"; ui.view = "liste"; ui.town = null; ui.region = null; ui.ftown = null; ui.subcat = null; ui.sub = null; ui.place = null;
+  ui.cat = "hjem"; ui.view = "liste"; ui.town = null; ui.region = null; ui.ftown = null; ui.subcat = null; ui.sub = null; ui.place = null;
   ui.fOpen = ui.fSun = ui.fEarly = false; ui.minRating = 0; ui.q = ""; ui.msg = ""; ui.page = null; navStack = [];
   try { history.replaceState(null, "", location.pathname); } catch (e) {}
   render(); window.scrollTo({ top: 0 });
