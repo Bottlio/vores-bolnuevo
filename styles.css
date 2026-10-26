@@ -333,3 +333,5 @@ header h1{font-size:clamp(1.6rem,6vw,2.3rem)}
 .rothers{margin-top:10px;font-size:.9rem}
 .rothers p{margin:4px 0}
 .rothers .rstars .on{color:var(--gold,#d4a017)}
+header{flex-wrap:nowrap}
+header>div{min-width:0}
