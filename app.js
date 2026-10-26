@@ -659,10 +659,12 @@ function areaCircle(a) {
   return { lat: lat, lon: lon, n: a.pts.length, r: Math.max(r * 1.25 + (a.kind === "town" ? 400 : 1500), a.kind === "town" ? 1500 : 4000) };
 }
 function goArea(kind, name) {
-  ui.place = null;
-  if (kind === "town") { ui.town = name; ui.region = null; ui.cat = "byer"; }
-  else { ui.region = name; ui.town = null; if (ui.cat !== "byer") ui.cat = "dagsture"; }
-  ui.sub = null; render(); window.scrollTo({ top: 0 });
+  nav(function () {
+    ui.place = null;
+    if (kind === "town") { ui.town = name; ui.region = null; ui.cat = "byer"; }
+    else { ui.region = name; ui.town = null; if (ui.cat !== "byer") ui.cat = "dagsture"; }
+    ui.sub = null;
+  });
 }
 function drawMap(list, areas, focus) {
   var el = document.getElementById("map"); if (!el || !window.L) return;
@@ -726,10 +728,12 @@ function drawMap(list, areas, focus) {
 var ICON_SEARCH = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><line x1="15.5" y1="15.5" x2="21" y2="21" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
 var ICON_MAP = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 4 3 6.5v13.5L9 17.5l6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg>';
 var ICON_LIST = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="4" width="7" height="7" rx="1.5"/><rect x="13.5" y="4" width="7" height="7" rx="1.5"/><rect x="3.5" y="14" width="7" height="7" rx="1.5"/><rect x="13.5" y="14" width="7" height="7" rx="1.5"/></svg>';
+var ICON_BACK = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>';
+var ICON_HOME = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg>';
 var ICON_FILTER = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 6h18M6 12h12M10 18h4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
 var slim = document.getElementById("slim"), panel = document.getElementById("filterpanel"), searchWrap = document.getElementById("searchwrap"), qInput = document.getElementById("q");
 function slimBar(summary, filters, n) {
-  slim.innerHTML = '<button type="button" class="slim-sum" data-toggle-panel>' + ICON_FILTER + '<span>' + esc(summary) + '</span></button><button class="iconbtn" type="button" data-open-search aria-label="Søg">' + ICON_SEARCH + "</button>";
+  slim.innerHTML = '<button type="button" class="slim-sum" data-toggle-panel>' + ICON_FILTER + '<span>' + esc(summary) + "</span></button>" + navBtns() + '<button class="iconbtn" type="button" data-open-search aria-label="Søg">' + ICON_SEARCH + "</button>";
   panel.innerHTML = ui.panel ? '<div class="panel-inner">' + filters + '<div class="row"><button class="btn primary" type="button" data-toggle-panel>Vis ' + (n == null ? "" : n + " ") + "steder</button></div></div>" : "";
   panel.hidden = !ui.panel;
 }
@@ -753,6 +757,8 @@ document.getElementById("q-close").addEventListener("click", closeSearch);
 document.addEventListener("click", function (e) {
   var t = e.target.closest("button"); if (!t) return;
   if (t.hasAttribute("data-open-search")) { openSearch(); return; }
+  if (t.dataset.nav === "back") { goBack(); return; }
+  if (t.dataset.nav === "home") { goHome(); return; }
   if (t.hasAttribute("data-toggle-panel")) {
     var wasOpen = ui.panel; ui.panel = !ui.panel; render();
     if (wasOpen) { var b = document.getElementById("fullbar"); if (b) window.scrollTo({ top: b.getBoundingClientRect().bottom + window.scrollY - 58 }); }
@@ -774,9 +780,14 @@ function wireCarousels() {
 }
 
 /* ---------- top, bund, velkomst ---------- */
+function navBtns() {
+  if (!ui.member) return "";
+  return (navStack.length ? '<button class="iconbtn" type="button" data-nav="back" aria-label="Tilbage" title="Tilbage">' + ICON_BACK + "</button>" : "") +
+    (!atStart() ? '<button class="iconbtn" type="button" data-nav="home" aria-label="Til forsiden" title="Til forsiden">' + ICON_HOME + "</button>" : "");
+}
 function headerHtml(search) {
-  return '<header><div><p class="eyebrow">Andelshavernes guide · Costa Cálida</p><h1>Laderita de Bolnuevo guide</h1></div>' +
-    (search ? '<button class="iconbtn" type="button" data-open-search aria-label="Søg">' + ICON_SEARCH + "</button>" : "") + "</header>";
+  return '<header><div><p class="eyebrow">Andelshavernes guide · Costa Cálida</p><h1>Laderita de Bolnuevo guide</h1></div><div class="hbtns">' + navBtns() +
+    (search ? '<button class="iconbtn" type="button" data-open-search aria-label="Søg">' + ICON_SEARCH + "</button>" : "") + "</div></header>";
 }
 function footerHtml() {
   var h = "<footer><span>Afstand og tid er i bil fra hotellet, beregnet uden trafik.</span>";
@@ -1515,22 +1526,38 @@ async function deletePlace() {
   ui.draft = null; ui.busy = false; ui.msg = "Stedet er slettet."; await load();
 }
 
-/* ---------- et steds egen side ---------- */
-var listScroll = 0;
-function openPlace(id) {
-  listScroll = window.scrollY; ui.place = id; ui.panel = false;
-  try { history.pushState({ place: id }, "", "#sted/" + id); } catch (x) {}
+/* ---------- tilbage og hjem ----------
+   Hver gang man går ind i noget (et sted, en kategori, en by, et område, en side), huskes hvor man var.
+   Tilbage-pilen (og telefonens egen tilbage) går ét skridt tilbage; huset går til forsiden. */
+var navStack = [];
+function snap() { return { cat: ui.cat, town: ui.town, region: ui.region, sub: ui.sub, subcat: ui.subcat, ftown: ui.ftown, place: ui.place, page: ui.page, y: window.scrollY }; }
+function atStart() { return ui.cat === "alle" && !ui.town && !ui.region && !ui.place && !ui.page && !ui.subcat && !ui.ftown && !ui.sub && !ui.fOpen && !ui.fSun && !ui.fEarly; }
+function nav(change) {
+  navStack.push(snap()); if (navStack.length > 60) navStack.shift();
+  change(); ui.panel = false;
+  try { history.pushState({ nav: navStack.length }, "", ui.place ? "#sted/" + ui.place : (isApt(ui.cat) || CATNAME[ui.cat] || ui.cat === "byer" || ui.cat === "dagsture") && ui.cat !== "alle" ? "#" + ui.cat : location.pathname); } catch (x) {}
   render(); window.scrollTo({ top: 0 });
 }
-function closePlace() {
-  if (history.state && history.state.place) { history.back(); return; }
-  ui.place = null; try { history.replaceState(null, "", location.pathname); } catch (x) {} render(); window.scrollTo({ top: listScroll });
+function goBack() {
+  if (!navStack.length) return;
+  try { history.back(); } catch (x) { restore(navStack.pop()); }
+}
+function restore(s) {
+  ui.cat = s.cat; ui.town = s.town; ui.region = s.region; ui.sub = s.sub; ui.subcat = s.subcat; ui.ftown = s.ftown; ui.place = s.place; ui.page = s.page; ui.panel = false;
+  if (!ui.page) { andelData = null; adminData = null; }
+  render(); window.scrollTo({ top: s.y || 0 });
+}
+function goHome() {
+  if (ui.draft || ui.areaDraft) { ui.msg = "Gem eller annuller først det, du er ved at rette."; render(); return; }
+  navStack = []; ui.page = null; resetToStart();
 }
 window.addEventListener("popstate", function () {
+  if (navStack.length) { restore(navStack.pop()); return; }
   var m = (location.hash || "").match(/^#sted\/(.+)$/);
-  var was = ui.place; ui.place = m ? decodeURIComponent(m[1]) : null;
-  render(); window.scrollTo({ top: ui.place ? 0 : (was ? listScroll : 0) });
+  ui.place = m ? decodeURIComponent(m[1]) : null; render(); window.scrollTo({ top: 0 });
 });
+function openPlace(id) { nav(function () { ui.place = id; }); }
+function closePlace() { if (navStack.length) goBack(); else { ui.place = null; try { history.replaceState(null, "", location.pathname); } catch (x) {} render(); } }
 
 /* ---------- ret by / område ---------- */
 function slug(s) { return String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
@@ -1625,9 +1652,8 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.open) { openPlace(t.dataset.open); return; }
   if (t.hasAttribute("data-closeplace")) { closePlace(); return; }
   if (t.dataset.status) { ui.status = t.dataset.status; render(); return; }
-  if ((t.dataset.town != null || t.dataset.region != null) && ui.place) { ui.place = null; try { history.replaceState(null, "", location.pathname); } catch (x) {} }
-  if (t.dataset.town != null) { ui.town = t.dataset.town || null; ui.region = null; ui.sub = null; if (ui.town) ui.cat = "byer"; render(); window.scrollTo({ top: 0 }); return; }
-  if (t.dataset.region != null) { ui.region = t.dataset.region || null; ui.town = null; ui.sub = null; if (ui.region && ui.cat !== "byer") ui.cat = "dagsture"; render(); window.scrollTo({ top: 0 }); return; }
+  if (t.dataset.town != null) { var tw = t.dataset.town; nav(function () { ui.place = null; ui.town = tw || null; ui.region = null; ui.sub = null; if (ui.town) ui.cat = "byer"; }); return; }
+  if (t.dataset.region != null) { var rg = t.dataset.region; nav(function () { ui.place = null; ui.region = rg || null; ui.town = null; ui.sub = null; if (ui.region && ui.cat !== "byer") ui.cat = "dagsture"; }); return; }
   if (t.dataset.fopen) { ui.fOpen = !ui.fOpen; render(); return; }
   if (t.dataset.fsun) { ui.fSun = !ui.fSun; render(); return; }
   if (t.dataset.fearly) { ui.fEarly = !ui.fEarly; render(); return; }
@@ -1636,7 +1662,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.sub != null) { ui.sub = t.dataset.sub || null; render(); return; }
   if (t.dataset.sort) { ui.sort = t.dataset.sort; render(); return; }
   if (t.dataset.view) { ui.view = t.dataset.view; render(); return; }
-  if (t.dataset.cat) { ui.town = null; ui.region = null; ui.ftown = null; ui.subcat = null; ui.fOpen = false; ui.fSun = false; ui.fEarly = false; ui.sub = null; ui.cat = t.dataset.cat; try { history.replaceState(null, "", ui.cat === "alle" ? location.pathname : "#" + ui.cat); } catch (x) {} render(); return; }
+  if (t.dataset.cat) { var ct = t.dataset.cat; if (ct === ui.cat && !ui.town && !ui.region) return; nav(function () { ui.town = null; ui.region = null; ui.ftown = null; ui.subcat = null; ui.fOpen = false; ui.fSun = false; ui.fEarly = false; ui.sub = null; ui.cat = ct; }); return; }
   if (t.dataset.step || t.dataset.go) {
     var tr = t.closest("[data-car]").querySelector(".track"), n = tr.children.length;
     var cur = Math.round(tr.scrollLeft / tr.clientWidth);
@@ -1667,7 +1693,7 @@ document.addEventListener("click", async function (e) {
     var rw = await saveExp("place", t.dataset.wish, { status: "wish" });
     ui.msg = rw.error ? "Det blev ikke gemt. Prøv igen." : "Lagt på jeres \"Vil prøve\"-liste."; decorate(); render(); return;
   }
-  if (t.dataset.page != null) { ui.page = t.dataset.page || null; ui.inviteText = ""; andelData = null; adminData = null; render(); window.scrollTo({ top: 0 }); return; }
+  if (t.dataset.page != null) { var pg = t.dataset.page; ui.inviteText = ""; andelData = null; adminData = null; if (!pg && navStack.length) { goBack(); return; } nav(function () { ui.page = pg || null; }); return; }
   if (t.dataset.rmmember) { removeMember(t.dataset.rmmember); return; }
   if (t.dataset.irole) { ui.irole = t.dataset.irole; render(); return; }
   if (t.dataset.setvis) { setPhotoVis(t.dataset.setvis, t.dataset.v); return; }
@@ -1730,7 +1756,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 50;
+var APP_VERSION = 51;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -1743,7 +1769,7 @@ var hiddenAt = 0;
 function resetToStart() {
   if (ui.draft || ui.areaDraft || ui.busy || (window.BOL && window.BOL.importing)) return;
   ui.cat = "alle"; ui.view = "liste"; ui.town = null; ui.region = null; ui.ftown = null; ui.subcat = null; ui.sub = null; ui.place = null;
-  ui.fOpen = ui.fSun = ui.fEarly = false; ui.minRating = 0; ui.q = ""; ui.msg = "";
+  ui.fOpen = ui.fSun = ui.fEarly = false; ui.minRating = 0; ui.q = ""; ui.msg = ""; ui.page = null; navStack = [];
   try { history.replaceState(null, "", location.pathname); } catch (e) {}
   render(); window.scrollTo({ top: 0 });
 }

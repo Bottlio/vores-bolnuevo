@@ -335,3 +335,5 @@ header h1{font-size:clamp(1.6rem,6vw,2.3rem)}
 .rothers .rstars .on{color:var(--gold,#d4a017)}
 header{flex-wrap:nowrap}
 header>div{min-width:0}
+.hbtns{display:flex;gap:8px;flex:0 0 auto}
+.slim .iconbtn{flex:0 0 auto}
