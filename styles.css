@@ -364,3 +364,12 @@ header>div{min-width:0}
 .hstars .on{color:#d4a017}.hstars .off{color:#ccc}
 .hquote{display:block;font-style:italic;margin-top:2px}
 .ticon{position:absolute;top:50%;left:50%;transform:translate(-50%,-60%) scale(1.6);color:var(--sea);opacity:.6}
+
+/* ---------- gitter overalt: steder vises som små kort ligesom byerne ---------- */
+.list.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:16px;align-items:stretch}
+@media (min-width:700px){.list.grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}}
+.pcard .noimg{display:grid;place-items:center;color:var(--sea)}
+.pcard .noimg svg{width:44px;height:44px;opacity:.6}
+.ptags{display:flex;flex-wrap:wrap;gap:4px;padding:2px 10px 0}
+.ptags .tag{font-size:.7rem;padding:1px 7px}
+.pcard .trate .rwrap{align-items:flex-start}

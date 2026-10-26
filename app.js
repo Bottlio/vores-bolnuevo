@@ -428,6 +428,17 @@ function areaHeader(kind, name) {
   return html + "</div></section>";
 }
 
+/* Lille kort i gitteret (som byerne): billede, navn, by og kategori, stjerner. Tryk åbner stedet. */
+function gridCard(p, showKat) {
+  var img = p.photos && p.photos[0] ? photoUrl(p.photos[0]) : "";
+  var meta = [p.town || p.area, showKat ? (subName(p.cat, p.subcat) || CATNAME[p.cat]) : subName(p.cat, p.subcat), p.drive_min != null && p.drive_min >= 15 ? "ca. " + timeText(p.drive_min) : ""].filter(Boolean).join(" · ");
+  var warn = (p.facts || {}).saeson === "ja" ? '<span class="tag warn">Sæsonlukket</span>' : "";
+  var priv = p.visibility === "andel" ? '<span class="tag priv">Kun vores andel</span>' : p.visibility === "mig" ? '<span class="tag priv">Kun mig</span>' : "";
+  return '<div class="town pcard" id="' + esc(p.id) + '"><button class="tlink" type="button" data-open="' + esc(p.id) + '">' +
+    (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">' : '<span class="noimg">' + (CAT_ICONS[p.cat] || "") + "</span>") +
+    '<span class="tname">' + esc(p.name) + '</span><span class="tmeta">' + esc(meta) + "</span>" + (warn || priv ? '<span class="ptags">' + warn + priv + "</span>" : "") + "</button>" +
+    '<div class="trate">' + ratingButton("place", p.id, p.cat, p) + "</div></div>";
+}
 function placeCard(p, detail, showKat) {
     var html = '<article class="place' + (detail ? " detailcard" : "") + '" id="' + esc(p.id) + '" data-pid="' + esc(p.id) + '">' + carousel(p);
     html += '<div class="place-top"><h3>' + (detail ? esc(p.name) : '<button class="titlebtn" type="button" data-open="' + esc(p.id) + '">' + esc(p.name) + "</button>") + "</h3>" + ratingButton("place", p.id, p.cat, p) + "</div>";
@@ -672,12 +683,12 @@ function render() {
     list = [];
     if (areaDetail) html += head + grid;
   }
-  html += '<div class="list">';
+  html += '<div class="list' + (detail ? "" : " grid") + '">';
   if (!ui.loaded) html += '<p class="empty-state">Henter steder…</p>';
   else if (!list.length && inApt) html += '<p class="empty-state">' + (ui.cat === "vores" ? "Intet om jeres lejlighed endnu. Tryk \"+ Nyt sted\" for at lægge billeder og noter om jeres lejlighed ind – det kan kun jeres andel se." : "Ingen billeder af hotellet endnu.") + "</p>";
   else if (!list.length && searching && !detail) html += '<p class="empty-state">Ingen steder matcher søgningen.</p>';
   else if (!list.length && listView && !((inTowns || inTrips) && (ui.town || ui.region))) html += '<p class="empty-state">' + (ui.status === "wish" ? "Ingen ønsker her endnu." : "Intet her endnu.") + (ui.editor ? ' Tryk "+ Nyt sted" for at tilføje et.' : "") + "</p>";
-  list.forEach(function (p) { html += placeCard(p, !!detail, ui.cat === "alle" || inTowns || inTrips || searching || !!detail); });
+  list.forEach(function (p) { html += detail ? placeCard(p, true, true) : gridCard(p, ui.cat === "alle" || inTowns || inTrips || searching || isApt(ui.cat)); });
   html += "</div>";
 
   if (ui.cat === "lejligheden") html += '<section class="practical"><p class="eyebrow">Det praktiske, kort</p><h2>Når I bor på hotellet</h2><dl>';
@@ -1822,7 +1833,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 53;
+var APP_VERSION = 54;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
