@@ -38,7 +38,7 @@ var raw = { places: [], towns: [], regions: [], exps: [], photos: [] };
 var me = null;          // { andel, label, role, name, admin } for den indloggede
 var authors = {};       // bruger-id -> { name, label }
 var andelLabels = {};   // andel-id -> "101-043"
-var ui = { checking: true, view: "liste", scope: "alle", cat: "hjem", home: (function () { try { return localStorage.getItem("bol-home") || "A"; } catch (e) { return "A"; } })(), status: "tried", editor: false, user: null, draft: null, login: null, msg: "", busy: false, loaded: false };
+var ui = { checking: true, view: "liste", scope: "alle", cat: "hjem", status: "tried", editor: false, user: null, draft: null, login: null, msg: "", busy: false, loaded: false };
 // Som app på hjemmeskærmen starter den altid på "Alle" (undtagen lige efter en automatisk opdatering)
 var isApp = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
 var h = (location.hash || "").slice(1); if ((CATNAME[h] || h === "byer" || h === "dagsture" || h === "alle") && (!isApp || /[?&]v=/.test(location.search))) ui.cat = h;
@@ -496,31 +496,19 @@ function renderHome() {
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
   if (ui.draft) html += formHtml(ui.draft);
   if (ui.areaDraft) html += areaFormHtml(ui.areaDraft);
-  html += '<div class="homeswitch" role="group" aria-label="Prøv forside"><span class="hint">Prøv forside:</span><div class="seg small"><button type="button" data-home="A" aria-pressed="' + (ui.home === "A") + '">A · Felter</button><button type="button" data-home="B" aria-pressed="' + (ui.home === "B") + '">B · Hvad skal vi i dag?</button></div></div>';
   html += '<section class="hero"' + (hero ? ' style="--hero:url(&quot;' + esc(hero) + '&quot;)"' : "") + '><div class="herotext"><p>Hej ' + esc(me.name || "") + '</p><p class="herosub">Andel ' + esc(me.label) + " · " + spots.length + " steder i guiden</p></div></section>";
   html += '<button type="button" class="homesearch" data-open-search>' + ICON_SEARCH + "<span>Hvad leder du efter?</span></button>";
-  if (ui.home === "A") {
-    var used = {}; if (hotel) used[hotel.id] = 1;
-    html += '<div class="tiles">' + HOME_TILES.map(function (t) {
-      var list = t[0] === "alle" || t[0] === "kort" ? spots : t[0] === "dagsture" ? spots.filter(function (p) { return regionDrive(regionOf(p.town)) >= DAYTRIP_MIN; }) : t[0] === "byer" ? spots : places.filter(function (p) { return p.cat === t[0]; });
-      var n = t[0] === "byer" ? allTownNames().filter(function (x) { return placesIn(x).length; }).length : t[0] === "kort" ? null : list.length;
-      var img = coverFor(list, used);
-      return '<button type="button" class="tile" data-hometile="' + t[0] + '"' + (img ? ' style="--img:url(&quot;' + esc(img) + '&quot;)"' : "") + ">" + (img ? "" : '<span class="ticon">' + (CAT_ICONS[t[0] === "kort" ? "dagsture" : t[0]] || CAT_ICONS.alle) + "</span>") + '<span class="tlabel">' + esc(t[1]) + (n != null ? ' <span class="tn">' + n + "</span>" : "") + "</span></button>";
-    }).join("") + "</div>";
-    html += homeRow("Nyt fra andelshaverne", newsItems(), "Når andelshaverne skriver og giver stjerner, kommer det her.");
-    html += homeRow('Jeres "Vil prøve"', wishItems(), 'Tryk "Sæt på vores Vil prøve" på et sted, så kommer det her.');
-  } else {
-    html += homeRow("Nyt fra andelshaverne", newsItems(), "Når andelshaverne skriver og giver stjerner, kommer det her.");
-    html += homeRow('Jeres "Vil prøve"', wishItems(), 'Tryk "Sæt på vores Vil prøve" på et sted, så kommer det her.');
-    var near = ui.nearMe ? spots.filter(function (p) { return p.lat != null; }).map(function (p) { return [p, distM(ui.nearMe[0], ui.nearMe[1], p.lat, p.lon)]; }).sort(function (a, b) { return a[1] - b[1]; }).slice(0, 10)
-      .map(function (x) { return miniCard(x[0], x[1] < 1000 ? Math.round(x[1] / 10) * 10 + " m herfra" : (x[1] / 1000).toFixed(1).replace(".", ",") + " km herfra"); }) : null;
-    html += near ? homeRow("Tæt på dig lige nu", near, "") : '<section class="hrow"><h2 class="subhead">Tæt på dig lige nu</h2><button class="btn" type="button" id="near-me">Vis steder tæt på mig</button>' + (ui.nearErr ? '<p class="hint">' + esc(ui.nearErr) + "</p>" : "") + "</section>";
-    html += homeRow("Bedst bedømt", spots.filter(function (p) { return overall(p); }).sort(function (a, b) { return scoreOf(b) - scoreOf(a); }).slice(0, 10).map(function (p) { return miniCard(p); }), "");
-    html += homeRow("Senest besøgt af jer", spots.filter(function (p) { return p.mine && p.mine.status === "tried"; }).sort(function (a, b) { return lastKey(b).localeCompare(lastKey(a)); }).slice(0, 10).map(function (p) { return miniCard(p); }), "");
-    var trips = regionNames().filter(function (r) { return r !== NO_REGION && regionDrive(r) >= DAYTRIP_MIN && regionDrive(r) < FAR_MIN && townsInRegion(r).some(function (n) { return placesIn(n).length; }); });
-    html += '<section class="hrow"><h2 class="subhead">Dagsture</h2><div class="hscroll">' + trips.map(function (r) { var a = areaObj("region", r); return '<button type="button" class="hcard" data-region="' + esc(r) + '">' + (a.cover ? '<img src="' + esc(photoUrl(a.cover)) + '" alt="" loading="lazy">' : '<span class="hnoimg"></span>') + '<span class="hname">' + esc(r) + '</span><span class="hmeta">ca. ' + timeText(a.drive) + " i bil</span></button>"; }).join("") + "</div></section>";
-    html += '<section class="hrow"><h2 class="subhead">Gå til</h2><div class="chips">' + HOME_TILES.map(function (t) { return '<button class="chip" type="button" data-hometile="' + t[0] + '">' + esc(t[1]) + "</button>"; }).join("") + "</div></section>";
-  }
+  var used = {}; if (hotel) used[hotel.id] = 1;
+  html += '<div class="tiles">' + HOME_TILES.map(function (t) {
+    var list = t[0] === "alle" || t[0] === "kort" ? spots : t[0] === "dagsture" ? spots.filter(function (p) { return regionDrive(regionOf(p.town)) >= DAYTRIP_MIN; }) : t[0] === "byer" ? spots : places.filter(function (p) { return p.cat === t[0]; });
+    var n = t[0] === "byer" ? allTownNames().filter(function (x) { return placesIn(x).length; }).length : t[0] === "kort" ? null : list.length;
+    var img = coverFor(list, used);
+    return '<button type="button" class="tile" data-hometile="' + t[0] + '"' + (img ? ' style="--img:url(&quot;' + esc(img) + '&quot;)"' : "") + ">" + (img ? "" : '<span class="ticon">' + (CAT_ICONS[t[0] === "kort" ? "dagsture" : t[0]] || CAT_ICONS.alle) + "</span>") + '<span class="tlabel">' + esc(t[1]) + (n != null ? ' <span class="tn">' + n + "</span>" : "") + "</span></button>";
+  }).join("") + "</div>";
+  html += homeRow("Nyt fra andelshaverne", newsItems(), "Når andelshaverne skriver og giver stjerner, kommer det her.");
+  html += homeRow('Jeres "Vil prøve"', wishItems(), 'Tryk "Sæt på vores Vil prøve" på et sted, så kommer det her.');
+  html += homeRow("Bedst bedømt", spots.filter(function (p) { return overall(p); }).sort(function (a, b) { return scoreOf(b) - scoreOf(a); }).slice(0, 10).map(function (p) { return miniCard(p); }), "Ingen vurderinger endnu.");
+  html += homeRow("Senest besøgt af jer", spots.filter(function (p) { return p.mine && p.mine.status === "tried"; }).sort(function (a, b) { return lastKey(b).localeCompare(lastKey(a)); }).slice(0, 10).map(function (p) { return miniCard(p); }), "Når I har været et sted, kommer det her.");
   html += footerHtml();
   if (ui.editor && !ui.draft) {
     if (ui.chooser) html += '<div class="chooser" role="menu"><button class="btn primary" type="button" id="new-photo">Vælg billeder</button><button class="btn" type="button" id="new-manual">Uden billede (fx et sted vi vil prøve)</button></div>';
@@ -1764,7 +1752,6 @@ document.addEventListener("click", async function (e) {
     var rw = await saveExp("place", t.dataset.wish, { status: "wish" });
     ui.msg = rw.error ? "Det blev ikke gemt. Prøv igen." : "Lagt på jeres \"Vil prøve\"-liste."; decorate(); render(); return;
   }
-  if (t.dataset.home) { ui.home = t.dataset.home; try { localStorage.setItem("bol-home", ui.home); } catch (x) {} render(); return; }
   if (t.dataset.hometile) { var ht = t.dataset.hometile; nav(function () { ui.place = null; ui.town = null; ui.region = null; ui.sub = null; ui.subcat = null; ui.ftown = null; if (ht === "kort") { ui.cat = "alle"; ui.view = "kort"; } else { ui.cat = ht; ui.view = "liste"; } }); return; }
   if (t.id === "near-me") {
     if (!navigator.geolocation) { ui.nearErr = "Telefonen kan ikke give placeringen her."; render(); return; }
@@ -1835,7 +1822,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 52;
+var APP_VERSION = 53;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
