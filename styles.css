@@ -297,3 +297,39 @@ kbd{font:inherit;font-size:.85em;border:1px solid var(--line);border-radius:4px;
 @media (max-width:420px){.statusrow .seg button{font-size:.84rem;padding:7px 4px}}
 .leaflet-tooltip.arealabel{background:rgba(255,255,255,.85);border:0;box-shadow:none;color:#0d5c6b;font-weight:700;font-family:var(--body);font-size:.82rem;padding:1px 6px;border-radius:6px;pointer-events:auto;cursor:pointer}
 .leaflet-tooltip.arealabel:before{display:none}
+
+/* ---------- flere andele: stjerner, tekster, synlighed, Vores andel ---------- */
+header h1{font-size:clamp(1.6rem,6vw,2.3rem)}
+.rwrap{display:inline-flex;flex-direction:column;align-items:flex-end;gap:2px}
+.rbtn.avg .rnum{opacity:.75}
+.rcount{font-size:.75rem;color:var(--muted);margin-left:3px}
+.ravg{font-size:.75rem;color:var(--muted);white-space:nowrap}
+.otext{margin:8px 0 0;padding:6px 0 6px 12px;border-left:3px solid var(--line)}
+.otext p{margin:0}
+.otext cite{display:block;font-style:normal;font-size:.8rem;color:var(--muted);margin-top:2px}
+.privnote{font-size:.8rem;color:var(--muted)}
+.tag.priv{background:var(--ochre-soft);color:var(--ochre);border-color:transparent}
+.ph{position:relative}
+.visbtn{position:absolute;top:6px;right:6px;font:inherit;font-size:.72rem;font-weight:700;border:0;border-radius:999px;padding:3px 8px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.visbtn.v-alle{background:#e7f3ea;color:#2e6b3a}
+.visbtn.v-andel{background:var(--ochre-soft);color:var(--ochre)}
+.visbtn.v-mig{background:#3a3a3a;color:#fff}
+.qthumbs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.qthumb{position:relative;flex:0 0 auto}
+.qthumb img{width:110px;height:110px;object-fit:cover;border-radius:8px;display:block}
+.qthumb .visbtn{top:auto;bottom:4px;right:4px;left:4px;text-align:center}
+.members{list-style:none;padding:0;margin:14px 0}
+.members li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.invite{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.invite h3{margin:6px 0 0}
+.invitetext textarea{width:100%;min-height:110px;font:inherit;font-size:.9rem;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:10px}
+.pcell img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;display:block;background:var(--line)}
+.pcell .seg{margin-top:4px;max-width:none}
+.pcell .seg button{font-size:.72rem;padding:5px 2px}
+.rules h3{margin-top:18px}
+.rules ul{padding-left:1.2em}
+.welcome{margin-top:10px}
+.rothers{margin-top:10px;font-size:.9rem}
+.rothers p{margin:4px 0}
+.rothers .rstars .on{color:var(--gold,#d4a017)}

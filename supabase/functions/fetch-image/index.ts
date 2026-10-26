@@ -1,5 +1,5 @@
 // Henter op til 3 billeder fra et steds hjemmeside eller blog og gemmer dem på stedet.
-// Kun for redaktører (tjekkes mod tabellen editors med brugerens eget login).
+// Kun for medlemmer af en andel (tjekkes med brugerens eget login). Billederne gemmes som "Alle" og tilhører brugerens andel.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const CORS = {
@@ -50,12 +50,15 @@ Deno.serve(async (req) => {
     const { id, max } = await req.json();
     const auth = req.headers.get("Authorization") || "";
     const user = createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: auth } } });
-    const ed = await user.from("editors").select("email").limit(1);
-    const isEditor = !ed.error && ed.data && ed.data.length > 0;
-    if (!isEditor) return json({ error: "Kun for redaktører." }, 403);
+    const { data: u } = await user.auth.getUser(auth.replace(/^Bearer\s+/i, ""));
+    if (!u || !u.user) return json({ error: "Log ind først." }, 401);
+    const mem = await user.from("members").select("andel_id").eq("user_id", u.user.id).limit(1);
+    const andel = mem.data && mem.data[0] && mem.data[0].andel_id;
+    if (!andel) return json({ error: "Kun for andelshavere og deres gæster." }, 403);
 
     const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const pr = await admin.from("places").select("id,website,link,photos").eq("id", id).single();
+    // Stedet skal kunne ses af brugeren (læses med brugerens eget login)
+    const pr = await user.from("places").select("id,website,link").eq("id", id).single();
     if (pr.error || !pr.data) return json({ error: "Stedet findes ikke." }, 404);
     const p = pr.data;
     const sources = [p.website, p.link].filter((s: string | null) => s && /^https?:/.test(s) && !/google\.[a-z.]+\/maps|goo\.gl|maps\.app/i.test(s));
@@ -76,7 +79,7 @@ Deno.serve(async (req) => {
           const buf = new Uint8Array(await r.arrayBuffer());
           if (buf.length < 15_000 || buf.length > 8_000_000) continue;
           const ext = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
-          const path = `${id}/web-${Date.now().toString(36)}${saved.length}.${ext}`;
+          const path = `${andel}/${id}/web-${Date.now().toString(36)}${saved.length}.${ext}`;
           const up = await admin.storage.from("photos").upload(path, buf, { contentType: type, upsert: false });
           if (up.error) continue;
           saved.push(path); credit = credit || hostOf(src);
@@ -84,10 +87,9 @@ Deno.serve(async (req) => {
       }
     }
     if (!saved.length) return json({ error: "Fandt ingen brugbare billeder på siden." }, 404);
-    const photos = (p.photos || []).concat(saved);
-    const u = await admin.from("places").update({ photos, photo_credit: credit, updated_at: new Date().toISOString() }).eq("id", id);
-    if (u.error) return json({ error: u.error.message }, 500);
-    return json({ added: saved.length, photos, credit });
+    const ins = await admin.from("photos").insert(saved.map((path, i) => ({ kind: "place", target: id, path, andel_id: andel, owner: u.user.id, visibility: "alle", faces: false, credit, sort: 200 + i })));
+    if (ins.error) return json({ error: ins.error.message }, 500);
+    return json({ added: saved.length, photos: saved, credit });
   } catch (e) {
     return json({ error: String(e && (e as Error).message || e) }, 500);
   }
