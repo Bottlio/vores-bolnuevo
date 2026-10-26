@@ -559,7 +559,6 @@ function render() {
   if (inApt) list = places.filter(function (p) { return p.cat === APT; });
   else if ((inTowns || inTrips) && ui.region) {
     var inReg = byStatus.filter(function (p) { return regionOf(p.town) === ui.region; });
-    sub = '<div class="chips" role="group" aria-label="Tilbage">' + chip(inTrips ? "region" : "town", "", inTrips ? "‹ Alle dagsture" : "‹ Alle byer", null, false) + "</div>";
     head = areaHeader("region", ui.region);
     var rt = townsInRegion(ui.region).filter(townShown);
     if (rt.length) grid = '<h2 class="subhead">Byer i ' + esc(ui.region) + '</h2><div class="towns">' + rt.map(function (n) { return areaCard("town", n, ui.status); }).join("") + "</div>";
@@ -567,7 +566,6 @@ function render() {
     list = inReg.filter(function (p) { return (!ui.sub || p.cat === ui.sub) && rated(p); });
   } else if (inTowns && ui.town) {
     var inTown = byStatus.filter(function (p) { return p.town === ui.town; });
-    sub = '<div class="chips" role="group" aria-label="Tilbage">' + chip("town", "", "‹ Alle byer", null, false) + "</div>";
     head = areaHeader("town", ui.town);
     if (inTown.length) grid = '<h2 class="subhead">Steder i ' + esc(ui.town) + "</h2>" + subChips(inTown, "Kategori");
     list = inTown.filter(function (p) { return (!ui.sub || p.cat === ui.sub) && rated(p); });
@@ -657,7 +655,7 @@ function render() {
   var summary = searching ? 'Søgning: "' + ui.q.trim() + '"' : [ui.scope === "vores" && !inApt ? "Kun vores" : "", inApt ? "" : (ui.status === "wish" ? "Vil prøve" : "Har prøvet"), ui.cat === "alle" ? "Alle" : ui.cat === "byer" ? "Byer" : ui.cat === "dagsture" ? "Dagsture" : CATNAME[ui.cat], ui.subcat && ui.subcat !== "__ingen" ? subName(ui.cat, ui.subcat) : "", ui.fOpen ? "uden sæsonlukkede" : "", ui.fSun ? "søndagsåbent" : "", ui.fEarly ? "åbent før kl. 20" : "", ui.region || "", ui.town || ui.ftown || "", ui.sub ? CATNAME[ui.sub] : "",
     ui.minRating ? ui.minRating + "+ ★" : "", ui.sort && ui.sort !== "senest" ? { nyeste: "senest tilføjet", naermeste: "nærmeste først", stjerner: "flest stjerner", navn: "A–Å" }[ui.sort] : ""].filter(Boolean).join(" · ");
   if (detail) {
-    html += '<div class="bar" id="fullbar"><div class="row"><button class="chip" type="button" data-closeplace>‹ Tilbage</button></div></div>';
+    html += '<div class="bar detailbar" id="fullbar"></div>';
   } else if (searching) {
     html += '<div class="bar" id="fullbar"><div class="row"><strong>' + list.length + (list.length === 1 ? " sted" : " steder") + ' matcher "' + esc(ui.q.trim()) + '"</strong><button class="btn small" type="button" id="q-clear">Ryd søgning</button></div></div>';
   } else html += '<div class="bar" id="fullbar">' + f + "</div>";
@@ -887,7 +885,7 @@ function renderGate() {
   root.innerHTML = html;
   slim.innerHTML = ""; slim.classList.remove("show"); panel.hidden = true;
 }
-function pageBack() { return '<div class="bar" id="fullbar"><div class="row"><button class="chip" type="button" data-page="">‹ Tilbage til guiden</button></div></div>'; }
+function pageBack() { return ""; }
 
 /* ---------- Vores andel: medlemmer, invitationer, billeder med personer ---------- */
 var andelData = null;
@@ -1833,7 +1831,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 54;
+var APP_VERSION = 55;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
