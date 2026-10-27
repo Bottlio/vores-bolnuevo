@@ -544,16 +544,23 @@ function setTop(h) { topEl.innerHTML = h; }
 function toolbar(show, tried, wish) {
   tbEl.hidden = !show; if (!show) return;
   if (!tbInput) {
-    tbEl.innerHTML = '<div class="tsearch">' + ICON_SEARCH + '<input id="tq" type="search" placeholder="Hvad leder du efter?" autocomplete="off" enterkeyhint="search" aria-label="Søg"><button type="button" class="tclear" data-tb="clear" aria-label="Ryd søgning" hidden>×</button></div><div class="tctrl"></div>';
+    tbEl.innerHTML = '<div class="tsearch">' + ICON_SEARCH + '<input id="tq" type="search" placeholder="Søg" autocomplete="off" enterkeyhint="search" aria-label="Søg"><button type="button" class="tclear" data-tb="clear" aria-label="Ryd søgning" hidden>×</button></div><div class="tctrl"></div>';
     tbInput = tbEl.querySelector("#tq"); tbCtrl = tbEl.querySelector(".tctrl"); tbClear = tbEl.querySelector(".tclear");
+    tbClear.addEventListener("mousedown", function (e) { e.preventDefault(); });
     tbInput.addEventListener("input", function () { ui.q = tbInput.value; tbClear.hidden = !ui.q; render(); });
   }
   if (document.activeElement !== tbInput) tbInput.value = ui.q || "";
   tbClear.hidden = !(ui.q || "");
   var toMap = ui.view !== "kort";
-  tbCtrl.innerHTML = '<div class="seg small" role="group" aria-label="Liste"><button type="button" data-status="tried" aria-pressed="' + (ui.status === "tried") + '">Har prøvet (' + tried + ')</button><button type="button" data-status="wish" aria-pressed="' + (ui.status === "wish") + '">Vil prøve (' + wish + ")</button></div>" +
-    '<div class="seg small" role="group" aria-label="Hvis indhold"><button type="button" data-scope="alle" aria-pressed="' + (ui.scope !== "vores") + '">Alle andele</button><button type="button" data-scope="vores" aria-pressed="' + (ui.scope === "vores") + '">Kun vores</button></div>' +
-    '<button class="iconbtn viewbtn" type="button" data-view="' + (toMap ? "kort" : "liste") + '" aria-label="' + (toMap ? "Vis på kort" : "Vis som gitter") + '" title="' + (toMap ? "Vis på kort" : "Vis som gitter") + '">' + (toMap ? ICON_MAP : ICON_LIST) + "</button>";
+  var seg = function (attr, val, on, label, extra) { return '<button type="button" data-' + attr + '="' + val + '" aria-pressed="' + on + '"' + (extra || "") + ">" + label + "</button>"; };
+  tbCtrl.innerHTML = '<div class="pill" role="group" aria-label="Liste">' +
+      seg("status", "tried", ui.status === "tried", '<span class="pl">Har prøvet</span><span class="ps">Prøvet</span><span class="pn">' + tried + "</span>") +
+      seg("status", "wish", ui.status === "wish", '<span class="pl">Vil prøve</span><span class="ps">Vil prøve</span><span class="pn">' + wish + "</span>") + "</div>" +
+    '<div class="pill pscope" role="group" aria-label="Hvis indhold">' +
+      seg("scope", "alle", ui.scope !== "vores", ICON_PEOPLE + '<span class="pl">Alle andele</span>', ' title="Alle andele" aria-label="Alle andele"') +
+      seg("scope", "vores", ui.scope === "vores", ICON_HOUSE + '<span class="pl">Kun vores</span>', ' title="Kun vores andel" aria-label="Kun vores andel"') + "</div>" +
+    '<button class="tscope' + (ui.scope === "vores" ? " on" : "") + '" type="button" data-scope="' + (ui.scope === "vores" ? "alle" : "vores") + '" title="' + (ui.scope === "vores" ? "Viser kun vores andel – tryk for alle andele" : "Viser alle andele – tryk for kun vores") + '" aria-label="' + (ui.scope === "vores" ? "Viser kun vores andel. Vis alle andele" : "Viser alle andele. Vis kun vores andel") + '">' + (ui.scope === "vores" ? ICON_HOUSE : ICON_PEOPLE) + "</button>" +
+    '<button class="tview" type="button" data-view="' + (toMap ? "kort" : "liste") + '" aria-label="' + (toMap ? "Vis på kort" : "Vis som gitter") + '" title="' + (toMap ? "Vis på kort" : "Vis som gitter") + '">' + (toMap ? ICON_MAP : ICON_LIST) + "</button>";
 }
 
 var APTS = ["lejligheden", "vores"];
@@ -818,6 +825,8 @@ function drawMap(list, areas, focus) {
 
 /* ---------- smal menulinje øverst + søgning ---------- */
 var ICON_SEARCH = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><line x1="15.5" y1="15.5" x2="21" y2="21" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+var ICON_PEOPLE = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.3 3-5 6-5s5.4 1.7 6 5"/><circle cx="17" cy="9" r="2.6"/><path d="M16.5 14c2.4.2 4 1.7 4.5 4.5"/></svg>';
+var ICON_HOUSE = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></svg>';
 var ICON_MAP = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 4 3 6.5v13.5L9 17.5l6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg>';
 var ICON_LIST = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="4" width="7" height="7" rx="1.5"/><rect x="13.5" y="4" width="7" height="7" rx="1.5"/><rect x="3.5" y="14" width="7" height="7" rx="1.5"/><rect x="13.5" y="14" width="7" height="7" rx="1.5"/></svg>';
 var ICON_BACK = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>';
@@ -1851,7 +1860,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 57;
+var APP_VERSION = 58;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
