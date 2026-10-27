@@ -127,7 +127,6 @@ footer{margin-top:32px;color:var(--muted);font-size:.85rem;display:flex;flex-dir
 .searchwrap{position:fixed;top:0;left:0;right:0;z-index:31;display:flex;gap:8px;background:var(--bg);border-bottom:1px solid var(--line);
   padding:calc(8px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px))}
 .searchwrap input{flex:1}
-body:has(.searchwrap:not([hidden])) #root{padding-top:calc(80px + env(safe-area-inset-top,0px))}
 @media (prefers-reduced-motion:reduce){.slim{transition:none}}
 /* Kategorier som ikoner på én linje, der kan scrolles sidelæns */
 .cats{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;margin:0 calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding:2px max(16px,env(safe-area-inset-left,0px))}
@@ -374,3 +373,22 @@ header>div{min-width:0}
 .ptags .tag{font-size:.7rem;padding:1px 7px}
 .pcard .trate .rwrap{align-items:flex-start}
 .detailbar{padding:0;border-bottom:0;margin-top:8px}
+
+/* ---------- fast top og værktøjslinje ---------- */
+#top,#toolbar{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#top{padding-top:calc(28px + env(safe-area-inset-top,0px))}
+#root{padding-top:4px}
+#toolbar{margin-top:14px}
+#toolbar[hidden]{display:none}
+@media (min-width:700px){#top,#toolbar{max-width:1180px}}
+.toolbar{display:flex;flex-direction:column;gap:10px}
+.tsearch{position:relative;display:flex;align-items:center;gap:10px;padding:0 16px;background:var(--surface);border:1px solid var(--line);border-radius:999px;color:var(--muted)}
+.tsearch:focus-within{border-color:var(--sea)}
+.tsearch input{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:1rem;color:var(--fg);padding:12px 0;outline:none}
+.tsearch input::-webkit-search-cancel-button{display:none}
+.tclear{border:0;background:none;font-size:1.4rem;line-height:1;color:var(--muted);cursor:pointer;padding:4px}
+.tctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.tctrl .seg{flex:1 1 auto;max-width:none}
+.tctrl .seg button{white-space:nowrap}
+.tctrl .viewbtn{flex:0 0 44px}
+@media (max-width:480px){.tctrl .seg:first-child{flex-basis:calc(100% - 52px)}.tctrl .seg:nth-child(2){order:3;flex-basis:100%}}

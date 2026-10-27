@@ -503,13 +503,17 @@ function renderHome() {
   var spots = places.filter(function (p) { return !isApt(p.cat); });
   var hotel = places.filter(function (p) { return p.cat === "lejligheden" && p.photos && p.photos.length; })[0];
   var hero = hotel ? photoUrl(hotel.photos[0]) : coverFor(spots);
-  var html = headerHtml(false);
+  setTop(headerHtml() + '<section class="hero"' + (hero ? ' style="--hero:url(&quot;' + esc(hero) + '&quot;)"' : "") + '><div class="herotext"><p>Hej ' + esc(me.name || "") + '</p><p class="herosub">Andel ' + esc(me.label) + " · " + spots.length + " steder i guiden</p></div></section>");
+  var sc = statusCounts(); toolbar(true, sc.tried, sc.wish);
+  var html = "";
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
   if (ui.draft) html += formHtml(ui.draft);
   if (ui.areaDraft) html += areaFormHtml(ui.areaDraft);
-  html += '<section class="hero"' + (hero ? ' style="--hero:url(&quot;' + esc(hero) + '&quot;)"' : "") + '><div class="herotext"><p>Hej ' + esc(me.name || "") + '</p><p class="herosub">Andel ' + esc(me.label) + " · " + spots.length + " steder i guiden</p></div></section>";
-  html += '<button type="button" class="homesearch" data-open-search>' + ICON_SEARCH + "<span>Hvad leder du efter?</span></button>";
+  spots = spots.filter(function (p) { return p.status === ui.status; });
+  var homeMap = ui.view === "kort";
+  if (homeMap) html += '<div class="mapwrap"><div id="map" role="region" aria-label="Kort over stederne"></div><p class="hint">' + spots.filter(function (p) { return p.lat != null; }).length + " af " + spots.length + " steder har en placering og vises på kortet.</p></div>";
   var used = {}; if (hotel) used[hotel.id] = 1;
+  if (!homeMap)
   html += '<div class="tiles">' + HOME_TILES.map(function (t) {
     var list = t[0] === "alle" || t[0] === "kort" ? spots : t[0] === "dagsture" ? spots.filter(function (p) { return regionDrive(regionOf(p.town)) >= DAYTRIP_MIN; }) : t[0] === "byer" ? spots : places.filter(function (p) { return p.cat === t[0]; });
     var n = t[0] === "byer" ? allTownNames().filter(function (x) { return placesIn(x).length; }).length : t[0] === "kort" ? null : list.length;
@@ -526,7 +530,30 @@ function renderHome() {
     html += '<button class="fab" type="button" id="new" aria-label="Nyt sted" aria-expanded="' + !!ui.chooser + '"><span aria-hidden="true">' + (ui.chooser ? "×" : "+") + "</span> " + (ui.chooser ? "Luk" : "Nyt sted") + "</button>";
   }
   root.innerHTML = html;
+  if (homeMap) drawMap(spots, []);
   slim.innerHTML = ""; slim.classList.remove("show"); panel.hidden = true;
+}
+function statusCounts() {
+  var spots = places.filter(function (p) { return !isApt(p.cat); }), t = spots.filter(function (p) { return p.status === "tried"; }).length;
+  return { tried: t, wish: spots.length - t };
+}
+
+/* ---------- fast top og værktøjslinje: samme sted og samme udseende på alle sider ---------- */
+var topEl = document.getElementById("top"), tbEl = document.getElementById("toolbar"), tbInput = null, tbCtrl = null, tbClear = null;
+function setTop(h) { topEl.innerHTML = h; }
+function toolbar(show, tried, wish) {
+  tbEl.hidden = !show; if (!show) return;
+  if (!tbInput) {
+    tbEl.innerHTML = '<div class="tsearch">' + ICON_SEARCH + '<input id="tq" type="search" placeholder="Hvad leder du efter?" autocomplete="off" enterkeyhint="search" aria-label="Søg"><button type="button" class="tclear" data-tb="clear" aria-label="Ryd søgning" hidden>×</button></div><div class="tctrl"></div>';
+    tbInput = tbEl.querySelector("#tq"); tbCtrl = tbEl.querySelector(".tctrl"); tbClear = tbEl.querySelector(".tclear");
+    tbInput.addEventListener("input", function () { ui.q = tbInput.value; tbClear.hidden = !ui.q; render(); });
+  }
+  if (document.activeElement !== tbInput) tbInput.value = ui.q || "";
+  tbClear.hidden = !(ui.q || "");
+  var toMap = ui.view !== "kort";
+  tbCtrl.innerHTML = '<div class="seg small" role="group" aria-label="Liste"><button type="button" data-status="tried" aria-pressed="' + (ui.status === "tried") + '">Har prøvet (' + tried + ')</button><button type="button" data-status="wish" aria-pressed="' + (ui.status === "wish") + '">Vil prøve (' + wish + ")</button></div>" +
+    '<div class="seg small" role="group" aria-label="Hvis indhold"><button type="button" data-scope="alle" aria-pressed="' + (ui.scope !== "vores") + '">Alle andele</button><button type="button" data-scope="vores" aria-pressed="' + (ui.scope === "vores") + '">Kun vores</button></div>' +
+    '<button class="iconbtn viewbtn" type="button" data-view="' + (toMap ? "kort" : "liste") + '" aria-label="' + (toMap ? "Vis på kort" : "Vis som gitter") + '" title="' + (toMap ? "Vis på kort" : "Vis som gitter") + '">' + (toMap ? ICON_MAP : ICON_LIST) + "</button>";
 }
 
 var APTS = ["lejligheden", "vores"];
@@ -625,7 +652,8 @@ function render() {
   if (list) list.sort(SORTS[ui.sort] || SORTS.senest);
   var detail = ui.place ? places.filter(function (p) { return p.id === ui.place; })[0] || null : null;
 
-  var html = headerHtml(true);
+  setTop(headerHtml()); toolbar(true, tried, wish);
+  var html = "";
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
   if (ui.login) html += loginHtml();
   if (ui.draft) html += formHtml(ui.draft);
@@ -634,8 +662,6 @@ function render() {
   var f = "";
   // Knappen viser den visning, man skifter TIL: kort-ikon i listen, liste-ikon på kortet
   var toMap = ui.view !== "kort";
-  if (!inApt) f += '<div class="statusrow"><div class="seg" role="group" aria-label="Vis"><button type="button" data-status="tried" aria-pressed="' + (ui.status === "tried") + '">Har prøvet (' + tried + ')</button><button type="button" data-status="wish" aria-pressed="' + (ui.status === "wish") + '">Vil prøve (' + wish + ")</button></div>" +
-    '<button class="iconbtn viewbtn" type="button" data-view="' + (toMap ? "kort" : "liste") + '" aria-label="' + (toMap ? "Vis på kort" : "Vis som liste") + '" title="' + (toMap ? "Vis på kort" : "Vis som liste") + '">' + (toMap ? ICON_MAP : ICON_LIST) + "</button></div>";
   f += '<div class="cats" role="group" aria-label="Kategori">' + catBtn("alle", "Alle", counts.alle) + catBtn("byer", "Byer", counts.byer) + catBtn("dagsture", "Dagsture", counts.dagsture);
   CATS.forEach(function (c) { f += catBtn(c[0], c[0] === "opladning" ? "Elbil" : c[1], counts[c[0]]); });
   f += "</div>";
@@ -644,8 +670,6 @@ function render() {
   var listView = list !== null;
   if (!inApt && listView) f += '<label class="sel"><span aria-hidden="true">★</span><select data-select="rating" aria-label="Karakter">' +
     [[0, "Alle karakterer"], [4, "4 stjerner og op"], [5, "Kun 5 stjerner"]].map(function (r) { return '<option value="' + r[0] + '"' + ((ui.minRating || 0) === r[0] ? " selected" : "") + ">" + r[1] + "</option>"; }).join("") + "</select></label>";
-  if (!inApt) f += '<label class="sel"><span aria-hidden="true">👥</span><select data-select="scope" aria-label="Hvis indhold">' +
-    [["alle", "Alle andele"], ["vores", "Kun vores andel"]].map(function (o) { return '<option value="' + o[0] + '"' + (ui.scope === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>";
   f += '<label class="sel"><span aria-hidden="true">⇅</span><select data-select="sort" aria-label="Sortér">' +
     [["senest", "Senest besøgt"], ["nyeste", "Senest tilføjet"], ["naermeste", "Nærmeste først"], ["stjerner", "Flest stjerner"], ["navn", "Navn A–Å"]].map(function (o) { return '<option value="' + o[0] + '"' + ((ui.sort || "senest") === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>";
   f += "</div>";
@@ -657,7 +681,7 @@ function render() {
   if (detail) {
     html += '<div class="bar detailbar" id="fullbar"></div>';
   } else if (searching) {
-    html += '<div class="bar" id="fullbar"><div class="row"><strong>' + list.length + (list.length === 1 ? " sted" : " steder") + ' matcher "' + esc(ui.q.trim()) + '"</strong><button class="btn small" type="button" id="q-clear">Ryd søgning</button></div></div>';
+    html += '<div class="bar" id="fullbar"><div class="row"><strong>' + list.length + (list.length === 1 ? " sted" : " steder") + ' matcher "' + esc(ui.q.trim()) + '"</strong></div></div>';
   } else html += '<div class="bar" id="fullbar">' + f + "</div>";
   slimBar(summary, f, list ? list.length : null);
 
@@ -799,7 +823,7 @@ var ICON_LIST = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="tr
 var ICON_BACK = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>';
 var ICON_HOME = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg>';
 var ICON_FILTER = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 6h18M6 12h12M10 18h4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
-var slim = document.getElementById("slim"), panel = document.getElementById("filterpanel"), searchWrap = document.getElementById("searchwrap"), qInput = document.getElementById("q");
+var slim = document.getElementById("slim"), panel = document.getElementById("filterpanel");
 function slimBar(summary, filters, n) {
   slim.innerHTML = '<button type="button" class="slim-sum" data-toggle-panel>' + ICON_FILTER + '<span>' + esc(summary) + "</span></button>" + navBtns() + '<button class="iconbtn" type="button" data-open-search aria-label="Søg">' + ICON_SEARCH + "</button>";
   panel.innerHTML = ui.panel ? '<div class="panel-inner">' + filters + '<div class="row"><button class="btn primary" type="button" data-toggle-panel>Vis ' + (n == null ? "" : n + " ") + "steder</button></div></div>" : "";
@@ -815,13 +839,8 @@ function watchBar() {
   }, { rootMargin: "-64px 0px 0px 0px" });
   barObserver.observe(bar);
 }
-function openSearch() {
-  ui.panel = false; searchWrap.hidden = false; slim.classList.add("hidden-by-search");
-  qInput.value = ui.q || ""; qInput.focus();
-}
-function closeSearch() { searchWrap.hidden = true; slim.classList.remove("hidden-by-search"); ui.q = ""; qInput.value = ""; render(); }
-qInput.addEventListener("input", function () { ui.q = qInput.value; render(); window.scrollTo({ top: 0 }); });
-document.getElementById("q-close").addEventListener("click", closeSearch);
+function openSearch() { ui.panel = false; window.scrollTo({ top: 0 }); render(); if (tbInput) tbInput.focus(); }
+function closeSearch() { ui.q = ""; if (tbInput) tbInput.value = ""; render(); }
 document.addEventListener("click", function (e) {
   var t = e.target.closest("button"); if (!t) return;
   if (t.hasAttribute("data-open-search")) { openSearch(); return; }
@@ -832,7 +851,7 @@ document.addEventListener("click", function (e) {
     if (wasOpen) { var b = document.getElementById("fullbar"); if (b) window.scrollTo({ top: b.getBoundingClientRect().bottom + window.scrollY - 58 }); }
     return;
   }
-  if (t.id === "q-clear") { closeSearch(); return; }
+  if (t.id === "q-clear" || t.dataset.tb === "clear") { closeSearch(); if (tbInput) tbInput.focus(); return; }
 });
 
 function wireCarousels() {
@@ -853,9 +872,8 @@ function navBtns() {
   return (navStack.length ? '<button class="iconbtn" type="button" data-nav="back" aria-label="Tilbage" title="Tilbage">' + ICON_BACK + "</button>" : "") +
     (!atStart() ? '<button class="iconbtn" type="button" data-nav="home" aria-label="Til forsiden" title="Til forsiden">' + ICON_HOME + "</button>" : "");
 }
-function headerHtml(search) {
-  return '<header><div><p class="eyebrow">Andelshavernes guide · Costa Cálida</p><h1>Laderita de Bolnuevo</h1></div><div class="hbtns">' + navBtns() +
-    (search ? '<button class="iconbtn" type="button" data-open-search aria-label="Søg">' + ICON_SEARCH + "</button>" : "") + "</div></header>";
+function headerHtml() {
+  return '<header><div><p class="eyebrow">Andelshavernes guide · Costa Cálida</p><h1>Laderita de Bolnuevo</h1></div><div class="hbtns">' + navBtns() + "</div></header>";
 }
 function footerHtml() {
   var h = "<footer><span>Afstand og tid er i bil fra hotellet, beregnet uden trafik.</span>";
@@ -866,7 +884,8 @@ function footerHtml() {
   return h + "</footer>";
 }
 function renderGate() {
-  var html = headerHtml(false);
+  setTop(headerHtml()); toolbar(false);
+  var html = "";
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
   if (ui.checking) html += '<p class="loading">Henter…</p>';
   else if (ui.page === "regler") html += pageBack() + RULES_HTML;
@@ -1713,7 +1732,7 @@ async function addPhotosToArea(kind, name, files, opts) {
 
 /* ---------- hændelser ---------- */
 document.addEventListener("click", async function (e) {
-  if (!root.contains(e.target) && !panel.contains(e.target)) return;
+  if (!root.contains(e.target) && !panel.contains(e.target) && !tbEl.contains(e.target) && !topEl.contains(e.target)) return;
   var sl = e.target.closest(".slide"), art = sl && sl.closest("article.place[data-pid]");
   if (art && !art.classList.contains("detailcard")) { openPlace(art.dataset.pid); return; }
   var t = e.target.closest("button"); if (!t) return;
@@ -1730,6 +1749,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.sub != null) { ui.sub = t.dataset.sub || null; render(); return; }
   if (t.dataset.sort) { ui.sort = t.dataset.sort; render(); return; }
   if (t.dataset.view) { ui.view = t.dataset.view; render(); return; }
+  if (t.dataset.scope) { ui.scope = t.dataset.scope; decorate(); render(); return; }
   if (t.dataset.cat) { var ct = t.dataset.cat; if (ct === ui.cat && !ui.town && !ui.region) return; nav(function () { ui.town = null; ui.region = null; ui.ftown = null; ui.subcat = null; ui.fOpen = false; ui.fSun = false; ui.fEarly = false; ui.sub = null; ui.cat = ct; }); return; }
   if (t.dataset.step || t.dataset.go) {
     var tr = t.closest("[data-car]").querySelector(".track"), n = tr.children.length;
@@ -1831,7 +1851,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 56;
+var APP_VERSION = 57;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
