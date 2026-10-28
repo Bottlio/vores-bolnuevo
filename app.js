@@ -1114,13 +1114,29 @@ function nearestGuideTown(lat, lon, maxKm) {
 }
 /* En ny by oprettes med placering, køretid og et gæt på området (den nærmeste by i guiden inden for 15 km) */
 async function ensureTown(name, lat, lon) {
-  if (!name || towns[name]) return "";
-  var row = { name: name, region: null };
-  var near = lat != null ? nearestGuideTown(lat, lon, 15) : null, reg = near && towns[near.name] && towns[near.name].region;
-  if (reg) row.region = reg;
-  var r = await sb.from("towns").insert(row);
-  if (r.error) return "";
-  return reg ? ' Den nye by "' + name + '" er lagt i området "' + reg + '" (gæt ud fra ' + near.name + "). Ret det under Byer, hvis det er forkert." : ' Den nye by "' + name + '" har intet område endnu. Vælg det under Byer → ' + name + " → Ret.";
+  if (!name) return "";
+  var old = towns[name];
+  if (old && old.region && old.lat != null) return "";
+  /* Byen får placering, køretid og et område (dagstur) med det samme */
+  var row = { name: name };
+  if (lat != null && (!old || old.lat == null)) {
+    row.lat = +(+lat).toFixed(5); row.lon = +(+lon).toFixed(5);
+    var dr = await driveFromHotel(row.lat, row.lon); if (dr) { row.drive_km = dr.km; row.drive_min = dr.min; }
+  }
+  var reg = old && old.region, msg = "";
+  if (!reg) {
+    var near = lat != null ? nearestGuideTown(lat, lon, 15) : null;
+    reg = near && near.name !== name && towns[near.name] && towns[near.name].region;
+    if (reg) msg = ' Byen "' + name + '" er lagt under dagsturen "' + reg + '" (nærmeste by er ' + near.name + "). Ret det under Byer, hvis det er forkert.";
+    else {
+      reg = name;
+      if (!regions[reg]) { var nr = await sb.from("regions").insert({ name: reg }); if (nr.error) reg = null; }
+      if (reg) msg = ' Der er oprettet en ny dagstur "' + reg + '". Du kan omdøbe den eller flytte byen under Dagsture.';
+    }
+    row.region = reg || null;
+  }
+  var r = old ? await sb.from("towns").update(row).eq("name", name) : await sb.from("towns").insert(row);
+  return r.error ? "" : msg;
 }
 var GROCERY = ["supermarket","convenience","bakery","butcher","greengrocer","seafood","deli","marketplace","alcohol","beverages","frozen_food"];
 var FOOD = ["restaurant","cafe","bar","pub","fast_food","ice_cream","biergarten","food_court"];
@@ -1860,7 +1876,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 58;
+var APP_VERSION = 59;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
