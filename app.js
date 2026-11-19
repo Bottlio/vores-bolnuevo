@@ -476,8 +476,10 @@ function placeCard(p, detail, showKat) {
 }
 
 /* ---------- forside (to bud, A og B, kan skiftes øverst) ---------- */
-var HOME_TILES = [["spisesteder", "Spisesteder"], ["strande", "Strande"], ["natur", "Natur og udsigt"], ["sevaerdigheder", "Seværdigheder"], ["oplevelser", "Oplevelser"], ["dagsture", "Dagsture"],
-  ["byer", "Byer"], ["dagligvarer", "Indkøb"], ["sport", "Sport"], ["lejligheden", "Hotellet"], ["alle", "Alle steder"], ["kort", "Kort"]];
+/* Forsidens felter: "Alle steder" først, så alfabetisk, "Hotellet" sidst. Kortet over alle steder ligger på kort-knappen i værktøjslinjen. */
+var HOME_TILES = [["alle", "Alle steder"]].concat([["spisesteder", "Spisesteder"], ["strande", "Strande"], ["natur", "Natur og udsigt"], ["sevaerdigheder", "Seværdigheder"], ["oplevelser", "Oplevelser"], ["dagsture", "Dagsture"],
+  ["byer", "Byer"], ["dagligvarer", "Indkøb"], ["sport", "Sport"], ["shopping", "Shopping"], ["parkering", "Parkering"], ["opladning", "Elbil-opladning"]]
+  .sort(function (a, b) { return a[1].localeCompare(b[1], "da"); })).concat([["lejligheden", "Hotellet"]]);
 /* Forsidebillede til et felt: det bedst bedømte sted med billede – og aldrig samme sted på to felter */
 function coverFor(list, used) {
   used = used || {};
@@ -2081,7 +2083,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 76;
+var APP_VERSION = 77;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
