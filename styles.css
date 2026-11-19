@@ -401,7 +401,21 @@ header>div{min-width:0}
 .tview svg,.tscope svg{width:19px;height:19px}
 .tscope{display:none}
 @media (max-width:640px){.pscope{display:none}.tscope{display:grid}}
-@media (max-width:480px){.toolbar{gap:6px}.tctrl{gap:6px}.pill button{padding:0 8px;font-size:.8rem;gap:4px}.pl{display:none}.pill [data-status] .ps{display:inline}.tsearch{padding:0 10px;min-width:44px;flex-basis:44px}.pn{font-size:.7rem}.toolbar:has(#tq:focus) .tctrl{display:none}}
+@media (max-width:480px){.toolbar{gap:6px}.tctrl{gap:6px}.pill button{padding:0 8px;font-size:.8rem;gap:4px}.pl{display:none}.pill [data-scope] .ps{display:inline-flex;align-items:center}.tsearch{padding:0 10px;min-width:44px;flex-basis:44px}.pn{font-size:.7rem}.toolbar:has(#tq:focus) .tctrl{display:none}}
 
 header{position:relative}
 .beta{position:absolute;top:-22px;right:0;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ochre);background:var(--ochre-soft);border-radius:999px;padding:2px 9px;line-height:1.5}
+
+/* Hjerte (favoritter) og forklaring til Alle / Vores vurderede / Favoritter */
+.heart{flex:none;width:36px;height:36px;display:inline-grid;place-items:center;border:0;background:transparent;border-radius:50%;color:var(--muted);cursor:pointer;padding:0}
+.heart:hover{color:#b8433a}
+.heart.on{color:#b8433a}
+.heart svg{width:22px;height:22px}
+.trate{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.topright{display:inline-flex;align-items:center;gap:4px;flex:none}
+.pill button svg{width:16px;height:16px}
+.pill [data-scope="fav"][aria-pressed="true"] svg{color:#b8433a}
+.scopehint{margin:0 0 14px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);font-size:.9rem}
+.scopehint strong{color:var(--fg)}
+.favcheck{display:flex !important;flex-direction:row !important;align-items:center;gap:8px;font-weight:500}
+.favcheck input{width:18px;height:18px;margin:0}
