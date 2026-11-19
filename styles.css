@@ -500,3 +500,9 @@ header{position:relative}
 .cat svg{width:42px;height:42px;stroke-width:1.6}
 .cat .cn{top:0;right:2px}
 #fullbar{margin-top:8px;padding-top:4px}
+/* 19.11.2026: rækkerne på forsiden tydeligt adskilt – tynd grå streg, luft og overskrift i farve */
+.hrow{margin-top:30px;padding-top:18px;border-top:1px solid var(--line)}
+.tiles+.hrow{margin-top:38px}
+.hrow .subhead{margin:0 0 12px;color:var(--sea);font-size:1.2rem}
+.hscroll{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.hextra{white-space:normal}

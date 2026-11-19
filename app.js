@@ -567,7 +567,7 @@ function newsItems() {
     var bits = [who];
     if (e && e.rating_score != null) bits.push(dec(+e.rating_score) + " ★");
     if (o.batch && Date.parse(o.batch[0].created_at) > tt - DAY) bits.push(o.batch.length === 1 ? "1 nyt billede" : o.batch.length + " nye billeder");
-    var extra = (isNew ? "Nyt sted · " : "") + esc(bits.join(" · ")) + '<span class="hquote">' + (e && e.note ? '"' + esc(e.note) + '"' : "") + "</span>";
+    var extra = (isNew ? "Nyt sted · " : "") + esc(bits.map(function (b) { return b.replace(/ /g, "\u00a0"); }).join(" · ")) + '<span class="hquote">' + (e && e.note ? '"' + esc(e.note) + '"' : "") + "</span>";
     return o.kind === "place" ? miniCard(byId[o.target], extra) : areaMini(o.kind, o.target, extra);
   });
 }
@@ -2274,7 +2274,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 103;
+var APP_VERSION = 104;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
