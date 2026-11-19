@@ -326,6 +326,8 @@ function carousel(p) {
     var row = (p.photoRows || [])[i] || raw.photos.filter(function (r) { return r.path === x; })[0];
     var who = photoCredit(row, x, p.photo_credit), credit = who ? '<span class="credit">Foto: ' + esc(who) + "</span>" : "";
     var rb = row && me && row.andel_id && row.andel_id !== me.andel && p.id ? reportBtn("billede", row.id, "place", p.id, true) : "";
+    // Jeres egne billeder: mærke nede til højre med hvem der kan se det – tryk for at skifte
+    if (row && me && row.id && row.andel_id === me.andel) rb += '<button type="button" class="visbtn carvis v-' + esc(row.visibility) + '" data-cvis="' + esc(row.id) + '" title="Hvem kan se billedet? Tryk for at skifte">' + esc(VIS_NAMES[row.visibility] || row.visibility) + "</button>";
     return '<div class="slide">' + rb + '<img src="' + u + '" alt="' + esc(p.name) + (ph.length > 1 ? ", billede " + (i + 1) : "") + '" loading="lazy" decoding="async">' + credit + "</div>";
   }).join("") + "</div>";
   if (ph.length > 1) {
@@ -552,7 +554,7 @@ function renderHome() {
   var spots = places.filter(function (p) { return !isApt(p.cat); });
   var hotel = places.filter(function (p) { return p.cat === "lejligheden" && p.photos && p.photos.length; })[0];
   var hero = hotel ? photoUrl(hotel.photos[0]) : coverFor(spots);
-  setTop(headerHtml() + '<section class="hero"' + (hero ? ' style="--hero:url(&quot;' + esc(hero) + '&quot;)"' : "") + '><div class="herotext"><p>Hej ' + esc(me.name || "") + '</p><p class="herosub">Andel ' + esc(me.label) + " · " + scopeCounts().alle + " steder i guiden</p></div></section>");
+  setTop(headerHtml() + '<section class="hero"' + (hero ? ' style="--hero:url(&quot;' + esc(hero) + '&quot;)"' : "") + '><div class="herotext"><p>Hej ' + esc(me.name || "") + '</p><p class="herosub">Andel ' + esc(me.label) + "</p></div></section>");
   toolbar(true);
   var html = "";
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
@@ -1070,6 +1072,18 @@ async function removeMember(email) {
   var r = await sb.from("members").delete().eq("andel_id", me.andel).eq("email", email);
   if (r.error) andelData.err = "Adgangen blev ikke fjernet: " + r.error.message;
   await loadAndel();
+}
+/* Skift synlighed direkte på billedet i karrusellen – uden at tegne siden om, så man bliver på samme billede */
+async function carouselVis(btn) {
+  if (btn.disabled) return;
+  var id = btn.dataset.cvis, row = raw.photos.filter(function (x) { return x.id === id; })[0]; if (!row) return;
+  var v = row.kind === "place" ? visFor(row.target, nextVis(row.visibility)) : nextVis(row.visibility);
+  btn.disabled = true; btn.textContent = "Gemmer…";
+  var r = await sb.from("photos").update({ visibility: v }).eq("id", id);
+  btn.disabled = false;
+  if (r.error) { btn.textContent = "Ikke gemt – prøv igen"; return; }
+  row.visibility = v;
+  document.querySelectorAll('[data-cvis="' + id + '"]').forEach(function (b) { b.className = "visbtn carvis v-" + v; b.textContent = VIS_NAMES[v] || v; });
 }
 async function setPhotoVis(id, v) {
   var r = await sb.from("photos").update({ visibility: v }).eq("id", id);
@@ -2077,6 +2091,7 @@ async function addPhotosToArea(kind, name, files, opts) {
 /* ---------- hændelser ---------- */
 document.addEventListener("click", async function (e) {
   if (!root.contains(e.target) && !panel.contains(e.target) && !tbEl.contains(e.target) && !topEl.contains(e.target)) return;
+  var cv = e.target.closest("[data-cvis]"); if (cv) { e.preventDefault(); carouselVis(cv); return; }
   var sl = e.target.closest(".slide"), art = sl && sl.closest("article.place[data-pid]");
   if (art && !art.classList.contains("detailcard")) { openPlace(art.dataset.pid); return; }
   var t = e.target.closest("button"); if (!t) return;
@@ -2228,7 +2243,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 96;
+var APP_VERSION = 97;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
