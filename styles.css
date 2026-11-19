@@ -355,7 +355,7 @@ header>div{min-width:0}
 .tile:not([style]) .tlabel{color:var(--sea)}
 .tn{font-family:var(--body);font-weight:400;font-size:.85rem;opacity:.85}
 .hrow{margin-top:24px}
-.hscroll{display:flex;align-items:flex-start;gap:12px;overflow-x:auto;padding:4px 0 8px;scroll-snap-type:x mandatory}
+.hscroll{display:flex;align-items:stretch;gap:12px;overflow-x:auto;padding:4px 0 8px;scroll-snap-type:x mandatory}
 .hcard{flex:0 0 200px;scroll-snap-align:start;display:flex;flex-direction:column;gap:3px;text-align:left;font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:0 0 10px;overflow:hidden;cursor:pointer}
 .hcard img,.hnoimg{width:100%;height:120px;object-fit:cover;display:grid;place-items:center;background:var(--sea-soft);color:var(--sea)}
 .hname{font-weight:700;padding:6px 10px 0;line-height:1.25}
@@ -438,3 +438,13 @@ header{position:relative}
 #leavemodal[hidden]{display:none}
 #leavemodal .lbox{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;max-width:380px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.18)}
 #leavemodal .lbox p{margin:0 0 14px}
+/* Forsidekort: alle præcis lige store – navn højst 2 linjer, by/kategori 1 linje, citat højst 2 linjer */
+.hcard{height:auto}
+.hname{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.5em}
+.hmeta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hextra{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hextra .hquote{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.6em}
+.dupbox{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:12px 14px;margin:0 0 14px;display:flex;flex-direction:column;gap:8px}
+.dupbox p{margin:0}
+.dupbox h3,.dupbox strong{color:var(--fg)}
+.duprow{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}

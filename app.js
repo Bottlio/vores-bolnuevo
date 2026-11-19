@@ -497,7 +497,7 @@ function homeRow(title, items, empty) {
 function newsItems() {
   // Nyeste stjerner og tekster fra alle andele – på steder, byer og områder
   var byId = {}; places.forEach(function (p) { byId[p.id] = p; });
-  var extra = function (e) { return esc(authorText(e)) + (e.rating_score != null ? " · " + dec(+e.rating_score) + " ★" : "") + (e.note ? '<span class="hquote">"' + esc(e.note.length > 70 ? e.note.slice(0, 68) + "…" : e.note) + '"</span>' : ""); };
+  var extra = function (e) { return esc(authorText(e)) + (e.rating_score != null ? " · " + dec(+e.rating_score) + " ★" : "") + '<span class="hquote">' + (e.note ? '"' + esc(e.note) + '"' : "") + "</span>"; };
   return raw.exps.filter(function (e) {
     if (!(e.note || e.rating_score != null)) return false;
     if (e.kind === "place") return !!byId[e.target];
@@ -523,6 +523,7 @@ function renderHome() {
   toolbar(true);
   var html = "";
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
+  html += hiddenDupHtml();
   html += scopeHint();
   if (ui.draft) html += formHtml(ui.draft);
   if (ui.areaDraft) html += areaFormHtml(ui.areaDraft);
@@ -692,6 +693,7 @@ function render() {
   var html = "";
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
   if (!detail && !inApt) html += scopeHint();
+  if (detail) html += hiddenDupHtml(detail.id);
   if (ui.login) html += loginHtml();
   if (ui.draft) html += formHtml(ui.draft);
   if (ui.areaDraft) html += areaFormHtml(ui.areaDraft);
@@ -1276,7 +1278,7 @@ async function startNew(files, opts) {
   d.fromImport = !!opts.fromImport;
   if (info.lat != null) {
     d.lat = +info.lat.toFixed(5); d.lon = +info.lon.toFixed(5);
-    var near = places.filter(function (p) { return p.lat != null; }).map(function (p) { return [p, distM(d.lat, d.lon, p.lat, p.lon)]; })
+    var near = raw.places.filter(function (p) { return p.lat != null && !isApt(p.cat); }).map(function (p) { return [p, distM(d.lat, d.lon, p.lat, p.lon)]; })
       .filter(function (x) { return x[1] < 120; }).sort(function (a, b) { return a[1] - b[1]; })[0];
     if (near) d.match = { id: near[0].id, name: near[0].name, m: Math.round(near[1]) };
     var found = await lookupPlace(d.lat, d.lon);
@@ -1414,7 +1416,7 @@ function formHtml(f) {
       '<label class="inline"><input type="checkbox" id="f-guess"' + (f.guess ? " checked" : "") + "> Navnet er ikke bekræftet</label>" +
       (!f.isNew && core ? '<div><button class="btn danger" type="button" id="del-place">' + (f.confirmDel ? "Tryk igen for at slette stedet" : "Slet sted") + "</button></div>" : "") +
       "</div>" : "") +
-    (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
+    dupHtml(f) + (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
     '<div class="row"><button class="btn primary" type="submit"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + '</button><button class="btn" type="button" id="cancel">Annuller</button></div></form>';
 }
 function visBtn(it, i) {
@@ -1472,7 +1474,7 @@ function quickHtml(f) {
     '<button type="button" class="favtoggle' + (f.fav ? " on" : "") + '" id="f-favbtn" aria-pressed="' + !!f.fav + '">' + heartSvg(f.fav) + ' Tilføj som favorit</button>' +
     (thumbs ? '<div class="qthumbs">' + thumbs + "</div>" : "") +
     '<label class="btn" style="display:inline-flex;align-self:flex-start;color:var(--fg)">+ Tilføj billeder (valgfrit)<input type="file" id="f-add" accept="image/*" multiple hidden></label>' +
-    (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
+    dupHtml(f) + (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
     '<div class="row"><button class="btn primary" type="submit"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + "</button>" +
     '<button class="btn" type="button" id="more">Tilføj beskrivelse, karakter m.m.</button><button class="btn" type="button" id="cancel">Annuller</button></div></form>';
   return '<form class="panel" id="editor"><h2>Nyt sted</h2>' +
@@ -1485,7 +1487,7 @@ function quickHtml(f) {
       (f.lat == null ? '<div><button class="btn" type="button" id="my-loc">Brug min placering</button></div>' : "") +
       '<div class="chips" role="group" aria-label="Kategori">' + chips + "</div>" + subChooser(f) + questionsHtml(f) +
       '<button type="button" class="favtoggle' + (f.fav ? " on" : "") + '" id="f-favbtn" aria-pressed="' + !!f.fav + '">' + heartSvg(f.fav) + ' Tilføj som favorit</button>') +
-    (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
+    dupHtml(f) + (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
     '<div class="row"><button class="btn primary" type="submit"' + (ui.busy || f.finding ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + "</button>" +
     '<button class="btn" type="button" id="more">Tilføj beskrivelse, karakter m.m.</button><button class="btn" type="button" id="cancel">Annuller</button></div></form>';
 }
@@ -1624,6 +1626,10 @@ async function saveDraft() {
   syncDraft();
   var d = ui.draft;
   if (!d.name.trim()) { d.err = "Skriv et navn først."; render(); return; }
+  if (d.isNew && !d.dupOk) {
+    var dd = similarPlaces(d.name, d.lat, d.lon, d.id, raw.places);
+    if (dd.length) { d.dups = dd; d.err = ""; render(); var bx = document.getElementById("dupbox"); if (bx) bx.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+  }
   if (d.items.some(function (it) { return it.file && it.people === undefined; })) { d.err = "Vent et øjeblik – billederne bliver tjekket for personer."; render(); return; }
   ui.busy = true; d.err = ""; render();
   try {
@@ -1683,6 +1689,87 @@ async function deletePlace() {
   var files = d.items.map(function (x) { return x.path; }).concat(d.removed).filter(Boolean);
   if (files.length) await sb.storage.from("photos").remove(files);
   ui.draft = null; ui.busy = false; ui.msg = "Stedet er slettet."; await load();
+}
+
+
+/* ---------- dubletter: samme sted oprettet to gange ----------
+   Et sted ligner et andet, hvis det ligger under 120 m væk, eller hvis navnene ligner hinanden og stederne ligger under 3 km fra hinanden (eller ét af dem mangler placering). */
+var GENERIC_WORDS = { restaurante: 1, restaurant: 1, bar: 1, cafe: 1, cafeteria: 1, la: 1, el: 1, los: 1, las: 1, de: 1, del: 1, the: 1, y: 1, and: 1 };
+function normName(x) { return String(x || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter(function (w) { return w && !GENERIC_WORDS[w]; }).join(" "); }
+function nameSim(a, b) {
+  var na = normName(a), nb = normName(b); if (!na || !nb) return false;
+  if (na === nb) return true;
+  if ((na.length >= 4 && nb.indexOf(na) >= 0) || (nb.length >= 4 && na.indexOf(nb) >= 0)) return true;
+  var ta = na.split(" ").filter(function (w) { return w.length >= 4; }), tb = nb.split(" ");
+  return ta.some(function (w) { return tb.indexOf(w) >= 0; });
+}
+function similarPlaces(name, lat, lon, excludeId, pool) {
+  return pool.filter(function (p) { return p.id !== excludeId && !isApt(p.cat); }).map(function (p) {
+    var d = lat != null && p.lat != null ? distM(lat, lon, p.lat, p.lon) : null, sim = nameSim(name, p.name);
+    return (d != null && d < 120) || (sim && (d == null || d < 3000)) ? { id: p.id, name: p.name, town: p.town || "", m: d != null ? Math.round(d) : null } : null;
+  }).filter(Boolean).sort(function (a, b) { return (a.m == null ? 1e9 : a.m) - (b.m == null ? 1e9 : b.m); }).slice(0, 3);
+}
+function dupHtml(f) {
+  if (!f || !f.dups || !f.dups.length) return "";
+  return '<div class="dupbox" id="dupbox"><p><strong>Findes stedet allerede?</strong> ' + (f.dups.length === 1 ? "Dette sted" : "Disse steder") + " i guiden ligner det, du er ved at oprette:</p>" +
+    f.dups.map(function (x) { return '<div class="duprow"><span><strong>' + esc(x.name) + "</strong> " + esc([x.town, x.m != null ? x.m + " m væk" : ""].filter(Boolean).join(" · ")) + '</span><button class="btn small primary" type="button" data-usedup="' + esc(x.id) + '">Brug dette sted</button></div>'; }).join("") +
+    '<p class="hint">Bruger du det eksisterende sted, lægges dine billeder, kommentar og hjerte dér.</p><button class="btn small" type="button" id="dup-new">Nej, opret et nyt sted</button></div>';
+}
+async function useExisting(id) {
+  syncDraft(); var d = ui.draft; if (!d) return;
+  var p = raw.places.filter(function (x) { return x.id === id; })[0]; if (!p) return;
+  ui.busy = true; render();
+  var cur = raw.exps.filter(function (e) { return e.kind === "place" && e.target === id && isMine(e); })[0], patch = {};
+  if (d.fav) patch.favorite = true;
+  var note = (d.note || "").trim(); if (note) patch.note = cur && cur.note ? cur.note + "\n" + note : note;
+  if (d.visits && d.visits.length) { var v = ((cur && cur.visits) || []).slice(); d.visits.forEach(function (m) { if (v.indexOf(m) < 0) v.push(m); }); v.sort(); patch.visits = v; }
+  if (Object.keys(patch).length) { var r = await saveExp("place", id, patch); if (r.error) { d.err = "Det blev ikke gemt: " + r.error.message; ui.busy = false; render(); return; } }
+  var files = d.items.filter(function (x) { return x.file; }).map(function (x) { return x.file; });
+  ui.busy = false;
+  if (files.length) { var ok = await addPhotosTo(id, files); if (!ok) return; } else { ui.draft = null; await load(); }
+  ui.msg = "Lagt på det eksisterende sted " + p.name + ".";
+  openPlace(id);
+}
+/* Jeres skjulte steder, som en anden andel siden har oprettet som et sted, alle kan se */
+function dupDismissed() { try { return JSON.parse(localStorage.getItem("bol-dupok") || "{}"); } catch (e) { return {}; } }
+function hiddenDups() {
+  if (!me) return [];
+  var gone = dupDismissed(), pub = raw.places.filter(function (p) { return p.visibility === "alle" && p.andel_id !== me.andel; });
+  return raw.places.filter(function (h) { return h.visibility !== "alle" && h.andel_id === me.andel && !isApt(h.cat); }).map(function (h) {
+    var m = similarPlaces(h.name, h.lat, h.lon, h.id, pub)[0], p = m && raw.places.filter(function (x) { return x.id === m.id; })[0];
+    return p && !gone[h.id + "|" + p.id] ? [h, p] : null;
+  }).filter(Boolean);
+}
+function hiddenDupHtml(onlyId) {
+  return hiddenDups().filter(function (x) { return !onlyId || x[0].id === onlyId; }).map(function (x) {
+    var k = esc(x[0].id + "|" + x[1].id);
+    return '<div class="dupbox"><p><strong>' + esc(x[0].name) + "</strong>, som kun " + (x[0].visibility === "mig" ? "du" : "I") + " kan se, findes nu også som <strong>" + esc(x[1].name) + "</strong>" + (x[1].town ? " i " + esc(x[1].town) : "") + ", oprettet af en anden andel, så alle kan se det.</p>" +
+      '<div class="row"><button class="btn small primary" type="button" data-mergedup="' + k + '">Flyt vores ting dertil</button><button class="btn small" type="button" data-opendup="' + esc(x[1].id) + '">Se det andet sted</button><button class="btn small" type="button" data-keepdup="' + k + '">Behold begge</button></div>' +
+      '<p class="hint">Flyt: jeres hjerte, stjerner, tekst og billeder flyttes til det andet sted, og jeres skjulte udgave fjernes. Hvem der kan se jeres stjerner, tekst og billeder, er det samme som før.</p></div>';
+  }).join("");
+}
+async function mergeInto(hId, pId) {
+  var h = raw.places.filter(function (x) { return x.id === hId; })[0], p = raw.places.filter(function (x) { return x.id === pId; })[0]; if (!h || !p) return;
+  ui.busy = true; ui.msg = "Flytter…"; render();
+  try {
+    var src = raw.exps.filter(function (e) { return e.kind === "place" && e.target === hId && isMine(e); })[0];
+    var dst = raw.exps.filter(function (e) { return e.kind === "place" && e.target === pId && isMine(e); })[0];
+    if (src) {
+      var patch = { favorite: !!(src.favorite || (dst && dst.favorite)) };
+      var v = ((dst && dst.visits) || []).slice(); (src.visits || []).forEach(function (m) { if (v.indexOf(m) < 0) v.push(m); }); v.sort(); patch.visits = v;
+      var lv = [src.last_visit, dst && dst.last_visit].filter(Boolean).sort().pop(); if (lv) patch.last_visit = lv;
+      if (src.rating_score != null && !(dst && dst.rating_score != null)) { patch.ratings = src.ratings || {}; patch.rating_score = src.rating_score; }
+      if (src.note) patch.note = dst && dst.note ? dst.note + "\n" + src.note : src.note;
+      if (!dst) patch.visibility = src.visibility;
+      var r = await saveExp("place", pId, patch); if (r.error) throw new Error("Det blev ikke flyttet: " + r.error.message);
+    }
+    var ph = await sb.from("photos").update({ target: pId }).eq("kind", "place").eq("target", hId).eq("andel_id", me.andel);
+    if (ph.error) throw new Error("Billederne blev ikke flyttet: " + ph.error.message);
+    if (src) await sb.from("experiences").delete().eq("id", src.id);
+    var del = await sb.from("places").delete().eq("id", hId).select("id");
+    ui.msg = del.data && del.data.length ? "Flyttet til " + p.name + ", og jeres skjulte udgave er fjernet." : "Flyttet til " + p.name + ". Den skjulte udgave kan kun fjernes af den, der oprettede den – den er tom nu.";
+  } catch (e) { ui.msg = e.message || "Det lykkedes ikke. Prøv igen."; }
+  ui.busy = false; ui.place = null; await load(); openPlace(pId);
 }
 
 /* ---------- tilbage og hjem ----------
@@ -1792,7 +1879,7 @@ function areaFormHtml(f) {
       '<label>Hvem kan se vores tekst?<select id="a-expvis"><option value="alle"' + (f.expVis !== "andel" ? " selected" : "") + '>Alle</option><option value="andel"' + (f.expVis === "andel" ? " selected" : "") + ">Vores andel</option></select></label>" +
       '<label>Vi har besøgt (fx 2025-02, 2026-07)<input id="a-visits" value="' + esc(f.visits.join(", ")) + '"><span class="hint">Kommer automatisk fra datoen på de billeder, I lægger ind. Her kan I tilføje eller rette.</span></label>' +
       "</div>" : "") +
-    (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
+    dupHtml(f) + (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
     '<div class="row"><button class="btn primary" type="submit"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + '</button><button class="btn" type="button" id="a-cancel">Annuller</button></div></form>';
 }
 function syncArea() {
@@ -1933,6 +2020,11 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.setsub) { syncDraft(); ui.draft.subcat = ui.draft.subcat === t.dataset.setsub ? "" : t.dataset.setsub; render(); return; }
   if (t.dataset.setstatus) { syncDraft(); ui.draft.status = t.dataset.setstatus; render(); return; }
   if (t.id === "more") { syncDraft(); ui.draft.more = true; render(); return; }
+  if (t.dataset.usedup) { useExisting(t.dataset.usedup); return; }
+  if (t.id === "dup-new") { syncDraft(); ui.draft.dupOk = true; ui.draft.dups = null; saveDraft(); return; }
+  if (t.dataset.mergedup) { var mk = t.dataset.mergedup.split("|"); mergeInto(mk[0], mk[1]); return; }
+  if (t.dataset.opendup) { openPlace(t.dataset.opendup); return; }
+  if (t.dataset.keepdup) { var kd = dupDismissed(); kd[t.dataset.keepdup] = 1; try { localStorage.setItem("bol-dupok", JSON.stringify(kd)); } catch (x) {} render(); return; }
   if (t.id === "f-favbtn") { syncDraft(); ui.draft.fav = !ui.draft.fav; render(); return; }
   if (t.id === "adv-toggle") { syncDraft(); ui.draft.adv = !ui.draft.adv; render(); return; }
   if (t.id === "my-loc") { syncDraft(); useMyLocation(); return; }
@@ -1981,7 +2073,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 74;
+var APP_VERSION = 75;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
