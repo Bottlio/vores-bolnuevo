@@ -2297,7 +2297,7 @@ function helpPageHtml() {
 
 /* Velkomst første gang (gemmes pr. bruger på enheden) */
 var WELCOME = [
-  ["alle", "Find steder", "Tryk på et af felterne på forsiden – fx <strong>Spisesteder</strong> eller <strong>Strande</strong> – for at se andelshavernes egne steder. Leder du efter noget bestemt, så skriv i søgefeltet."],
+  ["alle", "Find steder", "Tryk på et af felterne på forsiden – fx <strong>Spisesteder</strong> eller <strong>Strande</strong> – for at se steder i området med billeder, stjerner og kommentarer fra andelshaverne. Leder du efter noget bestemt, så skriv i søgefeltet."],
   ["heart", "Gem jeres favoritter", "Tryk på hjertet ♡ ved et sted, så finder I det under <strong>Favoritter</strong>. Favoritterne deles med alle i jeres andel."],
   ["star", "Del jeres oplevelser", "Tryk på stjernerne for at give jeres vurdering, eller på <strong>+ Nyt sted</strong> for at lægge et sted og billeder ind. Har du brug for hjælp, så tryk på <strong>?</strong> øverst."]
 ];
@@ -2486,7 +2486,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 107;
+var APP_VERSION = 108;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
