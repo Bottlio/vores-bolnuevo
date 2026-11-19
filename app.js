@@ -4,7 +4,7 @@
 var CFG = window.BOLNUEVO;
 var sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true } });
 
-var CATS = [["lejligheden","Hotellet"],["vores","Lejligheden"],["spisesteder","Spisesteder"],["strande","Strande"],["natur","Natur og udsigt"],["sevaerdigheder","Seværdigheder"],["oplevelser","Oplevelser"],["sport","Sport"],["dagligvarer","Dagligvarer"],["opladning","Opladning til elbil"],["parkering","Parkering"],["shopping","Shopping"]];
+var CATS = [["lejligheden","Hotellet"],["vores","Lejligheden"],["spisesteder","Spisesteder"],["strande","Strande"],["natur","Natur og udsigt"],["sevaerdigheder","Seværdigheder"],["oplevelser","Oplevelser"],["sport","Sport"],["dagligvarer","Dagligvarer"],["opladning","Opladning til elbil"],["parkering","Parkering"],["lejebil","Lejebil"],["shopping","Shopping"]];
 var CATNAME = {}; CATS.forEach(function (c) { CATNAME[c[0]] = c[1]; });
 /* Underkategorier pr. kategori (valgfrie). Rækkefølgen her er rækkefølgen på knapperne. */
 var SUBCATS = {
@@ -80,6 +80,7 @@ var CRITERIA = {
   oplevelser: ["Oplevelsesvurdering", [["kvalitet", "Oplevelsens kvalitet"], ["formidling", "Formidling og indhold"], ["rammer", "Rammer og atmosfære"], ["vaerdi", "Værdi for pengene"]]],
   sport: ["Sportsvurdering", [["kvalitet", "Aktivitetens kvalitet"], ["faciliteter", "Faciliteter og udstyr"], ["service", "Service og organisering"], ["vaerdi", "Værdi for pengene"]]],
   dagligvarer: ["Butiksvurdering", [["udvalg", "Udvalg og sortiment"], ["friskhed", "Kvalitet og friskhed"], ["pris", "Prisniveau"], ["butik", "Butik og indkøbsoplevelse"]]],
+  lejebil: ["Udlejervurdering", [["pris", "Pris"], ["service", "Service og afhentning"], ["bil", "Bilen"]]],
   opladning: ["Ladestandervurdering", [["hastighed", "Ladehastighed og driftssikkerhed"], ["brugervenlighed", "Brugervenlighed"], ["beliggenhed", "Beliggenhed og faciliteter"], ["pris", "Pris og tilgængelighed"]]],
   parkering: ["Parkeringsvurdering", [["plads", "Let at finde plads"], ["afstand", "Afstand til målet"], ["pris", "Pris"], ["tryghed", "Tryghed og standard"]]],
   shopping: ["Butiksvurdering", [["udvalg", "Udvalg og sortiment"], ["pris", "Pris og kvalitet"], ["betjening", "Betjening"], ["butik", "Butik og atmosfære"]]],
@@ -340,6 +341,7 @@ var CAT_ICONS = {
   dagligvarer: svg('<path d="M3 5h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L21 8H6"/><circle cx="9.5" cy="20" r="1.2"/><circle cx="17" cy="20" r="1.2"/>'),
   opladning: svg('<path d="M13 3L6 13h5l-1 8 7-10h-5z"/>'),
   parkering: svg('<rect x="4" y="3" width="16" height="18" rx="3"/><path d="M10 17V8h3a2.5 2.5 0 0 1 0 5h-3"/>'),
+  lejebil: svg('<circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M16 7l2 2M14 9l2 2"/>'),
   shopping: svg('<path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>')
 };
 var TOWN_CATS = ["spisesteder","strande","natur","sevaerdigheder","oplevelser","sport","dagligvarer","opladning","parkering","shopping"];
@@ -469,11 +471,19 @@ function placeCard(p, detail, showKat) {
 }
 
 /* ---------- forside (to bud, A og B, kan skiftes øverst) ---------- */
+/* Hjælpetekst i kommentarfeltet – passer til kategorien */
+var NOTE_PH = { spisesteder: "Fx hvad der var godt, om man skal bestille bord, og hvad det kostede.", strande: "Fx parkering, skygge, toiletter og om der er strandbar.",
+  natur: "Fx hvor man parkerer, hvor lang turen er, og hvornår der er bedst.", sevaerdigheder: "Fx åbningstider, pris og hvor lang tid man skal regne med.",
+  oplevelser: "Fx pris, booking og om det passer til børn.", sport: "Fx pris, booking og udstyr.", dagligvarer: "Fx åbningstider, udvalg og parkering.",
+  opladning: "Fx ladehastighed, pris pr. kWh og hvad man kan lave imens.", parkering: "Fx pris, hvor man betaler, og hvornår der er plads.",
+  lejebil: "Fx udlejer, pris, afhentning i lufthavnen og forsikring.", shopping: "Fx hvad de har, priser og åbningstider.",
+  vores: "Fx hvor tingene står, eller hvordan aircon og tv virker.", lejligheden: "Fx et godt råd om hotellet." };
+function notePh(cat) { return NOTE_PH[cat] || "Hvad er godt at vide om stedet?"; }
 /* Navnet til "Type …" over underkategori-vælgeren, fx "Type indkøb" */
 function typeName(cat) { var t = (typeof HOME_TILES !== "undefined" ? HOME_TILES : []).filter(function (x) { return x[0] === cat; })[0]; return ((t && t[1]) || CATNAME[cat] || "").toLowerCase(); }
 /* Forsidens felter: "Alle steder" først, så alfabetisk, "Hotellet" sidst. Kortet over alle steder ligger på kort-knappen i værktøjslinjen. */
 var HOME_TILES = [["alle", "Alle steder"]].concat([["spisesteder", "Spisesteder"], ["strande", "Strande"], ["natur", "Natur og udsigt"], ["sevaerdigheder", "Seværdigheder"], ["oplevelser", "Oplevelser"], ["dagsture", "Dagsture"],
-  ["byer", "Byer"], ["dagligvarer", "Indkøb"], ["sport", "Sport"], ["shopping", "Shopping"], ["parkering", "Parkering"], ["opladning", "Elbil-opladning"]]
+  ["byer", "Byer"], ["dagligvarer", "Indkøb"], ["sport", "Sport"], ["shopping", "Shopping"], ["parkering", "Parkering"], ["lejebil", "Lejebil"], ["opladning", "Elbil-opladning"]]
   .sort(function (a, b) { return a[1].localeCompare(b[1], "da"); })).concat([["lejligheden", "Hotellet"]]);
 /* Forsidebillede til et felt: det bedst bedømte sted med billede – og aldrig samme sted på to felter */
 function coverFor(list, used) {
@@ -805,7 +815,7 @@ function render() {
 }
 
 /* ---------- kortvisning (Leaflet + OpenStreetMap) ---------- */
-var CAT_COLORS = { lejligheden: "#0d5c6b", vores: "#0d5c6b", spisesteder: "#c0392b", strande: "#e1a21b", natur: "#2e8b57", sevaerdigheder: "#7d3c98", oplevelser: "#d35400", sport: "#1f77b4", dagligvarer: "#6b8e23", opladning: "#16a085", parkering: "#5d6d7e", shopping: "#c2185b" };
+var CAT_COLORS = { lejebil: "#34495e", lejligheden: "#0d5c6b", vores: "#0d5c6b", spisesteder: "#c0392b", strande: "#e1a21b", natur: "#2e8b57", sevaerdigheder: "#7d3c98", oplevelser: "#d35400", sport: "#1f77b4", dagligvarer: "#6b8e23", opladning: "#16a085", parkering: "#5d6d7e", shopping: "#c2185b" };
 var mapObj = null, mapView = null;
 function areaCircle(a) {
   var pts = a.pts.filter(function (p) { return p.lat != null; });
@@ -1416,7 +1426,7 @@ function formHtml(f) {
   return '<form class="panel" id="editor"><h2>' + (f.isNew ? "Nyt sted" : esc(f.name)) + "</h2>" +
     (f.finding ? '<p class="hint">Finder stedet ud fra billedet…</p>' : "") + (f.info ? '<p class="hint">' + esc(f.info) + "</p>" : "") +
     (f.choices ? '<div class="choices">' + f.choices.map(function (x, i) { return '<button class="btn" type="button" data-choose="' + i + '"><strong>' + esc(x.name) + "</strong> " + esc([x.addr, x.km != null ? Math.round(x.km) + " km fra hotellet" : ""].filter(Boolean).join(" · ")) + "</button>"; }).join("") + "</div>" : "") +
-    '<label>Kommentar<textarea id="f-note" placeholder="Bestil dagens fisk. Book bord lørdag aften.">' + esc(f.note) + "</textarea></label>" +
+    '<label>Kommentar<textarea id="f-note" placeholder="' + esc(notePh(f.cat)) + '">' + esc(f.note) + "</textarea></label>" +
     '<button type="button" class="favtoggle' + (f.fav ? " on" : "") + '" id="f-favbtn" aria-pressed="' + !!f.fav + '">' + heartSvg(f.fav) + ' Tilføj som favorit</button>' +
     '<div><p class="hint" style="margin-bottom:8px">Jeres billeder (det første vises først). Tryk på mærket på et billede for at vælge, hvem der kan se det.' + (f.otherPhotos ? " Stedet har også " + f.otherPhotos + " billeder fra andre andele." : "") + '</p><div class="photos">' + ph + "</div>" +
     '<label class="btn" style="display:inline-flex;margin-top:10px;color:var(--fg)">+ Tilføj billeder<input type="file" id="f-add" accept="image/*" multiple hidden></label></div>' +
@@ -2108,7 +2118,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 84;
+var APP_VERSION = 85;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
