@@ -369,11 +369,11 @@ function chip(attr, val, label, n, on) { return '<button class="chip" type="butt
 /* ---------- byer og områder ---------- */
 function allTownNames() {
   var s = {}; Object.keys(towns).forEach(function (n) { s[n] = 1; });
-  places.forEach(function (p) { if (p.town && p.cat !== "lejligheden") s[p.town] = 1; });
+  places.forEach(function (p) { if (p.town && !isApt(p.cat)) s[p.town] = 1; });
   return Object.keys(s);
 }
 function regionOf(town) { var t = towns[town]; return (t && t.region) || NO_REGION; }
-function placesIn(town) { return places.filter(function (p) { return p.town === town && p.cat !== "lejligheden"; }); }
+function placesIn(town) { return places.filter(function (p) { return p.town === town && !isApt(p.cat); }); }
 function townDrive(name) {
   var t = towns[name]; if (t && t.drive_min != null) return t.drive_min;
   var d = placesIn(name).map(function (p) { return p.drive_min; }).filter(function (x) { return x != null; });
@@ -388,10 +388,12 @@ function regionNames() {
 function regionDrive(r) { var d = townsInRegion(r).map(townDrive); return d.length ? Math.min.apply(null, d) : 9999; }
 function areaObj(kind, name) {
   var o = kind === "town" ? towns[name] : regions[name];
-  var ps = kind === "town" ? placesIn(name) : places.filter(function (p) { return p.cat !== "lejligheden" && regionOf(p.town) === name; });
+  var ps = kind === "town" ? placesIn(name) : places.filter(function (p) { return !isApt(p.cat) && regionOf(p.town) === name; });
   var photos = (o && o.photos && o.photos.length) ? o.photos : [];
   var townCover = kind === "region" ? townsInRegion(name).map(function (n) { var t = towns[n]; return t && t.photos && t.photos[0]; }).filter(Boolean)[0] : null;
-  var cover = photos[0] || townCover || (ps.filter(function (p) { return p.photos && p.photos.length && p.status === "tried"; })[0] || ps.filter(function (p) { return p.photos && p.photos.length; })[0] || { photos: [] }).photos[0] || null;
+  // Uden egne billeder: billedet fra det bedst bedømte sted med billeder, ellers stedet med flest billeder
+  var best = ps.filter(function (p) { return p.photos && p.photos.length; }).sort(function (a, b) { return scoreOf(b) - scoreOf(a) || b.photos.length - a.photos.length; })[0];
+  var cover = photos[0] || townCover || (best ? best.photos[0] : null);
   var v = {}; ((o && o.visits) || []).forEach(function (m) { v[m] = 1; }); ps.forEach(function (p) { if (p.status === "tried") (p.visits || []).forEach(function (m) { v[m] = 1; }); });
   var lv = [(o && o.last_visit) || ""].concat(ps.map(lastKey)).sort().pop() || "";
   return { kind: kind, name: name, rec: o || null, photos: photos, cover: cover, places: ps, visits: Object.keys(v).sort(), last: lv, note: (o && o.note) || "",
@@ -2226,7 +2228,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 92;
+var APP_VERSION = 93;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
