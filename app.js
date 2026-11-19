@@ -1403,7 +1403,9 @@ function formHtml(f) {
       '<label>Sted/område (valgfrit)<input id="f-area" value="' + esc(f.area) + '" placeholder="Plaza del Muelle"' + dis + "></label>" +
       '<div class="grid"><label>Kategori<select id="f-cat"' + dis + ">" + opts + "</select></label>" + (SUBCATS[f.cat] ? '<label>Underkategori<select id="f-subcat"' + dis + '><option value="">Ikke valgt</option>' + SUBCATS[f.cat].map(function (x) { return '<option value="' + x[0] + '"' + (f.subcat === x[0] ? " selected" : "") + ">" + esc(x[1]) + "</option>"; }).join("") + "</select></label>" : "") + "" + '<label>Pris<select id="f-price">' + pr + "</select></label></div>" +
       questionsHtml(f) +
-      '<div class="grid"><label>Hvem kan se vores stjerner og tekst?<select id="f-expvis"><option value="alle"' + (f.expVis !== "andel" ? " selected" : "") + '>Alle</option><option value="andel"' + (f.expVis === "andel" ? " selected" : "") + ">Vores andel</option></select></label>" +
+      ((f.vis || "alle") !== "alle"
+        ? '<div class="grid"><label>Hvem kan se vores stjerner og tekst?<select disabled><option>Vores andel</option></select><span class="hint">Følger stedet: når kun ' + (f.vis === "mig" ? "du" : "jeres andel") + " kan se stedet, kan andre heller ikke se jeres stjerner og tekst.</span></label>"
+        : '<div class="grid"><label>Hvem kan se vores stjerner og tekst?<select id="f-expvis"><option value="alle"' + (f.expVis !== "andel" ? " selected" : "") + '>Alle</option><option value="andel"' + (f.expVis === "andel" ? " selected" : "") + ">Vores andel</option></select></label>") +
     (core ? '<label>Hvem kan se stedet?<select id="f-vis">' + ["alle", "andel", "mig"].map(function (v) { return '<option value="' + v + '"' + ((f.vis || "alle") === v ? " selected" : "") + ">" + VIS_NAMES[v] + "</option>"; }).join("") + "</select></label>" : "") + "</div>" +
       linkFields(f) +
       '<label>Vi har besøgt (fx 2025-02, 2026-07)<input id="f-visits" value="' + esc((f.visits || []).join(", ")) + '"><span class="hint">Kommer automatisk fra datoen på de billeder, I lægger ind. Her kan I tilføje eller rette.</span></label>' +
@@ -1642,7 +1644,7 @@ async function saveDraft() {
                     : await sb.from("places").update(row).eq("id", d.id);
     if (r.error) throw new Error("Stedet blev ikke gemt: " + r.error.message);
     // Vores oplevelse
-    var e = await saveExp("place", d.id, { favorite: !!d.fav, visits: d.visits, last_visit: newestVisit(d.lastVisit, d.visits, d.lastVisit), note: d.note.trim() || null, visibility: d.expVis === "andel" ? "andel" : "alle" });
+    var e = await saveExp("place", d.id, { favorite: !!d.fav, visits: d.visits, last_visit: newestVisit(d.lastVisit, d.visits, d.lastVisit), note: d.note.trim() || null, visibility: (d.expVis === "andel" || (d.vis && d.vis !== "alle")) ? "andel" : "alle" });
     if (e.error) throw new Error("Vurderingen blev ikke gemt: " + e.error.message);
     // Billeder: nye uploades, rækkefølge og synlighed gemmes, slettede fjernes
     var newOnes = d.items.filter(function (it) { return it.file; });
@@ -1954,6 +1956,7 @@ root.addEventListener("submit", function (e) {
 root.addEventListener("change", function (e) {
   if (e.target.id === "a-region") { syncArea(); render(); return; }
   if (e.target.id === "f-cat") { syncDraft(); render(); return; }
+  if (e.target.id === "f-vis") { syncDraft(); render(); return; }
   if (e.target.id === "a-add") { syncArea(); Array.prototype.forEach.call(e.target.files, function (f) { var it = { file: f, url: URL.createObjectURL(f) }; ui.areaDraft.items.push(it); suggestVis(it); }); render(); return; }
   if (e.target.id === "f-add") {
     syncDraft();
@@ -1978,7 +1981,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 73;
+var APP_VERSION = 74;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
