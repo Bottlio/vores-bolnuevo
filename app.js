@@ -677,7 +677,7 @@ function toolbar(show, noScope) {
   tbCtrl.innerHTML = (noScope ? "" : '<div class="pill" role="group" aria-label="Vis">' +
       seg("alle", "Alle", "Alle", null, "Alle steder i guiden") +
       seg("vurderet", "★ Vores", "★ Vores", c.vurderet, "Kun steder jeres andel har givet stjerner eller kommenteret") +
-      seg("fav", heartSvg(ui.scope === "fav") + " Favoritter", heartSvg(ui.scope === "fav"), c.fav, "Jeres favoritter") + helpBtn("scope", "onpill") + "</div>") +
+      seg("fav", heartSvg(ui.scope === "fav") + " Favoritter", heartSvg(ui.scope === "fav"), c.fav, "Jeres favoritter") + "</div>") +
     '<button class="tview" type="button" data-view="' + (toMap ? "kort" : "liste") + '" aria-label="' + (toMap ? "Vis på kort" : "Vis som gitter") + '" title="' + (toMap ? "Vis på kort" : "Vis som gitter") + '">' + (toMap ? ICON_MAP : ICON_LIST) + "</button>";
 }
 
@@ -686,7 +686,7 @@ function isApt(c) { return APTS.indexOf(c) >= 0; }
 function render() {
   // Ikke logget ind / ingen andel: kun velkomst og login. Egne sider: Vores andel, Regler og privatliv.
   markOrig();
-  if (!ui.member || ui.page) { renderGate(); return; }
+  if (!ui.member || ui.page || ui.recovery) { renderGate(); return; }
   if (!ui.loaded) { setTop(headerHtml()); toolbar(false); root.innerHTML = '<p class="loading">Henter guiden…</p>'; slim.innerHTML = ""; slim.classList.remove("show"); panel.hidden = true; return; }
   if (ui.cat === "hjem" && !ui.place && !(ui.q || "").trim()) { renderHome(); return; }
   var APT = ui.cat, inApt = isApt(ui.cat), inTowns = ui.cat === "byer", inTrips = ui.cat === "dagsture";
@@ -1048,7 +1048,8 @@ function renderGate() {
   setTop(headerHtml()); toolbar(false);
   var html = "";
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
-  if (ui.checking) html += '<p class="loading">Henter…</p>';
+  if (ui.recovery) { if (!ui.login || ui.login.mode !== "newpw") ui.login = { mode: "newpw" }; html += loginHtml(); }
+  else if (ui.checking) html += '<p class="loading">Henter…</p>';
   else if (ui.page === "regler") html += pageBack() + RULES_HTML;
   else if (ui.page === "hjaelp") html += helpPageHtml();
   else if (ui.page === "andel" && ui.member) html += pageBack() + andelPageHtml();
@@ -1108,13 +1109,24 @@ function andelPageHtml() {
   }
   return h;
 }
+/* Invitationsbesked med en kort log ind-guide */
+function inviteMsg(name, email, andel) {
+  return "Hej " + name + ".\n\nDu er inviteret til Laderita de Bolnuevo guide – en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer" + (andel ? ". Du er med som ejer af andel " + andel : "") + ".\n\n" +
+    "Sådan kommer du i gang:\n" +
+    "1. Åbn " + location.origin + location.pathname + "\n" +
+    "2. Tryk på \"Første gang: opret adgangskode\".\n" +
+    "3. Skriv din mail (" + email + ") og vælg en adgangskode på mindst 8 tegn.\n" +
+    "4. Du får en mail. Tryk på linket i mailen.\n" +
+    "5. Gå tilbage til guiden og log ind med din mail og adgangskode.\n\n" +
+    "Tip: Læg guiden på telefonens hjemmeskærm, så den åbner som en app. Har du brug for hjælp, så tryk på ? øverst i guiden – den virker også, før du er logget ind." +
+    (andel ? "\n\nBagefter kan du selv invitere familie og venner under \"Vores andel\" nederst på siden." : "");
+}
 async function invite() {
   var name = document.getElementById("i-name").value.trim(), email = document.getElementById("i-email").value.trim().toLowerCase(), role = ui.irole === "ejer" ? "ejer" : "gaest";
   if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { andelData.err = "Skriv fornavn og en gyldig mail."; render(); return; }
   var r = await sb.from("members").insert({ andel_id: me.andel, email: email, name: name, role: role, invited_by: ui.user.id });
   if (r.error) { andelData.err = /duplicate|unique/i.test(r.error.message) ? "Den mail er allerede inviteret." : "Invitationen blev ikke gemt: " + r.error.message; render(); return; }
-  ui.inviteText = "Hej " + name + ". Du er inviteret til Laderita de Bolnuevo guide – andelshavernes tips til området omkring hotellet. Åbn " + location.origin + location.pathname +
-    ', tryk "Første gang: opret adgangskode" og brug mailen ' + email + ". Du får en mail, hvor du bekræfter, og så er du med.";
+  ui.inviteText = inviteMsg(name, email, "");
   andelData.err = ""; await loadAndel();
 }
 async function removeMember(email) {
@@ -1176,8 +1188,7 @@ async function createAndel() {
   if (a.error) { adminData.err = /unique|duplicate/i.test(a.error.message) ? "Andel " + lejl + "-" + num + " findes allerede." : "Andelen blev ikke oprettet: " + a.error.message; render(); return; }
   var m = await sb.from("members").insert({ andel_id: a.data.id, email: email, name: name, role: "ejer", invited_by: ui.user.id });
   if (m.error) { adminData.err = "Andelen er oprettet, men ejeren blev ikke inviteret: " + m.error.message; render(); return; }
-  ui.inviteText = "Hej " + name + ". Du er inviteret til Laderita de Bolnuevo guide som ejer af andel " + lejl + "-" + num + ". Åbn " + location.origin + location.pathname +
-    ', tryk "Første gang: opret adgangskode" og brug mailen ' + email + ". Bagefter kan du selv invitere familie og venner under \"Vores andel\" nederst på siden.";
+  ui.inviteText = inviteMsg(name, email, lejl + "-" + num);
   adminData.err = ""; await loadAdmin();
 }
 async function markSold(id) {
@@ -1209,16 +1220,48 @@ var RULES_HTML = '<article class="panel rules"><h2>Regler og privatliv</h2>' +
 /* ---------- login ---------- */
 function loginHtml() {
   var l = ui.login;
+  var msg = (l.info ? '<p class="hint">' + esc(l.info) + "</p>" : "") + (l.err ? '<p class="err" role="alert">' + esc(l.err) + "</p>" : "");
+  if (l.mode === "newpw") return '<form class="panel" id="login-form"><h2>Vælg en ny adgangskode</h2>' +
+    '<p class="hint">Skriv din nye adgangskode to gange. Den skal være mindst 8 tegn.</p>' +
+    '<label>Ny adgangskode<input type="password" id="l-pass" autocomplete="new-password" required minlength="8"></label>' +
+    '<label>Skriv den igen<input type="password" id="l-pass2" autocomplete="new-password" required minlength="8"></label>' + msg +
+    '<div class="row"><button class="btn primary" type="submit"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem ny adgangskode") + "</button></div></form>";
+  if (l.mode === "reset") return '<form class="panel" id="login-form"><h2>Glemt adgangskode</h2>' +
+    '<p class="hint">Skriv den mail, du bruger til guiden. Du får en mail med et link, hvor du kan vælge en ny adgangskode.</p>' +
+    '<label>Mail<input type="email" id="l-email" autocomplete="email" required value="' + esc(l.email || "") + '"></label>' + msg +
+    '<div class="row"><button class="btn primary" type="submit"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Sender…" : "Send link") + '</button><button class="btn" type="button" id="to-login">Tilbage til log ind</button></div></form>';
   return '<form class="panel" id="login-form"><h2>Log ind</h2>' +
     '<div class="seg" role="group" aria-label="Login"><button type="button" id="to-login" aria-pressed="' + (l.mode !== "signup") + '">Jeg har en adgangskode</button><button type="button" id="to-signup" aria-pressed="' + (l.mode === "signup") + '">Første gang: opret adgangskode</button></div>' +
     (l.mode === "signup" ? '<p class="hint">Brug den mail, du er inviteret med, og vælg en adgangskode. Du får en mail, hvor du bekræfter, og så kan du logge ind.</p>' : "") +
     '<label>Mail<input type="email" id="l-email" autocomplete="email" required value="' + esc(l.email || "") + '"></label>' +
     '<label>Adgangskode<input type="password" id="l-pass" autocomplete="' + (l.mode === "signup" ? "new-password" : "current-password") + '" required minlength="8"></label>' +
-    (l.info ? '<p class="hint">' + esc(l.info) + "</p>" : "") + (l.err ? '<p class="err" role="alert">' + esc(l.err) + "</p>" : "") +
+    (l.mode !== "signup" ? '<p class="forgot"><button type="button" class="linkbtn" id="to-reset">Glemt adgangskode?</button></p>' : "") + msg +
     '<div class="row"><button class="btn primary" type="submit">' + (l.mode === "signup" ? "Opret adgangskode" : "Log ind") + "</button>" + (ui.user ? '<button class="btn" type="button" id="close-login">Annuller</button>' : "") + "</div></form>";
 }
 
 async function submitLogin() {
+  if (ui.login.mode === "newpw") {
+    var p1 = document.getElementById("l-pass").value, p2 = document.getElementById("l-pass2").value;
+    ui.login.err = ""; ui.login.info = "";
+    if (p1.length < 8) { ui.login.err = "Adgangskoden skal være mindst 8 tegn."; render(); return; }
+    if (p1 !== p2) { ui.login.err = "De to adgangskoder er ikke ens. Prøv igen."; render(); return; }
+    ui.busy = true; render();
+    var u = await sb.auth.updateUser({ password: p1 });
+    ui.busy = false;
+    if (u.error) { ui.login.err = "Adgangskoden blev ikke skiftet: " + u.error.message + ". Prøv at bestille et nyt link."; render(); return; }
+    ui.recovery = false; ui.login = null;
+    try { history.replaceState(null, "", location.pathname); } catch (x) {}
+    await afterLogin(); ui.msg = "Din adgangskode er skiftet."; render(); return;
+  }
+  if (ui.login.mode === "reset") {
+    var em = document.getElementById("l-email").value.trim();
+    ui.login.email = em; ui.login.err = ""; ui.login.info = "";
+    ui.busy = true; render();
+    var rr = await sb.auth.resetPasswordForEmail(em, { redirectTo: location.origin + location.pathname });
+    ui.busy = false;
+    if (rr.error) { ui.login.err = /rate|seconds|many/i.test(rr.error.message) ? "Der er sendt for mange mails lige nu. Vent lidt, og prøv igen." : "Det lykkedes ikke: " + rr.error.message; render(); return; }
+    ui.login.info = "Hvis mailen er med i guiden, har vi nu sendt et link til " + em + ". Åbn mailen og tryk på linket. Kan du ikke finde den, så kig også i uønsket post (spam)."; render(); return;
+  }
   var email = document.getElementById("l-email").value.trim(), pass = document.getElementById("l-pass").value;
   ui.login.email = email; ui.login.err = ""; ui.login.info = "";
   if (pass.length < 8) { ui.login.err = "Adgangskoden skal være mindst 8 tegn."; render(); return; }
@@ -2146,7 +2189,7 @@ var HELP_TIPS = {
   stars: ["Stjernerne", "<p>De store stjerner er <strong>gennemsnittet</strong> af alle andeles vurderinger. Tallet i parentes er, hvor mange der har vurderet.</p><p><strong>Din vurdering</strong> nedenunder er jeres egen.</p><p>Tryk på stjernerne for at give eller ændre jeres vurdering.</p>", "stjerner"],
   photovis: ["Hvem kan se billedet?", "<p>Mærket viser, hvem der kan se billedet:</p><p><strong>Alle</strong> – alle andelshavere i guiden.<br><strong>Vores andel</strong> – kun jer i andelen.<br><strong>Kun mig</strong> – kun dig.</p><p>Tryk på mærket for at skifte. Det gemmes med det samme.</p>", "billeder"],
   whosee: ["Hvem kan se det?", "<p><strong>Hvem kan se stedet?</strong> Om alle andelshavere kan se stedet, kun jeres andel eller kun dig.</p><p><strong>Hvem kan se vores stjerner og tekst?</strong> Om jeres stjerner og kommentar vises for alle eller kun for jeres andel.</p>", "stjerner"],
-  advanced: ["Avanceret redigering", "<p>Her kan man rette stedets navn, by, kategori, links og hvem der kan se det.</p><p>Det er sjældent nødvendigt. Vil du bare skrive en kommentar, skal du kun bruge feltet <strong>Kommentar</strong> øverst og trykke <strong>Gem</strong>.</p>", "stjerner"],
+  advanced: ["Avanceret redigering", "<p>Her kan man rette stedets navn, by, kategori, links og hvem der kan se det.</p><p>Det er sjældent nødvendigt. Vil du bare skrive en kommentar, skal du kun bruge feltet <strong>Kommentar</strong> øverst og trykke <strong>Gem</strong>.</p>", "avanceret"],
   invite: ["Invitér en person", "<p>1. Skriv personens fornavn og mail.<br>2. Vælg <strong>Gæst</strong> eller <strong>Ejer</strong>.<br>3. Tryk <strong>Invitér</strong>.<br>4. Send beskeden, der kommer frem, til personen – fx på sms eller mail.</p><p>Gæster kan det samme i guiden som ejere, men kan ikke invitere andre.</p>", "andel"]
 };
 function helpBtn(key, cls) { return '<button type="button" class="qhelp' + (cls ? " " + cls : "") + '" data-help="' + key + '" aria-label="Hjælp: ' + esc(HELP_TIPS[key][0]) + '" title="Hjælp">?</button>'; }
@@ -2161,39 +2204,82 @@ function openHelpTip(key) {
 }
 function closeHelpTip() { if (helpBox) { helpBox.hidden = true; helpBox.innerHTML = ""; } if (!document.querySelector("#welcomebox:not([hidden])")) document.body.classList.remove("modal-open"); }
 
+var DEMO = {
+  back: '<span class="iconbtn demo" aria-hidden="true">' + ICON_BACK + "</span>",
+  home: '<span class="iconbtn demo" aria-hidden="true">' + ICON_HOME + "</span>",
+  map: '<span class="tview demo" aria-hidden="true">' + ICON_MAP + "</span>",
+  list: '<span class="tview demo" aria-hidden="true">' + ICON_LIST + "</span>",
+  help: '<span class="iconbtn helpnav demo" aria-hidden="true">?</span>',
+  heart: '<span class="demoicon" aria-hidden="true">' + heartSvg(false) + "</span>",
+  pill: '<span class="pill demo" aria-hidden="true"><button type="button" tabindex="-1" aria-pressed="true">Alle</button><button type="button" tabindex="-1" aria-pressed="false">★ Vores</button><button type="button" tabindex="-1" aria-pressed="false">' + heartSvg(false) + " Favoritter</button></span>",
+  stars: '<span class="demostars" aria-hidden="true"><span class="rstars">' + starRow(0) + "</span></span>",
+  rating: '<span class="demorating" aria-hidden="true"><span class="rbtn"><span class="rnum">4,0</span><span class="rstars">' + starRow(4) + '</span><span class="rcount">(2)</span></span><span class="rown">Din vurdering 4,5 ★</span></span>',
+  share: '<span class="osicon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#0a7aff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9H6.5A1.5 1.5 0 0 0 5 10.5v9A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 17.5 9H16"/><path d="M12 14V3M8.5 6.5 12 3l3.5 3.5"/></svg></span>',
+  addhome: '<span class="osicon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8.5v7M8.5 12h7"/></svg></span>',
+  dots: '<span class="osicon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></span>'
+};
 var HELP_FAQ = [
   ["start", "Kom i gang", [
     ["Hvordan logger jeg ind første gang?", "<ol><li>Åbn linket fra den invitation, du har fået.</li><li>Tryk på <strong>Første gang: opret adgangskode</strong>.</li><li>Skriv den mail, du er inviteret med, og vælg en adgangskode (mindst 8 tegn).</li><li>Du får en mail. Tryk på linket i mailen.</li><li>Kom tilbage til guiden og log ind med mail og adgangskode.</li></ol>"],
-    ["Jeg har glemt min adgangskode", "<p>Skriv til Christian på <a href=\"mailto:" + HELP_MAIL + "\">" + HELP_MAIL + "</a>, så hjælper han dig.</p>"],
-    ["Hvordan får jeg guiden på telefonens hjemmeskærm?", "<p>Så åbner guiden som en app, når du trykker på ikonet.</p><p><strong>iPhone/iPad</strong> (i Safari):</p><ol><li>Tryk på Del-knappen (firkant med en pil op).</li><li>Vælg <strong>Føj til hjemmeskærm</strong>.</li><li>Tryk <strong>Tilføj</strong>.</li></ol><p><strong>Android</strong> (i Chrome):</p><ol><li>Tryk på de tre prikker øverst til højre.</li><li>Vælg <strong>Føj til startskærm</strong> eller <strong>Installer app</strong>.</li></ol>"],
-    ["Teksten er for lille", "<p>På telefon og iPad: sæt to fingre på skærmen og træk dem fra hinanden.</p><p>På computer: hold <strong>Ctrl</strong> nede (Mac: <strong>Cmd</strong>) og tryk på <strong>+</strong>.</p>"],
-    ["Hvordan kommer jeg tilbage?", "<p>Pilen <strong>←</strong> øverst til højre går et skridt tilbage. <strong>Huset</strong> går til forsiden.</p>"],
+    ["Jeg har glemt min adgangskode", "<ol><li>Tryk på <strong>Glemt adgangskode?</strong> under feltet til adgangskoden på log ind-siden.</li><li>Skriv din mail og tryk <strong>Send link</strong>.</li><li>Åbn mailen og tryk på linket. Kan du ikke finde den, så kig i uønsket post (spam).</li><li>Skriv din nye adgangskode to gange og tryk <strong>Gem ny adgangskode</strong>.</li></ol><p>Så er du logget ind igen.</p>"],
+    ["Hvordan får jeg guiden som \"app\" på min telefon?", "<p>Guiden er ikke en app, du henter i App Store eller Google Play. Det er en hjemmeside. Men du kan lægge den på telefonens hjemmeskærm med sit eget ikon. Så åbner den med ét tryk og ser ud og opfører sig som en app – og du skal ikke logge ind hver gang.</p>" +
+      "<p><strong>iPhone og iPad</strong> – åbn guiden i <strong>Safari</strong>:</p><ol><li>Tryk på Del-knappen " + DEMO.share + " nederst (på iPad øverst).</li><li>Rul lidt ned og tryk <strong>Føj til hjemmeskærm</strong> " + DEMO.addhome + ".</li><li>Tryk <strong>Tilføj</strong> øverst til højre.</li></ol>" +
+      "<p><strong>Android</strong> – åbn guiden i <strong>Chrome</strong>:</p><ol><li>Tryk på de tre prikker " + DEMO.dots + " øverst til højre.</li><li>Tryk <strong>Føj til startskærm</strong> (eller <strong>Installer app</strong>).</li><li>Tryk <strong>Tilføj</strong>.</li></ol><p>Nu ligger guiden som et ikon sammen med dine andre apps.</p>"],
+    ["Hvordan kommer jeg tilbage?", "<p>" + DEMO.back + " øverst til højre går et skridt tilbage.</p><p>" + DEMO.home + " går til forsiden.</p>"],
+    ["Hvor finder jeg hjælp?", "<p>Tryk på " + DEMO.help + " øverst til højre. Den virker også, før du er logget ind.</p>"],
     ["Kan jeg se velkomsten igen?", "<p>Ja: <button type=\"button\" class=\"linkbtn\" id=\"show-welcome\">Vis velkomsten igen</button>.</p>"]
   ]],
   ["find", "Find steder", [
     ["Hvordan finder jeg et sted?", "<ol><li>Tryk på et af felterne på forsiden – fx <strong>Spisesteder</strong> eller <strong>Strande</strong>.</li><li>Tryk på et sted for at se billeder, stjerner og kommentarer.</li></ol><p>Leder du efter noget bestemt, så skriv i søgefeltet øverst.</p>"],
-    ["Hvad betyder Alle, Vores og Favoritter?", HELP_TIPS.scope[1]],
+    ["Hvad betyder Alle, Vores og Favoritter?", "<p>" + DEMO.pill + "</p><p><strong>Alle</strong> viser alle steder i guiden.</p><p><strong>Vores</strong> viser kun de steder, jeres andel selv har givet stjerner eller skrevet om.</p><p><strong>Favoritter</strong> viser de steder, I har trykket på hjertet " + DEMO.heart + " ved.</p><p>Det valgte står med hvid tekst på mørkeblåt.</p>"],
     ["Hvad er forskellen på Byer og Dagsture?", "<p><strong>Byer</strong> er byerne i området med de steder, der ligger i dem.</p><p><strong>Dagsture</strong> er områder mindst en halv time væk i bil. Ture over 2½ time står under <strong>Længere ture</strong>.</p>"],
-    ["Hvordan ser jeg stederne på et kort?", "<p>Tryk på kort-knappen til højre for søgefeltet. Tryk på den igen for at komme tilbage til listen.</p><p>Inde på et sted viser kort-knappen stedet på kortet i stedet for billederne.</p>"],
-    ["Hvad gør Karakter og Sortering?", "<p><strong>Karakter</strong> viser kun steder med mindst så mange stjerner. <strong>Sortering</strong> bestemmer rækkefølgen, fx senest besøgt eller flest stjerner.</p>"],
-    ["Hvad står der under Hotellet?", "<p>Det praktiske om <strong>Laderita de Bolnuevo</strong> – adresse, ankomst, afrejse og link til hotellets ABC – og billeder af jeres egen lejlighed.</p>"]
+    ["Hvordan ser jeg stederne på et kort?", "<p>Tryk på kort-knappen " + DEMO.map + " til højre for søgefeltet.</p><p>På kortet bliver knappen til " + DEMO.list + ". Tryk på den for at komme tilbage til listen.</p><p>Inde på et sted viser " + DEMO.map + " stedet på kortet i stedet for billederne.</p>"],
+    ["Hvad gør Karakter og Sortering?", "<p><strong>Karakter</strong> viser kun steder med mindst så mange stjerner. <strong>Sortering</strong> bestemmer rækkefølgen, fx senest besøgt eller flest stjerner.</p>"]
   ]],
   ["stjerner", "Stjerner og kommentarer", [
-    ["Hvordan giver jeg stjerner?", "<ol><li>Åbn stedet.</li><li>Tryk på stjernerne ud for navnet.</li><li>Giv stjerner til hvert spørgsmål.</li><li>Tryk <strong>Gem</strong>.</li></ol>"],
-    ["Hvad betyder de store og de små stjerner?", HELP_TIPS.stars[1]],
-    ["Hvordan skriver jeg en kommentar?", "<ol><li>Åbn stedet.</li><li>Tryk <strong>Tilføj kommentar</strong>.</li><li>Skriv i feltet <strong>Kommentar</strong>.</li><li>Tryk <strong>Gem</strong>.</li></ol>"],
+    ["Hvordan giver jeg stjerner?", "<ol><li>Åbn stedet.</li><li>Tryk på stjernerne " + DEMO.stars + " ud for navnet.</li><li>Der kommer et vindue med nogle få spørgsmål – for et spisested fx <em>Mad og drikke</em>, <em>Betjening</em>, <em>Beliggenhed og stemning</em> og <em>Værdi for pengene</em>. Tryk på 1–5 stjerner ved hvert spørgsmål. Du behøver ikke svare på dem alle.</li><li>Nederst ser du den samlede vurdering. Tryk <strong>Gem</strong>.</li></ol><p>Du kan altid ændre jeres stjerner ved at trykke på dem igen.</p>"],
+    ["Hvad betyder de store og de små stjerner?", "<p>" + DEMO.rating + "</p><p>De <strong>store stjerner</strong> er gennemsnittet af alle andeles vurderinger. Tallet foran er gennemsnittet, og tallet i parentes er, hvor mange andele der har vurderet.</p><p><strong>Din vurdering</strong> nedenunder er jeres egen.</p><p>Tryk på stjernerne for at give eller ændre jeres vurdering.</p>"],
+    ["Hvordan skriver jeg en kommentar?", "<ol><li>Åbn stedet.</li><li>Tryk <strong>Tilføj kommentar</strong>.</li><li>Skriv i feltet <strong>Kommentar</strong> – fx hvad I spiste, priser eller gode råd.</li><li>Tryk <strong>Gem</strong>.</li></ol>"],
     ["Hvem kan se det, jeg skriver?", "<p>Som udgangspunkt kan alle andelshavere se jeres stjerner og kommentarer. Vil I holde dem for jer selv, så tryk <strong>Tilføj kommentar</strong> → <strong>Avanceret redigering</strong> og vælg <strong>Vores andel</strong> under <strong>Hvem kan se vores stjerner og tekst?</strong></p>"],
-    ["Hvad er hjertet?", "<p>Tryk på hjertet ♡ ved et sted for at gøre det til en favorit. Tryk igen for at fjerne det. Favoritter deles med alle i jeres andel, men andre andele kan ikke se dem.</p>"]
+    ["Hvad er hjertet?", "<p>Tryk på hjertet " + DEMO.heart + " ved et sted for at gøre det til en favorit. Tryk igen for at fjerne det. Favoritter deles med alle i jeres andel, men andre andele kan ikke se dem.</p>"]
   ]],
   ["billeder", "Billeder og nye steder", [
     ["Hvordan lægger jeg billeder ind?", "<ol><li>Åbn stedet.</li><li>Tryk <strong>Tilføj billeder</strong>.</li><li>Vælg billederne på telefonen eller computeren.</li><li>Tryk <strong>Gem</strong>.</li></ol>"],
-    ["Hvordan opretter jeg et nyt sted?", "<ol><li>Tryk <strong>+ Nyt sted</strong> nederst til højre.</li><li>Vælg <strong>Vælg billeder</strong>, hvis du har billeder fra stedet. Guiden prøver selv at finde stedet ud fra, hvor billedet er taget. Ellers vælg <strong>Uden billede</strong>.</li><li>Skriv eller ret navnet.</li><li>Tryk <strong>Gem</strong>.</li></ol>"],
+    ["Hvordan opretter jeg et nyt sted?", "<p>Tryk <strong>+ Nyt sted</strong> nederst til højre. Du kan vælge mellem to måder:</p>" +
+      "<p><strong>Med billeder fra stedet</strong> (nemmest)</p><ol>" +
+      "<li>Tryk <strong>Vælg billeder</strong> og vælg et eller flere billeder.</li>" +
+      "<li>Guiden ser, hvor billederne er taget – hvis telefonen gemmer placeringen på billederne.</li>" +
+      "<li>Ligger der allerede et sted i guiden tæt på, står der fx <em>Billederne er taget ved Las Gredas</em>. Er det samme sted, så tryk <strong>Tilføj billederne dér</strong> – så er du færdig.</li>" +
+      "<li>Ellers foreslår guiden et navn. Ret det, hvis det er forkert. Fandt guiden ingen placering, og står du på stedet, så tryk <strong>Brug min placering</strong>.</li>" +
+      "<li>Vælg en kategori, fx <strong>Spisesteder</strong>, og evt. hvilken slags (fx <strong>Strandbar</strong>).</li>" +
+      "<li>Svar <strong>Ja</strong>, <strong>Nej</strong> eller <strong>Ved ikke</strong> på de korte spørgsmål, hvis der er nogen.</li>" +
+      "<li>Tryk " + DEMO.heart + " <strong>Tilføj som favorit</strong>, hvis I vil gemme stedet.</li>" +
+      "<li>Tryk <strong>Gem</strong>. Vil I skrive en kommentar eller give stjerner med det samme, så tryk <strong>Tilføj beskrivelse, karakter m.m.</strong> i stedet.</li></ol>" +
+      "<p><strong>Uden billeder</strong></p><ol>" +
+      "<li>Tryk <strong>Uden billede</strong>.</li>" +
+      "<li>Skriv stedets navn og tryk <strong>Find på kortet</strong>. Tryk på det rigtige sted i listen, der kommer frem.</li>" +
+      "<li>Skriv gerne stedets hjemmeside. Har I ingen billeder, henter guiden selv et par billeder fra hjemmesiden, når I gemmer.</li>" +
+      "<li>Vælg kategori, svar på spørgsmålene og tryk <strong>Gem</strong>.</li></ol>" +
+      "<p><strong>Godt at vide</strong></p><ul><li>Findes der allerede et sted med et lignende navn, viser guiden det. Brug hellere det, så det samme sted ikke står to gange.</li><li>Billeder, hvor guiden finder personer, bliver kun vist for jeres andel. Tryk på mærket på billedet for at ændre det.</li><li>Fortryder du, så tryk <strong>Annuller</strong>.</li></ul>"],
     ["Hvem kan se mine billeder?", HELP_TIPS.photovis[1] + "<p>Billeder, hvor guiden finder personer, bliver automatisk kun vist for jeres andel.</p>"],
-    ["Hvordan sletter jeg et billede?", "<ol><li>Åbn stedet.</li><li>Tryk <strong>Tilføj kommentar</strong>.</li><li>Tryk <strong>Slet</strong> under billedet.</li><li>Tryk <strong>Gem</strong>.</li></ol><p>Du kan kun slette jeres egne billeder.</p>"],
-    ["Hvad gør Anmeld?", "<p>Er en tekst eller et billede fra en anden andel forkert eller upassende, så tryk <strong>Anmeld</strong> og skriv kort hvorfor. Christian ser på det.</p>"]
+    ["Hvordan sletter jeg et billede?", "<ol><li>Åbn stedet.</li><li>Tryk <strong>Tilføj kommentar</strong>.</li><li>Tryk <strong>Slet</strong> under billedet.</li><li>Tryk <strong>Gem</strong>.</li></ol><p>Du kan kun slette jeres egne billeder. Med <strong>Gør til forside</strong> vælger du, hvilket billede der vises først.</p>"],
+    ["Hvad gør Anmeld?", "<p>Er en tekst eller et billede fra en anden andel forkert eller upassende, så tryk <strong>Anmeld</strong> og skriv kort hvorfor. Administratoren ser på det.</p>"]
+  ]],
+  ["avanceret", "Avanceret redigering", [
+    ["Hvad kan jeg under Avanceret redigering?", "<p>Tryk <strong>Tilføj kommentar</strong> på et sted og derefter <strong>Avanceret redigering ▾</strong>. Her kan du rette alt om stedet. Det er sjældent nødvendigt – til en kommentar skal du kun bruge feltet <strong>Kommentar</strong> øverst.</p><ul>" +
+      "<li><strong>Navn</strong>, <strong>By</strong> og <strong>Sted/område</strong> – fx <em>Plaza del Muelle</em>. Kan kun rettes af den, der oprettede stedet.</li>" +
+      "<li><strong>Kategori</strong> og <strong>Underkategori</strong> – fx Spisesteder › Strandbar.</li>" +
+      "<li><strong>Pris</strong> – prisniveau, eller <em>Ikke relevant</em>.</li>" +
+      "<li><strong>Hvem kan se vores stjerner og tekst?</strong> – <em>Alle</em> eller kun <em>Vores andel</em>.</li>" +
+      "<li><strong>Hvem kan se stedet?</strong> – <em>Alle</em>, <em>Vores andel</em> eller <em>Kun mig</em>.</li>" +
+      "<li><strong>Stedets hjemmeside</strong>, <strong>Link til Google Maps</strong> og <strong>Andet link</strong> (fx en blog eller anmeldelser).</li>" +
+      "<li><strong>Vi har besøgt</strong> – måneder som 2026-07. Udfyldes selv ud fra datoen på jeres billeder.</li>" +
+      "<li><strong>Find igen ud fra navnet</strong> eller <strong>Brug min placering</strong> – hvis stedet står forkert på kortet.</li>" +
+      "<li><strong>Navnet er ikke bekræftet</strong> – sæt flueben, hvis I ikke er sikre på navnet.</li>" +
+      "<li><strong>Slet sted</strong> – kun for den, der oprettede stedet. Tryk to gange for at slette.</li></ul><p>Tryk <strong>Gem</strong>, når du er færdig.</p>"]
   ]],
   ["andel", "Vores andel og konto", [
-    ["Hvordan inviterer jeg familie eller venner?", "<p>Gå til <strong>Vores andel</strong> nederst på siden.</p>" + HELP_TIPS.invite[1] + "<p>Kun ejere kan invitere.</p>"],
+    ["Hvordan inviterer jeg familie eller venner?", "<p>Gå til <strong>Vores andel</strong> nederst på siden.</p>" + HELP_TIPS.invite[1] + "<p>Beskeden indeholder en kort vejledning i at logge ind. Kun ejere kan invitere.</p>"],
     ["Hvad er forskellen på Ejer og Gæst?", "<p>Begge kan se og bruge alt i guiden. Kun <strong>ejere</strong> kan invitere andre og fjerne adgang.</p>"],
     ["Hvordan sletter jeg min konto?", "<p>Gå til <strong>Vores andel</strong> nederst på siden og tryk <strong>Slet min konto</strong>. Det, du har lagt ind, bliver hos andelen.</p>"]
   ]]
@@ -2356,7 +2442,8 @@ document.addEventListener("click", async function (e) {
   if (t.id === "open-login") { ui.login = { mode: "login" }; render(); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
   if (t.id === "close-login") { ui.login = null; render(); return; }
   if (t.id === "to-signup") { ui.login.mode = "signup"; ui.login.err = ""; render(); return; }
-  if (t.id === "to-login") { ui.login.mode = "login"; ui.login.err = ""; render(); return; }
+  if (t.id === "to-login") { ui.login.mode = "login"; ui.login.err = ""; ui.login.info = ""; render(); return; }
+  if (t.id === "to-reset") { var le = document.getElementById("l-email"); if (le) ui.login.email = le.value.trim(); ui.login.mode = "reset"; ui.login.err = ""; ui.login.info = ""; render(); return; }
   if (t.id === "open-import") { if (BOL.openImport) BOL.openImport(); return; }
   if (t.id === "logout") { await sb.auth.signOut(); ui.user = null; ui.editor = false; ui.member = false; me = null; ui.draft = null; ui.page = null; places = []; raw = { places: [], towns: [], regions: [], exps: [], photos: [] }; render(); return; }
 });
@@ -2399,7 +2486,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 106;
+var APP_VERSION = 107;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -2439,7 +2526,11 @@ BOL.towns = function () { return towns; }; BOL.regions = function () { return re
 BOL.busy = function () { return ui.busy; }; BOL.cancelDraft = function () { ui.draft = null; render(); };
 
 /* ---------- start ---------- */
-sb.auth.onAuthStateChange(function (ev) { if (ev === "SIGNED_OUT") { ui.user = null; ui.editor = false; } });
+sb.auth.onAuthStateChange(function (ev) {
+  if (ev === "SIGNED_OUT") { ui.user = null; ui.editor = false; }
+  if (ev === "PASSWORD_RECOVERY") { ui.recovery = true; ui.page = null; ui.login = { mode: "newpw" }; setTimeout(render, 0); }
+});
+if (/type=recovery/.test(location.hash)) ui.recovery = true;
 render();
 checkUser().then(load);
 /* Hjælpeboks og velkomst ligger uden for siden – egne lyttere */
