@@ -460,13 +460,14 @@ function placeCard(p, detail, showKat) {
     html += factTags(p, detail);
     if (p.guess) html += '<span class="tag guess">Navnet er gættet ud fra billeder</span>';
     html += "</div>";
-    html += '<div class="row"><a class="maps" href="' + esc(mapsUrl(p)) + '" target="_blank" rel="noopener">Åbn i Google Maps</a>';
+    if (ui.editor) {
+      html += '<div class="row"><button class="btn small" type="button" data-edit="' + esc(p.id) + '">Tilføj kommentar</button><button class="btn small" type="button" data-addphotos="' + esc(p.id) + '">Tilføj billeder</button>';
+      if ((!p.photos || !p.photos.length) && (p.website || (p.link && !isMapsLink(p.link)))) html += '<button class="btn small" type="button" data-fetchimg="' + esc(p.id) + '">Hent billeder fra nettet</button>';
+      html += "</div>";
+    }
+    html += '<div class="row links"><a class="maps" href="' + esc(mapsUrl(p)) + '" target="_blank" rel="noopener">Åbn i Google Maps</a>';
     if (p.website) html += '<a class="maps" href="' + esc(p.website) + '" target="_blank" rel="noopener">Hjemmeside ↗</a>';
     if (p.link) html += '<a class="maps" href="' + esc(p.link) + '" target="_blank" rel="noopener">Læs mere (' + esc(hostOf(p.link)) + ") ↗</a>";
-    if (ui.editor) {
-      html += '<button class="btn small" type="button" data-edit="' + esc(p.id) + '">Ret</button><button class="btn small" type="button" data-addphotos="' + esc(p.id) + '">+ Billeder</button>';
-      if ((!p.photos || !p.photos.length) && (p.website || (p.link && !isMapsLink(p.link)))) html += '<button class="btn small" type="button" data-fetchimg="' + esc(p.id) + '">Hent billeder fra nettet</button>';
-    }
     html += "</div>";
     if (detail && p.town) html += '<p class="meta">Mere i <button class="linkbtn" type="button" data-town="' + esc(p.town) + '">' + esc(p.town) + "</button>" + (regionOf(p.town) !== NO_REGION && regionOf(p.town) !== p.town ? ' · <button class="linkbtn" type="button" data-region="' + esc(regionOf(p.town)) + '">' + esc(regionOf(p.town)) + "</button>" : "") + "</p>";
     return html + "</article>";
@@ -1286,8 +1287,10 @@ function startManual() {
     visits: [], guess: false, lat: null, lon: null, link: "", website: "", maps: "", items: [], removed: [], info: 'Skriv navnet og tryk "Find på kortet", så finder siden by, placering og køretid.', vis: ui.cat === "vores" ? "andel" : "alle", expVis: "alle" };
   render(); scrollToForm(); var n = document.getElementById("f-name"); if (n) n.focus();
 }
+function keepCore(d) { if (d && d.keep) { Object.assign(d, d.keep); } }
 async function findOnMap() {
   var d = ui.draft; if (!d || !d.name.trim()) { if (d) { d.err = "Skriv et navn først."; render(); } return; }
+  d.keep = d.isNew ? null : { name: d.name, cat: d.cat, subcat: d.subcat, area: d.area };
   d.err = ""; d.info = "Søger…"; render();
   try {
     var hit = null, gm = coordsFromLink(d.maps) || coordsFromLink(d.link);
@@ -1329,7 +1332,7 @@ async function findOnMap() {
     else if (SPORT.indexOf(t) >= 0) d.cat = "sport";
     d.info = "Fundet: " + (hit.display_name || "").split(",").slice(0, 3).join(",") + ". Passer det ikke, så ret navnet og prøv igen.";
   } catch (e) { d.info = "Kortet svarer ikke lige nu. Du kan gemme stedet alligevel."; }
-  render();
+  keepCore(d); render();
 }
 
 async function applyChoice(d, x) {
@@ -1341,7 +1344,7 @@ async function applyChoice(d, x) {
   if (x.cat) { d.cat = x.cat; d.subcat = x.subcat || ""; }
   if (!d.name || d.name.toLowerCase() === (x.name || "").toLowerCase()) d.name = x.name || d.name;
   d.info = "Fundet: " + [x.name, x.addr || d.town].filter(Boolean).join(", ") + ". Passer det ikke, så ret navnet og prøv igen.";
-  render();
+  keepCore(d); render();
 }
 function useMyLocation(auto) {
   var d = ui.draft; if (!d) return;
@@ -1369,25 +1372,33 @@ function formHtml(f) {
   }).join("");
   var core = canEditCore(f.isNew ? null : raw.places.filter(function (x) { return x.id === f.id; })[0]), dis = core ? "" : " disabled";
   if (f.isNew && !f.more) return quickHtml(f);
-  return '<form class="panel" id="editor"><h2>' + (f.isNew ? "Nyt sted" : "Ret sted") + "</h2>" +
+  var adv = !!f.adv || f.isNew;
+  var posTxt = f.lat != null ? "Placeringen er fundet automatisk (" + (+f.lat).toFixed(4).replace(".", ",") + " / " + (+f.lon).toFixed(4).replace(".", ",") + ")." : "Stedet har ingen placering endnu.";
+  return '<form class="panel" id="editor"><h2>' + (f.isNew ? "Nyt sted" : esc(f.name)) + "</h2>" +
     (f.finding ? '<p class="hint">Finder stedet ud fra billedet…</p>' : "") + (f.info ? '<p class="hint">' + esc(f.info) + "</p>" : "") +
-    (f.lat == null && !f.finding ? '<div><button class="btn" type="button" id="my-loc">Brug min placering</button></div>' : "") +
-    (core ? "" : '<p class="hint">Navn, by, kategori og placering kan kun rettes af den, der oprettede stedet. Alt andet – fx åbningstider, links og jeres egen vurdering – kan I rette.</p>') +
-    '<div class="grid"><label>Navn<input id="f-name" required value="' + esc(f.name) + '" placeholder="Restaurante La Siesta"' + dis + '></label><label>By<input id="f-town" list="townlist" value="' + esc(f.town || "") + '" placeholder="Puerto de Mazarrón"' + dis + '></label><datalist id="townlist">' + allTownNames().sort().map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></div>" +
-    '<label>Sted/område (valgfrit)<input id="f-area" value="' + esc(f.area) + '" placeholder="Plaza del Muelle"' + dis + "></label>" +
-    linkFields(f) +
-    '<div class="grid"><label>Kategori<select id="f-cat"' + dis + ">" + opts + "</select></label>" + (SUBCATS[f.cat] ? '<label>Underkategori<select id="f-subcat"' + dis + '><option value="">Ikke valgt</option>' + SUBCATS[f.cat].map(function (x) { return '<option value="' + x[0] + '"' + (f.subcat === x[0] ? " selected" : "") + ">" + esc(x[1]) + "</option>"; }).join("") + "</select></label>" : "") + "" + '<label>Pris<select id="f-price">' + pr + "</select></label></div>" + '<label class="favcheck"><input type="checkbox" id="f-fav"' + (f.fav ? " checked" : "") + '> Læg på jeres favoritter</label>' +
-    questionsHtml(f) +
-    '<label>Vores beskrivelse<textarea id="f-note" placeholder="Bestil dagens fisk. Book bord lørdag aften.">' + esc(f.note) + "</textarea></label>" +
-    '<div class="grid"><label>Hvem kan se vores stjerner og tekst?<select id="f-expvis"><option value="alle"' + (f.expVis !== "andel" ? " selected" : "") + '>Alle</option><option value="andel"' + (f.expVis === "andel" ? " selected" : "") + ">Vores andel</option></select></label>" +
-    (core ? '<label>Hvem kan se stedet?<select id="f-vis">' + ["alle", "andel", "mig"].map(function (v) { return '<option value="' + v + '"' + ((f.vis || "alle") === v ? " selected" : "") + ">" + VIS_NAMES[v] + "</option>"; }).join("") + "</select></label>" : "") + "</div>" +
+    (f.choices ? '<div class="choices">' + f.choices.map(function (x, i) { return '<button class="btn" type="button" data-choose="' + i + '"><strong>' + esc(x.name) + "</strong> " + esc([x.addr, x.km != null ? Math.round(x.km) + " km fra hotellet" : ""].filter(Boolean).join(" · ")) + "</button>"; }).join("") + "</div>" : "") +
+    '<label>Kommentar<textarea id="f-note" placeholder="Bestil dagens fisk. Book bord lørdag aften.">' + esc(f.note) + "</textarea></label>" +
+    '<label class="favcheck"><input type="checkbox" id="f-fav"' + (f.fav ? " checked" : "") + '> Læg på jeres favoritter</label>' +
     '<div><p class="hint" style="margin-bottom:8px">Jeres billeder (det første vises først). Tryk på mærket på et billede for at vælge, hvem der kan se det.' + (f.otherPhotos ? " Stedet har også " + f.otherPhotos + " billeder fra andre andele." : "") + '</p><div class="photos">' + ph + "</div>" +
     '<label class="btn" style="display:inline-flex;margin-top:10px;color:var(--fg)">+ Tilføj billeder<input type="file" id="f-add" accept="image/*" multiple hidden></label></div>' +
-    '<div class="grid"><label>Vi har besøgt (fx 2025-02, 2026-07)<input id="f-visits" value="' + esc((f.visits || []).join(", ")) + '"></label><label>Placering (bredde, længde)<input id="f-pos" inputmode="decimal" value="' + (f.lat != null ? esc(f.lat + ", " + f.lon) : "") + '" placeholder="37.5654, -1.2584"' + dis + "></label></div>" +
-    '<label class="inline"><input type="checkbox" id="f-guess"' + (f.guess ? " checked" : "") + "> Navnet er ikke bekræftet</label>" +
+    '<button class="btn advtoggle" type="button" id="adv-toggle" aria-expanded="' + adv + '">' + (adv ? "Skjul avanceret redigering ▴" : "Avanceret redigering ▾") + "</button>" +
+    (adv ? '<div class="advsec">' +
+      (core ? "" : '<p class="hint">Navn, by, kategori og placering kan kun rettes af den, der oprettede stedet. Alt andet – fx åbningstider og links – kan I rette.</p>') +
+      '<div class="grid"><label>Navn<input id="f-name" required value="' + esc(f.name) + '" placeholder="Restaurante La Siesta"' + dis + '></label><label>By<input id="f-town" list="townlist" value="' + esc(f.town || "") + '" placeholder="Puerto de Mazarrón"' + dis + '></label><datalist id="townlist">' + allTownNames().sort().map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></div>" +
+      '<label>Sted/område (valgfrit)<input id="f-area" value="' + esc(f.area) + '" placeholder="Plaza del Muelle"' + dis + "></label>" +
+      '<div class="grid"><label>Kategori<select id="f-cat"' + dis + ">" + opts + "</select></label>" + (SUBCATS[f.cat] ? '<label>Underkategori<select id="f-subcat"' + dis + '><option value="">Ikke valgt</option>' + SUBCATS[f.cat].map(function (x) { return '<option value="' + x[0] + '"' + (f.subcat === x[0] ? " selected" : "") + ">" + esc(x[1]) + "</option>"; }).join("") + "</select></label>" : "") + "" + '<label>Pris<select id="f-price">' + pr + "</select></label></div>" +
+      questionsHtml(f) +
+      '<div class="grid"><label>Hvem kan se vores stjerner og tekst?<select id="f-expvis"><option value="alle"' + (f.expVis !== "andel" ? " selected" : "") + '>Alle</option><option value="andel"' + (f.expVis === "andel" ? " selected" : "") + ">Vores andel</option></select></label>" +
+    (core ? '<label>Hvem kan se stedet?<select id="f-vis">' + ["alle", "andel", "mig"].map(function (v) { return '<option value="' + v + '"' + ((f.vis || "alle") === v ? " selected" : "") + ">" + VIS_NAMES[v] + "</option>"; }).join("") + "</select></label>" : "") + "</div>" +
+      linkFields(f) +
+      '<label>Vi har besøgt (fx 2025-02, 2026-07)<input id="f-visits" value="' + esc((f.visits || []).join(", ")) + '"><span class="hint">Kommer automatisk fra datoen på de billeder, I lægger ind. Her kan I tilføje eller rette.</span></label>' +
+      '<div><p class="hint" style="margin:0 0 6px">' + esc(posTxt) + " Den findes automatisk fra billedernes placering, et link fra Google Maps eller stedets navn.</p>" +
+        (core ? '<div class="row"><button class="btn small" type="button" id="find-map">' + (f.lat != null ? "Find igen ud fra navnet" : "Find på kortet ud fra navnet") + '</button><button class="btn small" type="button" id="my-loc">Brug min placering</button></div>' : "") + "</div>" +
+      '<label class="inline"><input type="checkbox" id="f-guess"' + (f.guess ? " checked" : "") + "> Navnet er ikke bekræftet</label>" +
+      (!f.isNew && core ? '<div><button class="btn danger" type="button" id="del-place">' + (f.confirmDel ? "Tryk igen for at slette stedet" : "Slet sted") + "</button></div>" : "") +
+      "</div>" : "") +
     (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
-    '<div class="row"><button class="btn primary" type="submit"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + '</button><button class="btn" type="button" id="cancel">Annuller</button>' +
-    (!f.isNew && core ? '<button class="btn danger" type="button" id="del-place">' + (f.confirmDel ? "Tryk igen for at slette stedet" : "Slet sted") + "</button>" : "") + "</div></form>";
+    '<div class="row"><button class="btn primary" type="submit"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + '</button><button class="btn" type="button" id="cancel">Annuller</button></div></form>';
 }
 function visBtn(it, i) {
   var label = it.file && it.people === undefined ? "Tjekker for personer…" : VIS_NAMES[it.vis || "andel"] + (it.file && it.people === null && !it.visSet ? " (kunne ikke tjekke)" : "");
@@ -1854,6 +1865,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.setsub) { syncDraft(); ui.draft.subcat = ui.draft.subcat === t.dataset.setsub ? "" : t.dataset.setsub; render(); return; }
   if (t.dataset.setstatus) { syncDraft(); ui.draft.status = t.dataset.setstatus; render(); return; }
   if (t.id === "more") { syncDraft(); ui.draft.more = true; render(); return; }
+  if (t.id === "adv-toggle") { syncDraft(); ui.draft.adv = !ui.draft.adv; render(); return; }
   if (t.id === "my-loc") { syncDraft(); useMyLocation(); return; }
   if (t.id === "cancel") { ui.draft = null; render(); return; }
   if (t.id === "del-place") { deletePlace(); return; }
@@ -1899,7 +1911,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 66;
+var APP_VERSION = 67;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
