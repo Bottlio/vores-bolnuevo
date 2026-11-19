@@ -448,3 +448,9 @@ header{position:relative}
 .dupbox p{margin:0}
 .dupbox h3,.dupbox strong{color:var(--fg)}
 .duprow{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+/* Kategori-ikonerne lidt større (19.11.2026) */
+.cat svg{width:28px;height:28px}
+.cat{min-width:66px}
+.ddsel{padding-left:8px}
+.ddsel select{max-width:220px;color:var(--fg);font-weight:500}
+.subchips .selects{margin-bottom:8px}

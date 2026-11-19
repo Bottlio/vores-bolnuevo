@@ -615,10 +615,14 @@ function render() {
   counts.byer = allTownNames().filter(townShown).length;
 
   var list = null, sub = "", head = "", grid = "";
+  // Rullemenu i stedet for en række knapper: [["", "Alle", n], [værdi, navn, antal], …]
+  var ddSel = function (key, label, opts, cur) {
+    return '<label class="sel ddsel"><select data-select="' + key + '" aria-label="' + esc(label) + '">' + opts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + ((cur || "") === o[0] ? " selected" : "") + ">" + esc(o[1]) + (o[2] != null ? " (" + o[2] + ")" : "") + "</option>"; }).join("") + "</select></label>";
+  };
   var subChips = function (pool, label) {
-    var s = '<div class="chips" role="group" aria-label="' + label + '">' + chip("sub", "", "Alle", pool.length, !ui.sub);
-    CATS.forEach(function (c) { var n = pool.filter(function (p) { return p.cat === c[0]; }).length; if (n) s += chip("sub", c[0], c[1], n, ui.sub === c[0]); });
-    return s + "</div>";
+    var o = [["", "Alle kategorier", pool.length]];
+    CATS.forEach(function (c) { var n = pool.filter(function (p) { return p.cat === c[0]; }).length; if (n) o.push([c[0], c[1], n]); });
+    return '<div class="selects">' + ddSel("sub", label, o, ui.sub) + "</div>";
   };
   if (inApt) list = places.filter(function (p) { return p.cat === APT; });
   else if ((inTowns || inTrips) && ui.region) {
@@ -645,17 +649,16 @@ function render() {
     grid += nearR.length ? '<div class="towns">' + nearR.map(function (r) { return areaCard("region", r, ui.status); }).join("") + "</div>" : '<p class="empty-state">Ingen dagsture her endnu.</p>';
     if (farR.length) grid += '<h2 class="subhead">Længere ture</h2><p class="hint">Steder mere end 2½ times kørsel fra hotellet – med overnatning eller på bilturen til og fra Danmark.</p><div class="towns">' + farR.map(function (r) { return areaCard("region", r, ui.status); }).join("") + "</div>";
   } else {
-    var inCat = byStatus.filter(function (p) { return ui.cat === "alle" || p.cat === ui.cat; });
+    var inCat = byStatus.filter(function (p) { return ui.cat === "alle" || p.cat === ui.cat; }), subSel = "", townSel = "", factChips = "";
     if (SUBCATS[ui.cat]) {
       var scs = SUBCATS[ui.cat].map(function (x) { return [x, inCat.filter(function (p) { return p.subcat === x[0]; }).length]; }).filter(function (x) { return x[1] || ui.subcat === x[0][0]; });
       var none = inCat.filter(function (p) { return !subName(ui.cat, p.subcat); }).length;
-      if (scs.length) sub += '<div class="chips" role="group" aria-label="Underkategori">' + chip("subcat", "", "Alle", inCat.length, !ui.subcat) + scs.map(function (x) { return chip("subcat", x[0][0], x[0][1], x[1], ui.subcat === x[0][0]); }).join("") +
-        (none ? chip("subcat", "__ingen", "Ikke valgt", none, ui.subcat === "__ingen") : "") + "</div>";
+      if (scs.length) subSel = ddSel("subcat", "Underkategori", [["", "Alle", inCat.length]].concat(scs.map(function (x) { return [x[0][0], x[0][1], x[1]]; })).concat(none ? [["__ingen", "Ikke valgt", none]] : []), ui.subcat);
       if (ui.subcat) inCat = inCat.filter(function (p) { return ui.subcat === "__ingen" ? !subName(ui.cat, p.subcat) : p.subcat === ui.subcat; });
     }
     var qs = (QUESTIONS[ui.cat] || []).map(function (x) { return x[0]; });
     if (qs.length) {
-      sub += '<div class="chips" role="group" aria-label="Åbningstider">' +
+      factChips = '<div class="chips" role="group" aria-label="Åbningstider">' +
         (qs.indexOf("saeson") >= 0 ? chip("fopen", "1", "Skjul sæsonlukkede", inCat.filter(function (p) { return (p.facts || {}).saeson === "ja"; }).length || null, !!ui.fOpen) : "") +
         (qs.indexOf("sondag") >= 0 ? chip("fsun", "1", "Kun søndagsåbent", inCat.filter(function (p) { return (p.facts || {}).sondag === "ja"; }).length, !!ui.fSun) : "") +
         (qs.indexOf("tidlig") >= 0 ? chip("fearly", "1", "Åbent før kl. 20", inCat.filter(function (p) { return (p.facts || {}).tidlig === "ja"; }).length, !!ui.fEarly) : "") + "</div>";
@@ -665,9 +668,11 @@ function render() {
     }
     if (TOWN_CATS.indexOf(ui.cat) >= 0) {
       var ts2 = townsOf(inCat);
-      if (ts2.length > 1) sub += '<div class="chips" role="group" aria-label="By">' + chip("filtertown", "", "Alle byer", null, !ui.ftown) + ts2.map(function (t) { return chip("filtertown", t[0], t[0], t[1], ui.ftown === t[0]); }).join("") + "</div>";
+      if (ts2.length > 1 || ui.ftown) townSel = ddSel("ftown", "By", [["", "Alle byer", null]].concat(ts2.map(function (t) { return [t[0], t[0], t[1]]; })), ui.ftown);
       if (ui.ftown) inCat = inCat.filter(function (p) { return p.town === ui.ftown; });
     }
+    if (subSel || townSel) sub += '<div class="selects">' + subSel + townSel + "</div>";
+    sub += factChips;
     list = inCat.filter(rated);
   }
   var q = (ui.q || "").trim().toLowerCase(), searching = q.length > 0;
@@ -2061,6 +2066,9 @@ document.addEventListener("change", function (e) {
   if (sel.dataset.select === "rating") ui.minRating = +sel.value;
   if (sel.dataset.select === "sort") ui.sort = sel.value;
   if (sel.dataset.select === "scope") { ui.scope = sel.value; decorate(); }
+  if (sel.dataset.select === "subcat") ui.subcat = sel.value || null;
+  if (sel.dataset.select === "ftown") ui.ftown = sel.value || null;
+  if (sel.dataset.select === "sub") ui.sub = sel.value || null;
   render();
 });
 var addInput = document.getElementById("add-photos");
@@ -2073,7 +2081,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 75;
+var APP_VERSION = 76;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
