@@ -506,3 +506,11 @@ header{position:relative}
 .hrow .subhead{margin:0 0 12px;color:var(--sea);font-size:1.2rem}
 .hscroll{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
 .hextra{white-space:normal}
+/* Praktisk info (fx Laderita de Bolnuevo): hvid boks med tynd grå kant, etiketter til venstre */
+.factbox{margin:12px 0 4px;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.factbox dl{display:grid;grid-template-columns:7.5rem minmax(0,1fr);gap:10px 14px;margin:0}
+.factbox dt{font-weight:700;color:var(--sea);font-size:.92rem}
+.factbox dd{margin:0;line-height:1.45}
+.factbox p{margin:10px 0 0}
+.factbox a,.desc a{color:var(--sea);font-weight:600}
+@media (max-width:480px){.factbox dl{grid-template-columns:1fr;gap:2px}.factbox dd{margin-bottom:8px}}

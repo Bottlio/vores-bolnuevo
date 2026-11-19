@@ -454,11 +454,28 @@ function gridCard(p, showKat) {
     '<span class="tname">' + esc(p.name) + '</span><span class="tmeta">' + esc(meta) + "</span>" + (warn || priv ? '<span class="ptags">' + warn + priv + "</span>" : "") + "</button>" +
     '<div class="trate">' + ratingButton("place", p.id, p.cat, p, true) + heartBtn(p) + "</div></div>";
 }
+/* Beskrivelse: linjer som "Ankomst: …" vises som en pæn liste; "ABC'en" bliver et link til stedets link */
+function descHtml(p) {
+  var used = false, rows = [], loose = [];
+  function fmt(t) {
+    var h = esc(t);
+    if (p.link && /ABC'en/.test(t)) { used = true; h = h.replace(/ABC&#39;en|ABC'en/, '<a href="' + esc(p.link) + '" target="_blank" rel="noopener">ABC\'en ↗</a>'); }
+    return h;
+  }
+  String(p.facts.beskrivelse).split(/\n+/).forEach(function (line) {
+    line = line.trim(); if (!line) return;
+    var m = line.match(/^([A-ZÆØÅ][A-Za-zæøåÆØÅ ]{1,18}):\s*(.+)$/);
+    if (m) rows.push("<dt>" + esc(m[1]) + "</dt><dd>" + fmt(m[2]) + "</dd>"); else loose.push("<p>" + fmt(line) + "</p>");
+  });
+  var html = rows.length ? '<div class="factbox"><dl>' + rows.join("") + "</dl>" + loose.join("") + "</div>" : '<div class="desc">' + loose.join("") + "</div>";
+  return { html: html, usedLink: used };
+}
 function placeCard(p, detail, showKat) {
     var html = '<article class="place' + (detail ? " detailcard" : "") + '" id="' + esc(p.id) + '" data-pid="' + esc(p.id) + '">' +
       (detail && ui.view === "kort" && p.lat != null ? '<div class="car"><div id="map" class="dmap" role="region" aria-label="Kort over ' + esc(p.name) + '"></div></div>' : carousel(p));
     var vv = (p.visits || []).slice().sort(), lastV = vv.length ? vv[vv.length - 1] : null;
-    var visitLine = detail && lastV ? '<span class="visitline">' + (vv.length > 1 ? "Senest besøgt " : "Vi har besøgt ") + MONTHS[parseInt(lastV.slice(5, 7), 10) - 1] + " " + lastV.slice(0, 4) + "</span>" : "";
+    var hotelCard = p.cat === "lejligheden" && !!(p.facts && p.facts.beskrivelse);
+    var visitLine = detail && lastV && !hotelCard ? '<span class="visitline">' + (vv.length > 1 ? "Senest besøgt " : "Vi har besøgt ") + MONTHS[parseInt(lastV.slice(5, 7), 10) - 1] + " " + lastV.slice(0, 4) + "</span>" : "";
     html += '<div class="place-top"><div class="ptitle"><h3>' + (detail ? esc(p.name) : '<button class="titlebtn" type="button" data-open="' + esc(p.id) + '">' + esc(p.name) + "</button>") + "</h3>" + visitLine + "</div>" + '<span class="topright">' + ratingButton("place", p.id, p.cat, p) + heartBtn(p) + "</span></div>";
     // Hvad stedet er (underkategori, ellers kategori) og åbningsforhold – som almindelig tekst øverst
     var kind = isApt(p.cat) ? [] : [esc(subName(p.cat, p.subcat) || CATNAME[p.cat] || "")].concat(factList(p, detail).map(function (t) { return t[0] ? '<span class="warn">' + esc(t[1]) + "</span>" : esc(t[1]); })).filter(Boolean);
@@ -466,7 +483,8 @@ function placeCard(p, detail, showKat) {
     var where = p.area && p.area !== p.town ? (p.town && p.area.indexOf(p.town) < 0 ? p.area + ", " + p.town : p.area) : (p.town || p.area);
     var meta = isApt(p.cat) ? "" : [where, distText(p), p.price].filter(Boolean).join(" · ");
     if (meta) html += '<p class="meta">' + esc(meta) + "</p>";
-    if (p.facts && p.facts.beskrivelse) html += '<p class="desc">' + esc(p.facts.beskrivelse) + "</p>";
+    var dsc = p.facts && p.facts.beskrivelse ? descHtml(p) : null;
+    if (dsc) html += dsc.html;
     html += textsHtml(p, detail);
     html += '<div class="tags">';
     if (p.visibility === "andel") html += '<span class="tag priv">Kun vores andel</span>';
@@ -479,10 +497,10 @@ function placeCard(p, detail, showKat) {
       html += "</div>";
     }
     html += '<div class="row links"><a class="maps" href="' + esc(mapsUrl(p)) + '" target="_blank" rel="noopener">Åbn i Google Maps</a>';
-    if (p.website) html += '<a class="maps" href="' + esc(p.website) + '" target="_blank" rel="noopener">Hjemmeside ↗</a>';
-    if (p.link) html += '<a class="maps" href="' + esc(p.link) + '" target="_blank" rel="noopener">Læs mere (' + esc(hostOf(p.link)) + ") ↗</a>";
+    if (p.website) html += '<a class="maps" href="' + esc(p.website) + '" target="_blank" rel="noopener">' + (hotelCard ? "Foreningens hjemmeside" : "Hjemmeside") + ' ↗</a>';
+    if (p.link && !(dsc && dsc.usedLink)) html += '<a class="maps" href="' + esc(p.link) + '" target="_blank" rel="noopener">Læs mere (' + esc(hostOf(p.link)) + ") ↗</a>";
     html += "</div>";
-    if (detail && p.town) html += '<p class="meta">Mere i <button class="linkbtn" type="button" data-town="' + esc(p.town) + '">' + esc(p.town) + "</button>" + (regionOf(p.town) !== NO_REGION && regionOf(p.town) !== p.town ? ' · <button class="linkbtn" type="button" data-region="' + esc(regionOf(p.town)) + '">' + esc(regionOf(p.town)) + "</button>" : "") + "</p>";
+    if (detail && p.town && !hotelCard) html += '<p class="meta">Mere i <button class="linkbtn" type="button" data-town="' + esc(p.town) + '">' + esc(p.town) + "</button>" + (regionOf(p.town) !== NO_REGION && regionOf(p.town) !== p.town ? ' · <button class="linkbtn" type="button" data-region="' + esc(regionOf(p.town)) + '">' + esc(regionOf(p.town)) + "</button>" : "") + "</p>";
     return html + "</article>";
 }
 
@@ -2274,7 +2292,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 104;
+var APP_VERSION = 105;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
