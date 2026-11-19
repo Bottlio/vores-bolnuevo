@@ -530,15 +530,46 @@ function homeRow(title, items, empty) {
   return '<section class="hrow"><h2 class="subhead">' + esc(title) + "</h2>" + (items.length ? '<div class="hscroll">' + items.join("") + "</div>" : '<p class="hint">' + esc(empty) + "</p>") + "</section>";
 }
 function newsItems() {
-  // Nyeste stjerner og tekster fra alle andele – på steder, byer og områder
+  // Nyeste fra alle andele (også jeres egen) på steder, byer og områder: stjerner, kommentarer og nye billeder.
+  // Ét kort pr. andel og sted. Et nyt sted vises kun, når det har billeder, en kommentar eller stjerner.
   var byId = {}; places.forEach(function (p) { byId[p.id] = p; });
-  var extra = function (e) { return esc(authorText(e)) + (e.rating_score != null ? " · " + dec(+e.rating_score) + " ★" : "") + '<span class="hquote">' + (e.note ? '"' + esc(e.note) + '"' : "") + "</span>"; };
-  return raw.exps.filter(function (e) {
-    if (!(e.note || e.rating_score != null)) return false;
-    if (e.kind === "place") return !!byId[e.target];
-    return (e.kind === "town" && towns[e.target]) || (e.kind === "region" && regions[e.target]);
-  }).sort(function (a, b) { return String(b.updated_at).localeCompare(String(a.updated_at)); }).slice(0, 10)
-    .map(function (e) { return e.kind === "place" ? miniCard(byId[e.target], extra(e)) : areaMini(e.kind, e.target, extra(e)); });
+  var rawById = {}; raw.places.forEach(function (p) { rawById[p.id] = p; });
+  var DAY = 864e5, ev = {};
+  function exists(kind, target) {
+    if (kind === "place") return !!byId[target] && !isApt(byId[target].cat);
+    return (kind === "town" && !!towns[target]) || (kind === "region" && !!regions[target]);
+  }
+  function slot(kind, target, andel) { var k = kind + "|" + target + "|" + andel; return ev[k] || (ev[k] = { kind: kind, target: target, andel: andel, t: "", photos: [] }); }
+  raw.exps.forEach(function (e) {
+    if (!(e.note || e.rating_score != null) || !exists(e.kind, e.target)) return;
+    var o = slot(e.kind, e.target, e.andel_id); o.exp = e; if (String(e.updated_at) > o.t) o.t = String(e.updated_at);
+  });
+  raw.photos.forEach(function (r) {
+    if (!r.andel_id || !exists(r.kind, r.target)) return;
+    slot(r.kind, r.target, r.andel_id).photos.push(r);
+  });
+  var list = Object.keys(ev).map(function (k) {
+    var o = ev[k];
+    if (o.photos.length) {
+      o.photos.sort(function (a, b) { return String(b.created_at).localeCompare(String(a.created_at)); });
+      var last = Date.parse(o.photos[0].created_at);
+      // "Nye billeder" = dem, der blev lagt ind samme omgang (inden for et døgn af det seneste)
+      o.batch = o.photos.filter(function (r) { return last - Date.parse(r.created_at) < DAY; });
+      if (String(o.photos[0].created_at) > o.t) o.t = String(o.photos[0].created_at);
+    }
+    return o;
+  }).filter(function (o) { return o.t; });
+  list.sort(function (a, b) { return b.t.localeCompare(a.t); });
+  return list.slice(0, 10).map(function (o) {
+    var e = o.exp, rp = o.kind === "place" ? rawById[o.target] : null, tt = Date.parse(o.t);
+    var isNew = rp && rp.andel_id === o.andel && rp.created_at && Math.abs(tt - Date.parse(rp.created_at)) < DAY;
+    var who = e ? authorText(e) : (photoCredit(o.batch[0], o.batch[0].path) || "En andelshaver");
+    var bits = [who];
+    if (e && e.rating_score != null) bits.push(dec(+e.rating_score) + " ★");
+    if (o.batch && Date.parse(o.batch[0].created_at) > tt - DAY) bits.push(o.batch.length === 1 ? "1 nyt billede" : o.batch.length + " nye billeder");
+    var extra = (isNew ? "Nyt sted · " : "") + esc(bits.join(" · ")) + '<span class="hquote">' + (e && e.note ? '"' + esc(e.note) + '"' : "") + "</span>";
+    return o.kind === "place" ? miniCard(byId[o.target], extra) : areaMini(o.kind, o.target, extra);
+  });
 }
 /* Lille kort til forsiden for en by eller et område */
 function areaMini(kind, name, extraHtml) {
@@ -580,7 +611,7 @@ function renderHome() {
   }).join("") + "</div>";
   html += homeRow("Jeres favoritter", wishItems(), "Tryk på hjertet ved et sted, så kommer det her.");
   html += homeRow("Jeres seneste vurderinger", spots.filter(function (p) { return p.reviewed; }).sort(function (a, b) { return String(b.mine.updated_at).localeCompare(String(a.mine.updated_at)); }).slice(0, 10).map(function (p) { return miniCard(p); }), "Når I giver stjerner eller skriver om et sted, kommer det her.");
-  html += homeRow("Nyt fra andelshaverne", newsItems(), "Når andelshaverne skriver og giver stjerner, kommer det her.");
+  html += homeRow("Nyt fra andelshaverne", newsItems(), "Når andelshaverne skriver, giver stjerner eller lægger billeder ind, kommer det her.");
   html += homeRow("Bedst bedømt", spots.filter(function (p) { return overall(p); }).sort(function (a, b) { return scoreOf(b) - scoreOf(a); }).slice(0, 10).map(function (p) { return miniCard(p); }), "Ingen vurderinger endnu.");
   html += footerHtml();
   if (ui.editor && !ui.draft) {
@@ -2243,7 +2274,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 98;
+var APP_VERSION = 99;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
