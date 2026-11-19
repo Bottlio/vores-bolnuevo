@@ -600,8 +600,8 @@ function heartBtn(p) {
   return '<button type="button" class="heart' + (p.fav ? " on" : "") + '" data-fav="' + esc(p.id) + '" aria-pressed="' + p.fav + '" aria-label="' + (p.fav ? "Fjern fra jeres favoritter" : "Læg på jeres favoritter") + '" title="' + (p.fav ? "Fjern fra favoritter" : "Læg på favoritter") + '">' + heartSvg(p.fav) + "</button>";
 }
 function scopeHint() {
-  if (ui.scope === "vurderet") return '<p class="scopehint">Viser kun steder, jeres andel selv har givet stjerner eller skrevet om. Tryk <strong>Alle</strong> for at se alle steder i guiden.</p>';
-  if (ui.scope === "fav") return '<p class="scopehint">Viser jeres favoritter. Tryk på hjertet ved et sted for at lægge det her eller fjerne det igen. Favoritlisten er fælles for jeres andel.</p>';
+  if (ui.scope === "vurderet") return '<p class="scopehint">Viser kun steder, jeres andel selv har givet stjerner eller kommenteret. Tryk <strong>Alle</strong> for at se alle steder i guiden.</p>';
+  if (ui.scope === "fav") return '<p class="scopehint">Viser jeres andels favoritter. Tryk på hjertet ved et sted for at lægge det her eller fjerne det igen.</p>';
   return "";
 }
 
@@ -622,7 +622,7 @@ function toolbar(show, noScope) {
   var seg = function (val, label, short, n, title) { return '<button type="button" data-scope="' + val + '" aria-pressed="' + (ui.scope === val) + '" title="' + title + '"><span class="pl">' + label + '</span><span class="ps">' + short + "</span>" + (n == null ? "" : '<span class="pn">' + n + "</span>") + "</button>"; };
   tbCtrl.innerHTML = (noScope ? "" : '<div class="pill" role="group" aria-label="Vis">' +
       seg("alle", "Alle", "Alle", null, "Alle steder i guiden") +
-      seg("vurderet", "★ Vores vurderede", "★ Vores", c.vurderet, "Kun steder jeres andel har givet stjerner eller skrevet om") +
+      seg("vurderet", "★ Vores", "★ Vores", c.vurderet, "Kun steder jeres andel har givet stjerner eller kommenteret") +
       seg("fav", heartSvg(ui.scope === "fav") + " Favoritter", heartSvg(ui.scope === "fav"), c.fav, "Jeres favoritter") + "</div>") +
     '<button class="tview" type="button" data-view="' + (toMap ? "kort" : "liste") + '" aria-label="' + (toMap ? "Vis på kort" : "Vis som gitter") + '" title="' + (toMap ? "Vis på kort" : "Vis som gitter") + '">' + (toMap ? ICON_MAP : ICON_LIST) + "</button>";
 }
@@ -764,7 +764,7 @@ function render() {
   function catBtn(id, label, n) {
     return '<button type="button" class="cat" data-cat="' + id + '" aria-pressed="' + (ui.cat === id) + '">' + (CAT_ICONS[id] || "") + '<span class="cl">' + esc(label) + "</span>" + (n != null ? '<span class="cn">' + n + "</span>" : "") + "</button>";
   }
-  var summary = searching ? 'Søgning: "' + ui.q.trim() + '"' : [inApt ? "" : (ui.scope === "vurderet" ? "Vores vurderede" : ui.scope === "fav" ? "Favoritter" : ""), ui.cat === "alle" ? "Alle" : ui.cat === "byer" ? "Byer" : ui.cat === "dagsture" ? "Dagsture" : CATNAME[ui.cat], ui.subcat && ui.subcat !== "__ingen" ? subName(ui.cat, ui.subcat) : "", ui.fOpen ? "uden sæsonlukkede" : "", ui.fSun ? "søndagsåbent" : "", ui.fEarly ? "åbent før kl. 20" : "", ui.region || "", ui.town || ui.ftown || "", ui.sub ? CATNAME[ui.sub] : "",
+  var summary = searching ? 'Søgning: "' + ui.q.trim() + '"' : [inApt ? "" : (ui.scope === "vurderet" ? "Vores" : ui.scope === "fav" ? "Favoritter" : ""), ui.cat === "alle" ? "Alle" : ui.cat === "byer" ? "Byer" : ui.cat === "dagsture" ? "Dagsture" : CATNAME[ui.cat], ui.subcat && ui.subcat !== "__ingen" ? subName(ui.cat, ui.subcat) : "", ui.fOpen ? "uden sæsonlukkede" : "", ui.fSun ? "søndagsåbent" : "", ui.fEarly ? "åbent før kl. 20" : "", ui.region || "", ui.town || ui.ftown || "", ui.sub ? CATNAME[ui.sub] : "",
     ui.minRating ? ui.minRating + "+ ★" : "", ui.sort && ui.sort !== "senest" ? { nyeste: "senest tilføjet", naermeste: "nærmeste først", stjerner: "flest stjerner", navn: "A–Å" }[ui.sort] : ""].filter(Boolean).join(" · ");
   if (detail) {
     html += '<div class="bar detailbar" id="fullbar"></div>';
@@ -2226,7 +2226,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 91;
+var APP_VERSION = 92;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
