@@ -495,10 +495,22 @@ function homeRow(title, items, empty) {
   return '<section class="hrow"><h2 class="subhead">' + esc(title) + "</h2>" + (items.length ? '<div class="hscroll">' + items.join("") + "</div>" : '<p class="hint">' + esc(empty) + "</p>") + "</section>";
 }
 function newsItems() {
+  // Nyeste stjerner og tekster fra alle andele – på steder, byer og områder
   var byId = {}; places.forEach(function (p) { byId[p.id] = p; });
-  return raw.exps.filter(function (e) { return e.kind === "place" && byId[e.target] && (e.note || e.rating_score != null); })
-    .sort(function (a, b) { return String(b.updated_at).localeCompare(String(a.updated_at)); }).slice(0, 10)
-    .map(function (e) { return miniCard(byId[e.target], esc(authorText(e)) + (e.rating_score != null ? " · " + dec(+e.rating_score) + " ★" : "") + (e.note ? '<span class="hquote">"' + esc(e.note.length > 70 ? e.note.slice(0, 68) + "…" : e.note) + '"</span>' : "")); });
+  var extra = function (e) { return esc(authorText(e)) + (e.rating_score != null ? " · " + dec(+e.rating_score) + " ★" : "") + (e.note ? '<span class="hquote">"' + esc(e.note.length > 70 ? e.note.slice(0, 68) + "…" : e.note) + '"</span>' : ""); };
+  return raw.exps.filter(function (e) {
+    if (!(e.note || e.rating_score != null)) return false;
+    if (e.kind === "place") return !!byId[e.target];
+    return (e.kind === "town" && towns[e.target]) || (e.kind === "region" && regions[e.target]);
+  }).sort(function (a, b) { return String(b.updated_at).localeCompare(String(a.updated_at)); }).slice(0, 10)
+    .map(function (e) { return e.kind === "place" ? miniCard(byId[e.target], extra(e)) : areaMini(e.kind, e.target, extra(e)); });
+}
+/* Lille kort til forsiden for en by eller et område */
+function areaMini(kind, name, extraHtml) {
+  var a = areaObj(kind, name), img = a.cover ? photoUrl(a.cover) : "", o = kind === "town" ? towns[name] : regions[name], v = overall(o);
+  return '<button type="button" class="hcard" data-' + (kind === "town" ? "town" : "region") + '="' + esc(name) + '">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">' : '<span class="hnoimg">' + (CAT_ICONS.byer || "") + "</span>") +
+    '<span class="hname">' + esc(name) + '</span><span class="hmeta">' + (v ? '<span class="hstars">' + starRow(v.stars) + "</span> " : "") + (kind === "town" ? "By" : "Område") + "</span>" +
+    (extraHtml ? '<span class="hextra">' + extraHtml + "</span>" : "") + "</button>";
 }
 function wishItems() {
   return places.filter(function (p) { return p.fav; }).sort(function (a, b) { return scoreOf(b) - scoreOf(a); }).slice(0, 10).map(function (p) { return miniCard(p); });
@@ -1966,7 +1978,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 72;
+var APP_VERSION = 73;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
