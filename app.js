@@ -241,6 +241,7 @@ async function load() {
   authors = {}; (res[5].data || []).forEach(function (a) { authors[a.user_id] = a; });
   andelLabels = {}; (res[6].data || []).forEach(function (a) { andelLabels[a.id] = a.lejlighed + "-" + a.nummer; });
   await signPhotos(raw.photos.map(function (p) { return p.path; }));
+  await loadReportCount();
   decorate();
   ui.loaded = true;
   render();
@@ -314,7 +315,8 @@ function carousel(p) {
     var u = esc(photoUrl(x));
     // Den slørede baggrund sættes først når billedet er hentet (se "load"-lytteren), så kun synlige billeder hentes.
     var credit = /\/web-/.test(x) && p.photo_credit ? '<span class="credit">Foto: ' + esc(p.photo_credit) + "</span>" : "";
-    return '<div class="slide"><img src="' + u + '" alt="' + esc(p.name) + (ph.length > 1 ? ", billede " + (i + 1) : "") + '" loading="lazy" decoding="async">' + credit + "</div>";
+    var row = (p.photoRows || [])[i], rb = row && me && row.andel_id !== me.andel && p.id ? reportBtn("billede", row.id, "place", p.id, true) : "";
+    return '<div class="slide">' + rb + '<img src="' + u + '" alt="' + esc(p.name) + (ph.length > 1 ? ", billede " + (i + 1) : "") + '" loading="lazy" decoding="async">' + credit + "</div>";
   }).join("") + "</div>";
   if (ph.length > 1) {
     html += '<span class="count">1/' + ph.length + '</span><button class="arrow prev" type="button" data-step="-1" aria-label="Forrige billede">‹</button><button class="arrow next" type="button" data-step="1" aria-label="Næste billede">›</button>';
@@ -400,7 +402,7 @@ function areaCard(kind, name, status) {
 function textsHtml(p, detail) {
   var own = p.note ? '<p class="note">' + esc(p.note) + (p.mine && p.mine.visibility === "andel" ? ' <span class="privnote">(kun vores andel)</span>' : "") + "</p>" : "";
   var others = (p.texts || []).slice().sort(function (a, b) { return String(b.updated_at).localeCompare(String(a.updated_at)); });
-  var one = function (e) { return '<blockquote class="otext"><p>' + esc(e.note) + "</p><cite>" + esc(authorText(e)) + (e.rating_score != null ? " · " + dec(+e.rating_score) + " ★" : "") + "</cite></blockquote>"; };
+  var one = function (e) { return '<blockquote class="otext"><p>' + esc(e.note) + "</p><cite>" + esc(authorText(e)) + (e.rating_score != null ? " · " + dec(+e.rating_score) + " ★" : "") + "</cite>" + (detail ? reportBtn("tekst", e.id, e.kind, e.target) : "") + "</blockquote>"; };
   var hasDesc = !!(p.facts && p.facts.beskrivelse);
   if (!detail) return own || (others.length ? one(others[0]) : (isApt(p.cat) || hasDesc ? "" : '<p class="note empty">Ingen beskrivelse endnu.</p>'));
   var h = own;
@@ -530,6 +532,7 @@ function renderHome() {
   toolbar(true);
   var html = "";
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
+  if (me && me.admin && ui.reportCount) html += '<p class="notice">' + (ui.reportCount === 1 ? "Der er 1 ny anmeldelse." : "Der er " + ui.reportCount + " nye anmeldelser.") + ' <button class="linkbtn" type="button" data-page="admin">Se ' + (ui.reportCount === 1 ? "den" : "dem") + "</button></p>";
   html += hiddenDupHtml();
   html += scopeHint();
   if (ui.draft) html += formHtml(ui.draft);
@@ -790,7 +793,6 @@ function render() {
   if (detail && detail.cat === "vores" && detail.subcat === "lejlighed" && me) {
     var aptNo2 = detail.name.replace(/^Lejlighed\s*/i, ""), aptTips = places.filter(function (p) { return p.cat === "vores" && p.subcat !== "lejlighed"; });
     if (aptTips.length) html += '<h2 class="subhead">Gode råd og billeder fra andelene</h2><div class="list grid">' + aptTips.map(function (p) { return gridCard(p, false); }).join("") + "</div>";
-    if (ui.editor && !ui.draft) html += '<div class="row"><button class="btn" type="button" id="new-apt">+ Tilføj et godt råd eller billeder om lejlighed ' + esc(aptNo2) + "</button></div>";
   }
   html += footerHtml();
   if (ui.editor && !ui.draft) {
@@ -1007,6 +1009,11 @@ function andelPageHtml() {
   if (ui.inviteText) h += '<div class="invitetext"><p class="hint">Send denne besked til personen (sms, WhatsApp eller mail):</p><textarea readonly id="invite-copy">' + esc(ui.inviteText) + '</textarea><button class="btn small" type="button" id="copy-invite">Kopiér beskeden</button></div>';
   if (d.err) h += '<p class="err">' + esc(d.err) + "</p>";
   h += "</section>";
+  // Slet min konto
+  h += '<section class="panel"><h2>Slet min konto</h2><p class="hint">Sletter dit login og din plads på andel ' + esc(me.label) + ". Det, du har lagt ind – steder, vurderinger, tekster og billeder – bliver hos andelen, så de andre ikke mister det.</p>" +
+    (me.admin ? '<p class="hint">Som administrator kan du ikke slette din egen konto her.</p>'
+      : '<button class="btn danger" type="button" id="del-account"' + (ui.busy ? " disabled" : "") + ">" + (ui.confirmDelAcc ? "Tryk igen for at slette din konto – det kan ikke fortrydes" : "Slet min konto") + "</button>") +
+    (ui.delAccErr ? '<p class="err" role="alert">' + esc(ui.delAccErr) + "</p>" : "") + "</section>";
   // Billeder med personer, som kun vores andel kan se
   var ph = raw.photos.filter(function (p) { return p.andel_id === me.andel && (p.faces !== false || p.visibility !== "alle"); });
   if (ph.length) {
@@ -1047,13 +1054,14 @@ var adminData = null;
 async function loadAdmin() {
   var a = await sb.from("andele").select("*").order("lejlighed").order("nummer");
   var m = await sb.from("members").select("andel_id,email,name,role,user_id");
-  adminData = { andele: a.data || [], members: m.data || [], err: a.error ? a.error.message : "" };
+  var rp = await sb.from("reports").select("*").eq("handled", false).order("created_at", { ascending: false });
+  adminData = { andele: a.data || [], members: m.data || [], reports: rp.data || [], err: a.error ? a.error.message : "" };
   render();
 }
 function adminPageHtml() {
   var d = adminData;
-  var h = '<section class="panel"><p class="eyebrow">Administration</p><h2>Andele</h2>';
-  if (!d) { loadAdmin(); return h + "<p>Henter…</p></section>"; }
+  if (!d) { loadAdmin(); return '<section class="panel"><p class="eyebrow">Administration</p><p>Henter…</p></section>'; }
+  var h = reportsHtml(d.reports) + '<section class="panel"><p class="eyebrow">Administration</p><h2>Andele</h2>';
   h += '<ul class="members">' + d.andele.map(function (a) {
     var ms = d.members.filter(function (m) { return m.andel_id === a.id; });
     return "<li><span><strong>" + esc(a.lejlighed + "-" + a.nummer) + "</strong>" + (a.aktiv ? "" : " (solgt)") + '<br><span class="hint">' + esc(ms.map(function (m) { return (m.name || m.email) + (m.role === "ejer" ? " (ejer)" : "") + (m.user_id ? "" : " – inviteret"); }).join(", ") || "Ingen medlemmer") + "</span></span>" +
@@ -1808,6 +1816,67 @@ async function mergeInto(hId, pId) {
   ui.busy = false; ui.place = null; await load(); openPlace(pId);
 }
 
+
+/* ---------- anmeld en tekst eller et billede fra en anden andel ---------- */
+function reportBtn(kind, ref, pk, pt, onPhoto) {
+  if (!ui.member || !ref) return "";
+  return '<button type="button" class="' + (onPhoto ? "repbtn onphoto" : "repbtn") + '" data-report="' + kind + '" data-ref="' + esc(ref) + '" data-pk="' + esc(pk || "") + '" data-pt="' + esc(pt || "") + '" title="Anmeld ' + (kind === "tekst" ? "teksten" : "billedet") + ' til administratoren">Anmeld</button>';
+}
+var repBox = document.createElement("div"); repBox.id = "repmodal"; repBox.hidden = true; document.body.appendChild(repBox);
+function openReport(kind, ref, pk, pt) {
+  ui.rep = { kind: kind, ref: ref, pk: pk, pt: pt };
+  repBox.innerHTML = '<div class="lbox" role="dialog" aria-modal="true" aria-labelledby="rep-t"><p id="rep-t"><strong>Anmeld ' + (kind === "tekst" ? "teksten" : "billedet") + "</strong></p>" +
+    '<p class="hint">Administratoren får besked og fjerner det, hvis det ikke hører hjemme i guiden – fx personer uden deres accept, noget om ansatte eller reklame. Den, der har lagt det ind, kan ikke se, hvem der har anmeldt.</p>' +
+    '<label>Hvad er problemet? (valgfrit)<textarea id="rep-reason" rows="3"></textarea></label>' +
+    '<div class="row"><button class="btn primary" type="button" id="rep-send">Send anmeldelse</button><button class="btn" type="button" id="rep-cancel">Annuller</button></div></div>';
+  repBox.hidden = false; var ta = document.getElementById("rep-reason"); if (ta) ta.focus();
+}
+repBox.addEventListener("click", async function (e) {
+  if (e.target === repBox) { repBox.hidden = true; ui.rep = null; return; }
+  var t = e.target.closest("button"); if (!t) return;
+  if (t.id === "rep-cancel") { repBox.hidden = true; ui.rep = null; return; }
+  if (t.id === "rep-send" && ui.rep) {
+    t.disabled = true;
+    var r = await sb.from("reports").insert({ kind: ui.rep.kind, ref: ui.rep.ref, place_kind: ui.rep.pk || null, place_target: ui.rep.pt || null, reason: (document.getElementById("rep-reason").value || "").trim() || null });
+    repBox.hidden = true; ui.rep = null;
+    ui.msg = r.error ? "Anmeldelsen blev ikke sendt: " + r.error.message : "Tak – administratoren har fået besked.";
+    render(); window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+});
+/* Administratoren: åbne anmeldelser */
+async function loadReportCount() {
+  if (!me || !me.admin) return;
+  var r = await sb.from("reports").select("id", { count: "exact", head: true }).eq("handled", false);
+  ui.reportCount = r.count || 0;
+}
+function reportsHtml(list) {
+  if (!list || !list.length) return '<section class="panel"><h2>Anmeldelser</h2><p class="hint">Ingen nye anmeldelser.</p></section>';
+  return '<section class="panel"><h2>Anmeldelser (' + list.length + ")</h2>" + list.map(function (r) {
+    var e = r.kind === "tekst" ? raw.exps.filter(function (x) { return x.id === r.ref; })[0] : null, ph = r.kind === "billede" ? raw.photos.filter(function (x) { return x.id === r.ref; })[0] : null;
+    var where = r.place_kind === "place" ? ((raw.places.filter(function (x) { return x.id === r.place_target; })[0] || {}).name || "et sted") : (r.place_target || "");
+    var what = r.kind === "tekst" ? (e ? '<blockquote class="otext"><p>' + esc(e.note || "(teksten er allerede fjernet)") + "</p><cite>" + esc(authorText(e)) + "</cite></blockquote>" : '<p class="hint">Teksten findes ikke længere.</p>')
+      : (ph ? '<img class="repimg" src="' + esc(photoUrl(ph.path)) + '" alt="">' : '<p class="hint">Billedet findes ikke længere (eller du kan ikke se det).</p>');
+    return '<div class="repitem"><p><strong>' + (r.kind === "tekst" ? "Tekst" : "Billede") + "</strong> ved " + esc(where) + ' <span class="hint">· ' + esc(String(r.created_at).slice(0, 10)) + "</span></p>" + what +
+      (r.reason ? '<p class="hint">Begrundelse: ' + esc(r.reason) + "</p>" : "") +
+      '<div class="row">' + (r.place_kind === "place" && r.place_target ? '<button class="btn small" type="button" data-open="' + esc(r.place_target) + '">Åbn stedet</button>' : "") +
+      (r.kind === "tekst" && e && e.note ? '<button class="btn small danger" type="button" data-repdel="' + esc(r.id) + '">Fjern teksten</button>' : "") +
+      (r.kind === "billede" && ph ? '<button class="btn small danger" type="button" data-repdel="' + esc(r.id) + '">Slet billedet</button>' : "") +
+      '<button class="btn small" type="button" data-repok="' + esc(r.id) + '">Behold – marker som behandlet</button></div></div>';
+  }).join("") + "</section>";
+}
+async function handleReport(id, remove) {
+  var r = (adminData && adminData.reports || []).filter(function (x) { return x.id === id; })[0]; if (!r) return;
+  if (remove && r.kind === "tekst") await sb.from("experiences").update({ note: null }).eq("id", r.ref);
+  if (remove && r.kind === "billede") {
+    var ph = raw.photos.filter(function (x) { return x.id === r.ref; })[0];
+    await sb.from("photos").delete().eq("id", r.ref);
+    if (ph) await sb.storage.from("photos").remove([ph.path]);
+  }
+  await sb.from("reports").update({ handled: true }).eq("id", id);
+  ui.msg = remove ? "Fjernet og markeret som behandlet." : "Markeret som behandlet.";
+  adminData = null; await load();
+}
+
 /* ---------- tilbage og hjem ----------
    Hver gang man går ind i noget (et sted, en kategori, en by, et område, en side), huskes hvor man var.
    Tilbage-pilen (og telefonens egen tilbage) går ét skridt tilbage; huset går til forsiden. */
@@ -2062,6 +2131,17 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.setsub) { syncDraft(); ui.draft.subcat = ui.draft.subcat === t.dataset.setsub ? "" : t.dataset.setsub; render(); return; }
   if (t.dataset.setstatus) { syncDraft(); ui.draft.status = t.dataset.setstatus; render(); return; }
   if (t.id === "more") { syncDraft(); ui.draft.more = true; render(); return; }
+  if (t.dataset.report) { openReport(t.dataset.report, t.dataset.ref, t.dataset.pk, t.dataset.pt); return; }
+  if (t.dataset.repdel) { handleReport(t.dataset.repdel, true); return; }
+  if (t.dataset.repok) { handleReport(t.dataset.repok, false); return; }
+  if (t.id === "del-account") {
+    if (!ui.confirmDelAcc) { ui.confirmDelAcc = true; ui.delAccErr = ""; render(); return; }
+    ui.busy = true; render();
+    var da = await sb.rpc("delete_my_account"); ui.busy = false; ui.confirmDelAcc = false;
+    if (da.error) { ui.delAccErr = da.error.message; render(); return; }
+    await sb.auth.signOut(); ui.user = null; ui.editor = false; ui.member = false; me = null; ui.draft = null; ui.page = null; places = []; raw = { places: [], towns: [], regions: [], exps: [], photos: [] };
+    ui.msg = "Din konto er slettet. Tak for din tid i guiden."; render(); return;
+  }
   if (t.dataset.usedup) { useExisting(t.dataset.usedup); return; }
   if (t.id === "dup-new") { syncDraft(); ui.draft.dupOk = true; ui.draft.dups = null; saveDraft(); return; }
   if (t.dataset.mergedup) { var mk = t.dataset.mergedup.split("|"); mergeInto(mk[0], mk[1]); return; }
@@ -2118,7 +2198,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 85;
+var APP_VERSION = 86;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
