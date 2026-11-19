@@ -473,6 +473,18 @@ function placeCard(p, detail, showKat) {
 }
 
 /* ---------- forside (to bud, A og B, kan skiftes øverst) ---------- */
+/* Lejlighedsnummer for et sted om en lejlighed, og for den indloggede andel */
+function aptOf(p) { return p.lejlighed || String(andelLabels[p.andel_id] || "").split("-")[0]; }
+function myApt() { return me ? String(me.label || "").split("-")[0] : ""; }
+/* Faste forsidebilleder pr. kategori (valgt af Christian 19.11.2026): forsidebilledet fra det nævnte sted, by eller område */
+var TILE_COVER = { byer: ["town", "Cartagena"], dagsture: ["region", "Ricote-dalen"], natur: ["place", "pmvrq6eiwy64m"], sevaerdigheder: ["place", "pmvrq3fk10chq"],
+  shopping: ["place", "pmvnjtwvomk43"], spisesteder: ["place", "p4"], strande: ["place", "p1"] };
+function fixedCover(key) {
+  var c = TILE_COVER[key]; if (!c) return null;
+  var vo = { alle: 0, lejlighed: 1, andel: 1, mig: 2 };
+  var ph = raw.photos.filter(function (x) { return x.kind === c[0] && x.target === c[1]; }).sort(function (a, b) { return (vo[a.visibility] - vo[b.visibility]) || a.sort - b.sort || String(a.created_at).localeCompare(String(b.created_at)); })[0];
+  return ph ? ph.path : null;
+}
 /* Hjælpetekst i kommentarfeltet – passer til kategorien */
 var NOTE_PH = { spisesteder: "Fx hvad der var godt, om man skal bestille bord, og hvad det kostede.", strande: "Fx parkering, skygge, toiletter og om der er strandbar.",
   natur: "Fx hvor man parkerer, hvor lang turen er, og hvornår der er bedst.", sevaerdigheder: "Fx åbningstider, pris og hvor lang tid man skal regne med.",
@@ -541,13 +553,15 @@ function renderHome() {
   var homeMap = ui.view === "kort";
   if (homeMap) html += '<div class="mapwrap"><div id="map" role="region" aria-label="Kort over stederne"></div><p class="hint">' + spots.filter(function (p) { return p.lat != null; }).length + " af " + spots.length + " steder har en placering og vises på kortet.</p></div>";
   var used = {}; if (hotel) used[hotel.id] = 1;
+  Object.keys(TILE_COVER).forEach(function (k) { if (TILE_COVER[k][0] === "place") used[TILE_COVER[k][1]] = 1; });   // de faste billeder bruges ikke igen på andre felter
   if (!homeMap)
   html += '<div class="tiles">' + HOME_TILES.map(function (t) {
-    var list = t[0] === "alle" || t[0] === "kort" ? spots : t[0] === "dagsture" ? spots.filter(function (p) { return regionDrive(regionOf(p.town)) >= DAYTRIP_MIN; }) : t[0] === "byer" ? spots : t[0] === "lejligheden" ? places.filter(function (p) { return isApt(p.cat); }) : places.filter(function (p) { return p.cat === t[0]; });
+    var list = t[0] === "alle" || t[0] === "kort" ? spots : t[0] === "dagsture" ? spots.filter(function (p) { return regionDrive(regionOf(p.town)) >= DAYTRIP_MIN; }) : t[0] === "byer" ? spots : t[0] === "lejligheden" ? places.filter(function (p) { return p.cat === "lejligheden" || (p.cat === "vores" && aptOf(p) === myApt()); }) : places.filter(function (p) { return p.cat === t[0]; });
     var n = t[0] === "byer" ? allTownNames().filter(function (x) { return placesIn(x).length; }).length : t[0] === "kort" ? null : list.length;
     if (ui.scope !== "alle" && (t[0] === "lejligheden" || n === 0)) return "";
     var forside = t[0] === "lejligheden" && hotel ? hotel.photos.filter(function (x) { return /\/web-forside\./.test(x); })[0] : null;
-    var img = forside ? photoUrl(forside) : coverFor(list, used);
+    var fixed = fixedCover(t[0]);
+    var img = forside ? photoUrl(forside) : fixed && photoUrl(fixed) ? photoUrl(fixed) : coverFor(list, used);
     return '<button type="button" class="tile" data-hometile="' + t[0] + '"' + (img ? ' style="--img:url(&quot;' + esc(img) + '&quot;)"' : "") + ">" + (img ? '<span class="tcorner" aria-hidden="true">' + (CAT_ICONS[t[0]] || CAT_ICONS.alle) + "</span>" : '<span class="ticon">' + (CAT_ICONS[t[0]] || CAT_ICONS.alle) + "</span>") + '<span class="tlabel">' + esc(t[1]) + (n != null ? ' <span class="tn">' + n + "</span>" : "") + "</span></button>";
   }).join("") + "</div>";
   html += homeRow("Nyt fra andelshaverne", newsItems(), "Når andelshaverne skriver og giver stjerner, kommer det her.");
@@ -617,7 +631,7 @@ function render() {
   var rated = function (p) { var v = overall(p); return !ui.minRating || (v ? v.stars : 0) >= ui.minRating; };
   var counts = { alle: byStatus.length };
   CATS.forEach(function (c) { counts[c[0]] = byStatus.filter(function (p) { return p.cat === c[0]; }).length; });
-  APTS.forEach(function (a) { counts[a] = places.filter(function (p) { return p.cat === a; }).length; });
+  APTS.forEach(function (a) { counts[a] = places.filter(function (p) { return p.cat === a && (a !== "vores" || aptOf(p) === myApt()); }).length; });
   counts.lejligheden += counts.vores;
   // Byer og områder, der hører til den valgte liste (Har prøvet / Vil prøve)
   var townShown = function (n) { var t = towns[n]; return byStatus.some(function (p) { return p.town === n; }) || (ui.scope === "alle" && t && ((t.visits && t.visits.length) || (t.photos && t.photos.length))); };
@@ -777,7 +791,7 @@ function render() {
   // Hotellet: Laderita de Bolnuevo og andelens lejlighed side om side som to kort
   var aptNo = me ? String(me.label || "").split("-")[0] : "", aptAll = [], aptMain = null;
   if (ui.cat === "lejligheden" && me) {
-    aptAll = places.filter(function (p) { return p.cat === "vores"; });
+    aptAll = places.filter(function (p) { return p.cat === "vores" && aptOf(p) === aptNo; });
     aptMain = aptAll.filter(function (p) { return p.subcat === "lejlighed"; })[0] || null;
     if (!detail && !searching) list = list.filter(function (p) { return p.cat !== "vores"; }).concat(aptMain ? [aptMain] : []);
   }
@@ -2199,7 +2213,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 87;
+var APP_VERSION = 88;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
