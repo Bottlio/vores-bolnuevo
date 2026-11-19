@@ -470,3 +470,6 @@ header{position:relative}
 /* Kategoriens ikon i øverste højre hjørne af forsidefeltet */
 .tcorner{position:absolute;top:8px;right:8px;z-index:1;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.92);color:var(--sea);display:grid;place-items:center}
 .tcorner svg{width:22px;height:22px}
+.desc{margin:6px 0 4px;line-height:1.55;color:var(--fg)}
+.subhead.small{font-size:1rem;margin-top:18px}
+.aptmain{display:block;max-width:760px;margin-bottom:14px}

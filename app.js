@@ -408,10 +408,11 @@ function textsHtml(p, detail) {
   var own = p.note ? '<p class="note">' + esc(p.note) + (p.mine && p.mine.visibility === "andel" ? ' <span class="privnote">(kun vores andel)</span>' : "") + "</p>" : "";
   var others = (p.texts || []).slice().sort(function (a, b) { return String(b.updated_at).localeCompare(String(a.updated_at)); });
   var one = function (e) { return '<blockquote class="otext"><p>' + esc(e.note) + "</p><cite>" + esc(authorText(e)) + (e.rating_score != null ? " · " + dec(+e.rating_score) + " ★" : "") + "</cite></blockquote>"; };
-  if (!detail) return own || (others.length ? one(others[0]) : (isApt(p.cat) ? "" : '<p class="note empty">Ingen beskrivelse endnu.</p>'));
+  var hasDesc = !!(p.facts && p.facts.beskrivelse);
+  if (!detail) return own || (others.length ? one(others[0]) : (isApt(p.cat) || hasDesc ? "" : '<p class="note empty">Ingen beskrivelse endnu.</p>'));
   var h = own;
   if (others.length) h += (own ? '<p class="rcap">Andre andele skriver</p>' : "") + others.map(one).join("");
-  if (!h && !isApt(p.cat)) h = '<p class="note empty">Ingen beskrivelse endnu.</p>';
+  if (!h && !isApt(p.cat) && !hasDesc) h = '<p class="note empty">Ingen beskrivelse endnu.</p>';
   return h;
 }
 /* Toppen af en by- eller områdeside: billeder, navn, vurdering, beskrivelse */
@@ -456,6 +457,7 @@ function placeCard(p, detail, showKat) {
     var where = p.area && p.area !== p.town ? (p.town && p.area.indexOf(p.town) < 0 ? p.area + ", " + p.town : p.area) : (p.town || p.area);
     var meta = isApt(p.cat) ? "" : [where, distText(p), p.price].filter(Boolean).join(" · ");
     if (meta) html += '<p class="meta">' + esc(meta) + "</p>";
+    if (p.facts && p.facts.beskrivelse) html += '<p class="desc">' + esc(p.facts.beskrivelse) + "</p>";
     html += textsHtml(p, detail);
     html += '<div class="tags">';
     if (p.visibility === "andel") html += '<span class="tag priv">Kun vores andel</span>';
@@ -781,9 +783,12 @@ function render() {
   if (ui.cat === "lejligheden") html += "</dl></section>";
   // Del 2 af Hotellet: den lejlighed, den indloggede andel hører til (kun andelen kan se det, der ligger her)
   if (ui.cat === "lejligheden" && !detail && !searching && me) {
-    var aptNo = String(me.label || "").split("-")[0], aptList = places.filter(function (p) { return p.cat === "vores"; });
-    html += '<h2 class="subhead">Lejlighed ' + esc(aptNo) + '</h2><p class="hint">Det, I lægger her, kan kun jeres andel (' + esc(me.label) + ") se.</p>";
-    html += '<div class="list grid">' + (aptList.length ? aptList.map(function (p) { return gridCard(p, false); }).join("") : '<p class="empty-state">Intet om lejligheden endnu. Her kan I samle billeder og gode råd om lejligheden.</p>') + "</div>";
+    var aptNo = String(me.label || "").split("-")[0], aptAll = places.filter(function (p) { return p.cat === "vores"; });
+    var aptMain = aptAll.filter(function (p) { return p.subcat === "lejlighed"; })[0], aptList = aptAll.filter(function (p) { return p !== aptMain; });
+    html += '<h2 class="subhead">Lejlighed ' + esc(aptNo) + '</h2><p class="hint">Det, der ligger her, kan alle andele i lejlighed ' + esc(aptNo) + " se – ikke andre.</p>";
+    if (aptMain) html += '<div class="aptmain">' + placeCard(aptMain, true, false) + "</div>";
+    if (aptList.length) html += '<h3 class="subhead small">Gode råd og billeder fra andelene</h3><div class="list grid">' + aptList.map(function (p) { return gridCard(p, false); }).join("") + "</div>";
+    else if (!aptMain) html += '<p class="empty-state">Intet om lejligheden endnu. Her kan I samle billeder og gode råd om lejligheden.</p>';
     if (ui.editor && !ui.draft) html += '<div class="row"><button class="btn" type="button" id="new-apt">+ Tilføj til lejlighed ' + esc(aptNo) + "</button></div>";
   }
   html += footerHtml();
@@ -1434,7 +1439,7 @@ function formHtml(f) {
       ((f.vis || "alle") !== "alle"
         ? '<div class="grid"><label>Hvem kan se vores stjerner og tekst?<select disabled><option>Vores andel</option></select><span class="hint">Følger stedet: når kun ' + (f.vis === "mig" ? "du" : "jeres andel") + " kan se stedet, kan andre heller ikke se jeres stjerner og tekst.</span></label>"
         : '<div class="grid"><label>Hvem kan se vores stjerner og tekst?<select id="f-expvis"><option value="alle"' + (f.expVis !== "andel" ? " selected" : "") + '>Alle</option><option value="andel"' + (f.expVis === "andel" ? " selected" : "") + ">Vores andel</option></select></label>") +
-    (core ? '<label>Hvem kan se stedet?<select id="f-vis">' + ["alle", "andel", "mig"].map(function (v) { return '<option value="' + v + '"' + ((f.vis || "alle") === v ? " selected" : "") + ">" + VIS_NAMES[v] + "</option>"; }).join("") + "</select></label>" : "") + "</div>" +
+    (core ? '<label>Hvem kan se stedet?<select id="f-vis">' + (f.cat === "vores" ? ["lejlighed", "andel", "mig"] : ["alle", "andel", "mig"]).map(function (v) { return '<option value="' + v + '"' + ((f.vis || "alle") === v ? " selected" : "") + ">" + VIS_NAMES[v] + "</option>"; }).join("") + "</select></label>" : "") + "</div>" +
       linkFields(f) +
       '<label>Vi har besøgt (fx 2025-02, 2026-07)<input id="f-visits" value="' + esc((f.visits || []).join(", ")) + '"><span class="hint">Kommer automatisk fra datoen på de billeder, I lægger ind. Her kan I tilføje eller rette.</span></label>' +
       '<div><p class="hint" style="margin:0 0 6px">' + esc(posTxt) + " Den findes automatisk fra billedernes placering, et link fra Google Maps eller stedets navn.</p>" +
@@ -1446,7 +1451,8 @@ function formHtml(f) {
     '<div class="row"><button class="btn primary" type="submit"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + '</button><button class="btn" type="button" id="cancel">Annuller</button></div></form>';
 }
 function visBtn(it, i) {
-  var label = it.file && it.people === undefined ? "Tjekker for personer…" : VIS_NAMES[it.vis || "andel"] + (it.file && it.people === null && !it.visSet ? " (kunne ikke tjekke)" : "");
+  var vv = ui.draft && ui.draft.cat === "vores" && it.vis === "alle" ? "lejlighed" : (it.vis || "andel");
+  var label = it.file && it.people === undefined ? "Tjekker for personer…" : VIS_NAMES[vv] + (it.file && it.people === null && !it.visSet ? " (kunne ikke tjekke)" : "");
   return '<button type="button" class="visbtn v-' + (it.vis || "andel") + '" data-vis="' + i + '" title="Hvem kan se billedet? Tryk for at skifte">' + esc(label) + "</button>";
 }
 
@@ -1596,8 +1602,11 @@ function suggestVis(item) {
   item.people = undefined; item.vis = item.vis || null;
   hasPeople(item.file).then(function (p) { item.people = p; if (!item.visSet) item.vis = p === false ? "alle" : "andel"; render(); });
 }
-var VIS_NAMES = { alle: "Alle", andel: "Vores andel", mig: "Kun mig" };
-function nextVis(v) { return v === "alle" ? "andel" : v === "andel" ? "mig" : "alle"; }
+var VIS_NAMES = { alle: "Alle", andel: "Vores andel", mig: "Kun mig", lejlighed: "Lejligheden" };
+function nextVis(v) { return v === "alle" || v === "lejlighed" ? "andel" : v === "andel" ? "mig" : "alle"; }
+/* Ting om lejligheden (kategori "vores"): "Alle" betyder alle andele i samme lejlighed */
+function isAptPlace(target) { var p = raw.places.filter(function (x) { return x.id === target; })[0]; var c = p ? p.cat : (ui.draft && ui.draft.id === target ? ui.draft.cat : null); return c === "vores"; }
+function visFor(target, v) { return v === "alle" && isAptPlace(target) ? "lejlighed" : v; }
 
 /* Upload til andelens mappe; billederne gemmes mindre og uden GPS (canvas fjerner placeringen) */
 async function uploadFiles(target, files, onProgress) {
@@ -1614,7 +1623,7 @@ async function uploadFiles(target, files, onProgress) {
 }
 async function addPhotoRows(kind, target, rows) {
   if (!rows.length) return;
-  var r = await sb.from("photos").insert(rows.map(function (x, i) { return { kind: kind, target: target, path: x.path, andel_id: me.andel, owner: ui.user.id, visibility: x.vis || "andel", faces: x.people === true, sort: x.sort != null ? x.sort : 100 + i }; }));
+  var r = await sb.from("photos").insert(rows.map(function (x, i) { return { kind: kind, target: target, path: x.path, andel_id: me.andel, owner: ui.user.id, visibility: kind === "place" ? visFor(target, x.vis || "andel") : (x.vis || "andel"), faces: x.people === true, sort: x.sort != null ? x.sort : 100 + i }; }));
   if (r.error) throw new Error("Billederne blev ikke gemt: " + r.error.message);
 }
 /* Upload af filer + synlighed ud fra personer (bruges af "+ Billeder" og importen) */
@@ -1687,7 +1696,7 @@ async function saveDraft() {
     }
     for (var i = 0; i < d.items.length; i++) {
       var it = d.items[i]; if (!it.id) continue;
-      await sb.from("photos").update({ sort: i, visibility: it.vis }).eq("id", it.id);
+      await sb.from("photos").update({ sort: i, visibility: visFor(d.id, it.vis) }).eq("id", it.id);
     }
     if (d.removed.length) {
       await sb.from("photos").delete().in("path", d.removed);
@@ -2003,8 +2012,8 @@ document.addEventListener("click", async function (e) {
   if (t.id === "new-manual") { ui.chooser = false; startManual(); return; }
   if (t.id === "new-apt") {
     startManual(); var ad = ui.draft; if (!ad) return;
-    ad.cat = "vores"; ad.vis = "andel"; ad.expVis = "andel"; ad.lat = CFG.hotel.lat; ad.lon = CFG.hotel.lon; ad.town = "Bolnuevo";
-    ad.info = 'Giv det et navn, fx "Altanen" eller "Sådan virker aircon". Kun jeres andel kan se det. Dørkoder og wifi skal ikke skrives her.';
+    ad.cat = "vores"; ad.vis = "lejlighed"; ad.expVis = "andel"; ad.lat = CFG.hotel.lat; ad.lon = CFG.hotel.lon; ad.town = "Bolnuevo";
+    ad.info = 'Giv det et navn, fx "Altanen" eller "Sådan virker aircon". Alle andele i lejligheden kan se det. Dørkoder og wifi skal ikke skrives her.';
     render(); scrollToForm(); return;
   }
   if (t.id === "find-map") { syncDraft(); findOnMap(); return; }
@@ -2108,7 +2117,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 80;
+var APP_VERSION = 81;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
