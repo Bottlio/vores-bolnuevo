@@ -635,8 +635,8 @@ function heartBtn(p) {
   return '<button type="button" class="heart' + (p.fav ? " on" : "") + '" data-fav="' + esc(p.id) + '" aria-pressed="' + p.fav + '" aria-label="' + (p.fav ? "Fjern fra jeres favoritter" : "Læg på jeres favoritter") + '" title="' + (p.fav ? "Fjern fra favoritter" : "Læg på favoritter") + '">' + heartSvg(p.fav) + "</button>";
 }
 function scopeHint() {
-  if (ui.scope === "vurderet") return '<p class="scopehint">Viser kun steder, jeres andel selv har givet stjerner eller kommenteret. Tryk <strong>Alle</strong> for at se alle steder i guiden.</p>';
-  if (ui.scope === "fav") return '<p class="scopehint">Viser jeres andels favoritter. Tryk på hjertet ved et sted for at lægge det her eller fjerne det igen.</p>';
+  if (ui.scope === "vurderet") return '<p class="scopehint">Steder, jeres andel selv har givet stjerner eller kommenteret.</p>';
+  if (ui.scope === "fav") return '<p class="scopehint">Jeres andels favoritter. Tryk på hjertet ved et sted for at tilføje eller fjerne det.</p>';
   return "";
 }
 
@@ -2274,7 +2274,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 101;
+var APP_VERSION = 102;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
