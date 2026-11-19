@@ -4,7 +4,7 @@
 var CFG = window.BOLNUEVO;
 var sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true } });
 
-var CATS = [["lejligheden","Hotellet"],["vores","Vores lejlighed"],["spisesteder","Spisesteder"],["strande","Strande"],["natur","Natur og udsigt"],["sevaerdigheder","Seværdigheder"],["oplevelser","Oplevelser"],["sport","Sport"],["dagligvarer","Dagligvarer"],["opladning","Opladning til elbil"],["parkering","Parkering"],["shopping","Shopping"]];
+var CATS = [["lejligheden","Hotellet"],["vores","Lejligheden"],["spisesteder","Spisesteder"],["strande","Strande"],["natur","Natur og udsigt"],["sevaerdigheder","Seværdigheder"],["oplevelser","Oplevelser"],["sport","Sport"],["dagligvarer","Dagligvarer"],["opladning","Opladning til elbil"],["parkering","Parkering"],["shopping","Shopping"]];
 var CATNAME = {}; CATS.forEach(function (c) { CATNAME[c[0]] = c[1]; });
 /* Underkategorier pr. kategori (valgfrie). Rækkefølgen her er rækkefølgen på knapperne. */
 var SUBCATS = {
@@ -770,7 +770,13 @@ function render() {
     mapList = [detail];
     if (detail.lat == null) html += '<p class="hint">' + esc(detail.name) + " har ingen placering endnu, så det kan ikke vises på kortet." + (ui.editor ? ' Tryk "Ret" for at tilføje et link fra Google Maps.' : "") + "</p>";
   }
-  if (ui.cat === "lejligheden" && !detail && !searching) html += '<h2 class="subhead">Laderita de Bolnuevo</h2>';
+  // Hotellet: Laderita de Bolnuevo og andelens lejlighed side om side som to kort
+  var aptNo = me ? String(me.label || "").split("-")[0] : "", aptAll = [], aptMain = null;
+  if (ui.cat === "lejligheden" && me) {
+    aptAll = places.filter(function (p) { return p.cat === "vores"; });
+    aptMain = aptAll.filter(function (p) { return p.subcat === "lejlighed"; })[0] || null;
+    if (!detail && !searching) list = list.filter(function (p) { return p.cat !== "vores"; }).concat(aptMain ? [aptMain] : []);
+  }
   html += '<div class="list' + (detail ? "" : " grid") + '">';
   if (!ui.loaded) html += '<p class="empty-state">Henter steder…</p>';
   else if (!list.length && inApt) html += '<p class="empty-state">' + (ui.cat === "vores" ? "Intet om jeres lejlighed endnu. Tryk \"+ Nyt sted\" for at lægge billeder og noter om jeres lejlighed ind – det kan kun jeres andel se." : "Ingen billeder af hotellet endnu.") + "</p>";
@@ -784,12 +790,9 @@ function render() {
   if (ui.cat === "lejligheden") html += "</dl></section>";
   // Del 2 af Hotellet: den lejlighed, den indloggede andel hører til (kun andelen kan se det, der ligger her)
   if (ui.cat === "lejligheden" && !detail && !searching && me) {
-    var aptNo = String(me.label || "").split("-")[0], aptAll = places.filter(function (p) { return p.cat === "vores"; });
-    var aptMain = aptAll.filter(function (p) { return p.subcat === "lejlighed"; })[0], aptList = aptAll.filter(function (p) { return p !== aptMain; });
-    html += '<h2 class="subhead">Lejlighed ' + esc(aptNo) + '</h2><p class="hint">Det, der ligger her, kan alle andele i lejlighed ' + esc(aptNo) + " se – ikke andre.</p>";
-    if (aptMain) html += '<div class="aptmain">' + placeCard(aptMain, true, false) + "</div>";
-    if (aptList.length) html += '<h3 class="subhead small">Gode råd og billeder fra andelene</h3><div class="list grid">' + aptList.map(function (p) { return gridCard(p, false); }).join("") + "</div>";
-    else if (!aptMain) html += '<p class="empty-state">Intet om lejligheden endnu. Her kan I samle billeder og gode råd om lejligheden.</p>';
+    var aptList = aptAll.filter(function (p) { return p !== aptMain; });
+    html += '<h2 class="subhead">Lejlighed ' + esc(aptNo) + ' – gode råd og billeder</h2><p class="hint">Det, der ligger her, kan alle andele i lejlighed ' + esc(aptNo) + " se – ikke andre.</p>";
+    html += aptList.length ? '<div class="list grid">' + aptList.map(function (p) { return gridCard(p, false); }).join("") + "</div>" : '<p class="empty-state">Intet endnu. Her kan I samle billeder og gode råd om lejligheden.</p>';
     if (ui.editor && !ui.draft) html += '<div class="row"><button class="btn" type="button" id="new-apt">+ Tilføj til lejlighed ' + esc(aptNo) + "</button></div>";
   }
   html += footerHtml();
@@ -2118,7 +2121,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 82;
+var APP_VERSION = 83;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
