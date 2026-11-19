@@ -418,16 +418,19 @@ function textsHtml(p, detail) {
 function areaHeader(kind, name) {
   var a = areaObj(kind, name), t = a.rec || {};
   var html = '<section class="place areahead">' + carousel({ name: name, cat: a.cat, photos: a.photos.length ? a.photos : (a.cover ? [a.cover] : []), photo_credit: t.photo_credit });
-  html += '<div class="place-top"><h2>' + esc(name) + "</h2>" + (kind === "town" ? ratingButton("town", name, "byer", towns[name]) : "") + "</div>";
+  // Jeres egne besøg: på byen/området selv og på jeres steder i den
+  var ov = {}; ((a.rec && a.rec.mine && a.rec.mine.visits) || []).forEach(function (m) { ov[m] = 1; }); a.places.forEach(function (p) { (p.visits || []).forEach(function (m) { ov[m] = 1; }); });
+  var vv = Object.keys(ov).sort(), lastV = vv.length ? vv[vv.length - 1] : null;
+  var visitLine = lastV ? '<span class="visitline">' + (vv.length > 1 ? "Senest besøgt " : "Vi har besøgt ") + MONTHS[parseInt(lastV.slice(5, 7), 10) - 1] + " " + lastV.slice(0, 4) + "</span>" : "";
+  html += '<div class="place-top"><div class="ptitle"><h2>' + esc(name) + "</h2>" + visitLine + "</div>" + (kind === "town" ? ratingButton("town", name, "byer", towns[name]) : "") + "</div>";
   var meta = kind === "town" ? [regionOf(name) !== NO_REGION ? "" : "", driveText(t.drive_min != null ? t.drive_min : (a.drive < 9999 ? a.drive : null), t.drive_km)].filter(Boolean) :
     [townsInRegion(name).length + (townsInRegion(name).length === 1 ? " by" : " byer"), a.drive < 9999 ? "nærmeste ca. " + timeText(a.drive) + " i bil" : ""].filter(Boolean);
   html += '<p class="meta">' + (kind === "town" && regionOf(name) !== NO_REGION && regionOf(name) !== name ? '<button class="linkbtn" type="button" data-region="' + esc(regionOf(name)) + '">' + esc(regionOf(name)) + "</button>" + (meta.length ? " · " : "") : "") + esc(meta.join(" · ")) + "</p>";
   html += textsHtml({ note: a.note, texts: (a.rec && a.rec.texts) || [], mine: a.rec && a.rec.mine, cat: "byer" }, true);
-  if (a.visits.length) html += '<div class="tags"><span class="tag">' + esc(visitsText(a.visits)) + "</span></div>";
   var mq = kind === "town" ? name + ", Murcia, España" : name + ", España";
-  html += '<div class="row"><a class="maps" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(mq) + '" target="_blank" rel="noopener">Åbn i Google Maps</a>';
-  if (ui.editor) html += '<button class="btn small" type="button" data-editarea="' + kind + '" data-key="' + esc(name) + '">Ret ' + (kind === "town" ? "by" : "område") + '</button><button class="btn small" type="button" data-addarea="' + kind + '" data-key="' + esc(name) + '">+ Billeder</button>';
-  return html + "</div></section>";
+  if (ui.editor) html += '<div class="row"><button class="btn small" type="button" data-editarea="' + kind + '" data-key="' + esc(name) + '">Tilføj kommentar</button><button class="btn small" type="button" data-addarea="' + kind + '" data-key="' + esc(name) + '">Tilføj billeder</button></div>';
+  html += '<div class="row links"><a class="maps" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(mq) + '" target="_blank" rel="noopener">Åbn i Google Maps</a></div>';
+  return html + "</section>";
 }
 
 /* Lille kort i gitteret (som byerne): billede, navn, by og kategori, stjerner. Tryk åbner stedet. */
@@ -1766,12 +1769,15 @@ function areaFormHtml(f) {
   var regs = regionNames().filter(function (r) { return r !== NO_REGION; });
   var regSel = f.kind === "town" ? '<label>Område<select id="a-region"><option value="">Intet område</option>' + regs.map(function (r) { return '<option' + (f.region === r ? " selected" : "") + ">" + esc(r) + "</option>"; }).join("") +
     '<option value="__ny"' + (f.region === "__ny" ? " selected" : "") + '>Nyt område…</option></select></label>' + (f.region === "__ny" ? '<label>Navn på nyt område<input id="a-newregion" value="' + esc(f.newRegion) + '" placeholder="Fx Costa Blanca"></label>' : "") : "";
-  return '<form class="panel" id="area-editor"><h2>Ret ' + (f.kind === "town" ? "byen " : "området ") + esc(f.name) + "</h2>" + regSel +
-    '<label>Vores beskrivelse<textarea id="a-note" placeholder="Hvad er værd at se, hvor parkerer man, hvad skal man spise?">' + esc(f.note) + "</textarea></label>" +
-    '<div><p class="hint" style="margin-bottom:8px">Billeder (det første vises først)</p><div class="photos">' + ph + "</div>" +
+  return '<form class="panel" id="area-editor"><h2>' + esc(f.name) + "</h2>" +
+    '<label>Kommentar<textarea id="a-note" placeholder="Hvad er værd at se, hvor parkerer man, hvad skal man spise?">' + esc(f.note) + "</textarea></label>" +
+    '<div><p class="hint" style="margin-bottom:8px">Billeder (det første vises først). Tryk på mærket på et billede for at vælge, hvem der kan se det.</p><div class="photos">' + ph + "</div>" +
     '<label class="btn" style="display:inline-flex;margin-top:10px;color:var(--fg)">+ Tilføj billeder<input type="file" id="a-add" accept="image/*" multiple hidden></label></div>' +
-    '<label>Vi har besøgt (fx 2025-02, 2026-07)<input id="a-visits" value="' + esc(f.visits.join(", ")) + '"></label>' +
-    '<label>Hvem kan se vores tekst?<select id="a-expvis"><option value="alle"' + (f.expVis !== "andel" ? " selected" : "") + '>Alle</option><option value="andel"' + (f.expVis === "andel" ? " selected" : "") + ">Vores andel</option></select></label>" +
+    '<button class="btn advtoggle" type="button" id="a-adv-toggle" aria-expanded="' + !!f.adv + '">' + (f.adv ? "Skjul avanceret redigering ▴" : "Avanceret redigering ▾") + "</button>" +
+    (f.adv ? '<div class="advsec">' + regSel +
+      '<label>Hvem kan se vores tekst?<select id="a-expvis"><option value="alle"' + (f.expVis !== "andel" ? " selected" : "") + '>Alle</option><option value="andel"' + (f.expVis === "andel" ? " selected" : "") + ">Vores andel</option></select></label>" +
+      '<label>Vi har besøgt (fx 2025-02, 2026-07)<input id="a-visits" value="' + esc(f.visits.join(", ")) + '"><span class="hint">Kommer automatisk fra datoen på de billeder, I lægger ind. Her kan I tilføje eller rette.</span></label>' +
+      "</div>" : "") +
     (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
     '<div class="row"><button class="btn primary" type="submit"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + '</button><button class="btn" type="button" id="a-cancel">Annuller</button></div></form>';
 }
@@ -1876,6 +1882,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.afirst) { syncArea(); var ai = ui.areaDraft.items.splice(+t.dataset.afirst, 1)[0]; ui.areaDraft.items.unshift(ai); render(); return; }
   if (t.dataset.arm) { syncArea(); var ag = ui.areaDraft.items.splice(+t.dataset.arm, 1)[0]; if (ag.path) ui.areaDraft.removed.push(ag.path); render(); return; }
   if (t.id === "a-cancel") { ui.areaDraft = null; render(); return; }
+  if (t.id === "a-adv-toggle") { syncArea(); ui.areaDraft.adv = !ui.areaDraft.adv; render(); return; }
   if (t.dataset.fetchimg) { fetchWebImages(t.dataset.fetchimg, false); return; }
   if (t.dataset.move) {
     var mp = places.filter(function (x) { return x.id === t.dataset.move; })[0] || {}, today = dayOf(new Date()), mv = (mp.visits || []).slice();
@@ -1959,7 +1966,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 71;
+var APP_VERSION = 72;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
