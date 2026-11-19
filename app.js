@@ -563,9 +563,9 @@ function toolbar(show) {
   if (document.activeElement !== tbInput) tbInput.value = ui.q || "";
   tbClear.hidden = !(ui.q || "");
   var toMap = ui.view !== "kort", c = scopeCounts();
-  var seg = function (val, label, short, n, title) { return '<button type="button" data-scope="' + val + '" aria-pressed="' + (ui.scope === val) + '" title="' + title + '"><span class="pl">' + label + '</span><span class="ps">' + short + '</span><span class="pn">' + n + "</span></button>"; };
+  var seg = function (val, label, short, n, title) { return '<button type="button" data-scope="' + val + '" aria-pressed="' + (ui.scope === val) + '" title="' + title + '"><span class="pl">' + label + '</span><span class="ps">' + short + "</span>" + (n == null ? "" : '<span class="pn">' + n + "</span>") + "</button>"; };
   tbCtrl.innerHTML = '<div class="pill" role="group" aria-label="Vis">' +
-      seg("alle", "Alle", "Alle", c.alle, "Alle steder i guiden") +
+      seg("alle", "Alle", "Alle", null, "Alle steder i guiden") +
       seg("vurderet", "★ Vores vurderede", "★ Vores", c.vurderet, "Kun steder jeres andel har givet stjerner eller skrevet om") +
       seg("fav", heartSvg(ui.scope === "fav") + " Favoritter", heartSvg(ui.scope === "fav"), c.fav, "Jeres favoritter") + "</div>" +
     '<button class="tview" type="button" data-view="' + (toMap ? "kort" : "liste") + '" aria-label="' + (toMap ? "Vis på kort" : "Vis som gitter") + '" title="' + (toMap ? "Vis på kort" : "Vis som gitter") + '">' + (toMap ? ICON_MAP : ICON_LIST) + "</button>";
@@ -1889,7 +1889,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 61;
+var APP_VERSION = 62;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
