@@ -473,3 +473,4 @@ header{position:relative}
 .desc{margin:6px 0 4px;line-height:1.55;color:var(--fg)}
 .subhead.small{font-size:1rem;margin-top:18px}
 .aptmain{display:block;max-width:760px;margin-bottom:14px}
+.desc{white-space:pre-line}

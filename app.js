@@ -21,16 +21,7 @@ var SUBCATS = {
 };
 function subName(cat, sc) { var l = SUBCATS[cat] || []; for (var i = 0; i < l.length; i++) if (l[i][0] === sc) return l[i][1]; return ""; }
 var MONTHS = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
-var PRACTICAL = [
-  { k: "Adresse", v: "Laderita de Bolnuevo, Travesía Jabeque 3, Playasol II, 30877 Bolnuevo (Mazarrón)" },
-  { k: "Ankomst", v: "Lejligheden er klar kl. 15 lørdag. Nøgler og navneskilt ligger i en plastlomme i receptionen." },
-  { k: "Afrejse", v: "Ud senest kl. 11 lørdag. Tøm køleskab, aflever linned i vaskerummet, start opvaskeren og aflever nøglerne i receptionen." },
-  { k: "Koder", v: "Dørkoder og wifi får I af ejerne af lejligheden." },
-  { k: "Parkering", v: "På de markerede pladser foran hovedindgangen." },
-  { k: "Akut", v: "Ring 112. Nærmeste hospital er Santa Lucía i Cartagena." },
-  { k: "Alt det andet", v: "Hotellets egen ABC har svar på næsten alt (pool, cykler, affald, læge, taxa).", link: "https://docs.google.com/document/d/1U_z5GQfR0-Ry7YMQYxSnxF8mHoGCnQN18gQ6_BdrkPc/edit", linkText: "Åbn hotellets ABC" },
-  { k: "Lufthavn og lejebil", v: "Vores erfaringer kommer her." }
-];
+/* Det praktiske om hotellet ligger nu som beskrivelse på stedet "Laderita de Bolnuevo" (facts.beskrivelse) */
 
 var places = [];
 /* Rå data fra databasen; "places", "towns" og "regions" bygges ud fra dem (se decorate) */
@@ -726,7 +717,7 @@ function render() {
   if (sub) f += '<div class="subchips">' + sub + "</div>";
   // Åbningsfiltre øverst, derefter fire lige store bokse: type, by, karakter, sortering
   if (factChips) f += factChips;
-  f += '<div class="fgrid">' + (subSel || "") + (townSel || "");
+  f += '<div class="fgrid"' + (inApt ? " hidden" : "") + ">" + (subSel || "") + (townSel || "");
   var listView = list !== null;
   if (!inApt && listView) f += '<label class="fbox"><span class="flabel">Karakter</span><select data-select="rating">' +
     [[0, "Alle"], [4, "4 stjerner og op"], [5, "Kun 5 stjerner"]].map(function (r) { return '<option value="' + r[0] + '"' + ((ui.minRating || 0) === r[0] ? " selected" : "") + ">" + r[1] + "</option>"; }).join("") + "</select></label>";
@@ -785,15 +776,11 @@ function render() {
   list.forEach(function (p) { html += detail ? placeCard(p, true, true) : gridCard(p, ui.cat === "alle" || inTowns || inTrips || searching || isApt(ui.cat)); });
   html += "</div>";
 
-  if (ui.cat === "lejligheden") html += '<section class="practical"><p class="eyebrow">Det praktiske, kort</p><h2>Når I bor på hotellet</h2><dl>';
-  if (ui.cat === "lejligheden") PRACTICAL.forEach(function (r) { html += "<dt>" + esc(r.k) + "</dt><dd>" + esc(r.v) + (r.link ? ' <a href="' + esc(r.link) + '" target="_blank" rel="noopener">' + esc(r.linkText) + "</a>" : "") + "</dd>"; });
-  if (ui.cat === "lejligheden") html += "</dl></section>";
-  // Del 2 af Hotellet: den lejlighed, den indloggede andel hører til (kun andelen kan se det, der ligger her)
-  if (ui.cat === "lejligheden" && !detail && !searching && me) {
-    var aptList = aptAll.filter(function (p) { return p !== aptMain; });
-    html += '<h2 class="subhead">Lejlighed ' + esc(aptNo) + ' – gode råd og billeder</h2><p class="hint">Det, der ligger her, kan alle andele i lejlighed ' + esc(aptNo) + " se – ikke andre.</p>";
-    html += aptList.length ? '<div class="list grid">' + aptList.map(function (p) { return gridCard(p, false); }).join("") + "</div>" : '<p class="empty-state">Intet endnu. Her kan I samle billeder og gode råd om lejligheden.</p>';
-    if (ui.editor && !ui.draft) html += '<div class="row"><button class="btn" type="button" id="new-apt">+ Tilføj til lejlighed ' + esc(aptNo) + "</button></div>";
+  // På lejlighedskortet: andelenes egne ting om lejligheden + knap til at tilføje (kun andele i lejligheden kan se dem)
+  if (detail && detail.cat === "vores" && detail.subcat === "lejlighed" && me) {
+    var aptNo2 = detail.name.replace(/^Lejlighed\s*/i, ""), aptTips = places.filter(function (p) { return p.cat === "vores" && p.subcat !== "lejlighed"; });
+    if (aptTips.length) html += '<h2 class="subhead">Gode råd og billeder fra andelene</h2><div class="list grid">' + aptTips.map(function (p) { return gridCard(p, false); }).join("") + "</div>";
+    if (ui.editor && !ui.draft) html += '<div class="row"><button class="btn" type="button" id="new-apt">+ Tilføj et godt råd eller billeder om lejlighed ' + esc(aptNo2) + "</button></div>";
   }
   html += footerHtml();
   if (ui.editor && !ui.draft) {
@@ -2121,7 +2108,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 83;
+var APP_VERSION = 84;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
