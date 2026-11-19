@@ -6,6 +6,9 @@
   --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
   color-scheme:light;
 }
+@media (prefers-color-scheme: dark){:root{
+  --bg:#121a1c; --surface:#1a2427; --fg:#e9eeee; --muted:#9fb0b2; --line:#2e3c3f;
+  --sea:#7cc6d4; --sea-soft:#1d3a40; --ochre:#e3a86a; --ochre-soft:#3a2a1b; --danger:#f08b78; color-scheme:dark}}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.55}
@@ -160,6 +163,7 @@ footer .footrow{display:flex;justify-content:space-between;gap:12px;flex-wrap:wr
 
 /* Vurderinger */
 :root{--gold:#e39b0b;--star-off:#cbc5bb}
+@media (prefers-color-scheme: dark){:root{--gold:#f4b73a;--star-off:#56605f}}
 .rbtn{display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:4px 2px;font:inherit;color:var(--fg);cursor:pointer;white-space:nowrap;flex:0 0 auto;min-height:38px;border-radius:8px;-webkit-tap-highlight-color:transparent}
 .rbtn:focus-visible{outline:2px solid var(--sea);outline-offset:2px}
 .rbtn .rnum{font-weight:700;font-size:.95rem}
