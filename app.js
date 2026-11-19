@@ -439,7 +439,8 @@ function gridCard(p, showKat) {
     '<div class="trate">' + ratingButton("place", p.id, p.cat, p) + heartBtn(p) + "</div></div>";
 }
 function placeCard(p, detail, showKat) {
-    var html = '<article class="place' + (detail ? " detailcard" : "") + '" id="' + esc(p.id) + '" data-pid="' + esc(p.id) + '">' + carousel(p);
+    var html = '<article class="place' + (detail ? " detailcard" : "") + '" id="' + esc(p.id) + '" data-pid="' + esc(p.id) + '">' +
+      (detail && ui.view === "kort" && p.lat != null ? '<div class="car"><div id="map" class="dmap" role="region" aria-label="Kort over ' + esc(p.name) + '"></div></div>' : carousel(p));
     html += '<div class="place-top"><h3>' + (detail ? esc(p.name) : '<button class="titlebtn" type="button" data-open="' + esc(p.id) + '">' + esc(p.name) + "</button>") + "</h3>" + '<span class="topright">' + ratingButton("place", p.id, p.cat, p) + heartBtn(p) + "</span></div>";
     var ov = overall(p);
     if (detail && ov && ov.score != null) html += '<p class="rsum"><strong>' + SCALE[ov.stars][0] + '</strong> "' + SCALE[ov.stars][1] + '"</p>';
@@ -722,11 +723,10 @@ function render() {
     list = [];
     if (areaDetail) html += head + grid;
   }
-  // Kortet på en stedside: viser hvor stedet ligger (stedet selv står under kortet)
+  // Kortet på en stedside: vises i stedet for billederne (se placeCard)
   if (ui.view === "kort" && detail) {
     mapList = [detail];
-    html += detail.lat != null ? '<div class="mapwrap"><div id="map" role="region" aria-label="Kort over ' + esc(detail.name) + '"></div></div>'
-      : '<p class="hint">' + esc(detail.name) + " har ingen placering endnu, så det kan ikke vises på kortet." + (ui.editor ? ' Tryk "Ret" for at tilføje et link fra Google Maps.' : "") + "</p>";
+    if (detail.lat == null) html += '<p class="hint">' + esc(detail.name) + " har ingen placering endnu, så det kan ikke vises på kortet." + (ui.editor ? ' Tryk "Ret" for at tilføje et link fra Google Maps.' : "") + "</p>";
   }
   html += '<div class="list' + (detail ? "" : " grid") + '">';
   if (!ui.loaded) html += '<p class="empty-state">Henter steder…</p>';
@@ -1896,7 +1896,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 64;
+var APP_VERSION = 65;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

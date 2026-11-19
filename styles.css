@@ -419,3 +419,4 @@ header{position:relative}
 .scopehint strong{color:var(--fg)}
 .favcheck{display:flex !important;flex-direction:row !important;align-items:center;gap:8px;font-weight:500}
 .favcheck input{width:18px;height:18px;margin:0}
+#map.dmap{width:100%;height:auto;aspect-ratio:4/3;max-height:560px;border-radius:10px}
