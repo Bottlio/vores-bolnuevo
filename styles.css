@@ -152,6 +152,7 @@ footer{margin-top:32px;color:var(--muted);font-size:.85rem;display:flex;flex-dir
   .panel,.notice{max-width:720px}
   .practical{max-width:820px}
   .towns{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+  .list>.detailcard{grid-column:1/-1}
 }
 .noimg-card{display:none}
 @media (min-width:700px){.noimg-card{display:flex;align-items:center;justify-content:center;aspect-ratio:4/3;border-radius:10px;background:var(--sea-soft);color:var(--sea);margin-bottom:6px}.noimg-card svg{width:56px;height:56px;opacity:.6}}
@@ -209,11 +210,13 @@ body.modal-open{overflow:hidden}
 .titlebtn:hover{color:var(--sea)}
 .place:not(.detailcard) .slide{cursor:pointer}
 .detailcard{max-width:760px}
+.detailcard .ptitle h3{font-size:1.55rem}
 .rsum{margin:-2px 0 6px;color:var(--muted)}.rsum strong{color:var(--fg)}
 .titlebtn{font:inherit;color:inherit;background:none;border:0;padding:0;text-align:left;cursor:pointer;line-height:inherit}
 .titlebtn:hover{color:var(--sea)}
 .place:not(.detailcard) .slide{cursor:pointer}
 .detailcard{max-width:760px}
+.detailcard .ptitle h3{font-size:1.55rem}
 .rsum{margin:-2px 0 6px;color:var(--muted)}.rsum strong{color:var(--fg)}
 .choices{display:grid;gap:8px}.choices .btn{text-align:left}
 .questions{display:grid;gap:10px}
