@@ -1104,7 +1104,7 @@ function andelPageHtml() {
       '<p class="hint">Billeder, hvor guiden har fundet personer (eller ikke kunne tjekke). De er som udgangspunkt kun for jeres andel. Tryk "Alle" på et billede, hvis andre andelshavere gerne må se det.</p>' +
       '<div class="pgrid">' + ph.map(function (p) {
         return '<div class="pcell"><img src="' + esc(photoUrl(p.path)) + '" alt="" loading="lazy"><div class="seg small" role="group" aria-label="Hvem kan se billedet">' +
-          [["alle", "Alle"], ["andel", "Vores andel"], ["mig", "Kun mig"]].map(function (o) { return '<button type="button" data-setvis="' + esc(p.id) + '" data-v="' + o[0] + '" aria-pressed="' + (p.visibility === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div></div>";
+          [["alle", "Alle"], ["andel", "Vores andel"], ["mig", "Kun mig"]].filter(function (o) { return o[0] !== "mig" || p.owner === ui.user.id || p.visibility === "mig"; }).map(function (o) { return '<button type="button" data-setvis="' + esc(p.id) + '" data-v="' + o[0] + '" aria-pressed="' + (p.visibility === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div></div>";
       }).join("") + "</div></section>";
   }
   return h;
@@ -1140,7 +1140,7 @@ async function removeMember(email) {
 async function carouselVis(btn) {
   if (btn.disabled) return;
   var id = btn.dataset.cvis, row = raw.photos.filter(function (x) { return x.id === id; })[0]; if (!row) return;
-  var v = row.kind === "place" ? visFor(row.target, nextVis(row.visibility)) : nextVis(row.visibility);
+  var mineRow = row.owner === ui.user.id, v = row.kind === "place" ? visFor(row.target, nextVis(row.visibility, mineRow)) : nextVis(row.visibility, mineRow);
   btn.disabled = true; btn.textContent = "Gemmer…";
   var r = await sb.from("photos").update({ visibility: v }).eq("id", id);
   btn.disabled = false;
@@ -1702,7 +1702,7 @@ function editPlace(id) {
   var ours = (p.photoRows || []).filter(function (x) { return x.andel_id === me.andel || x.owner === ui.user.id; });
   ui.draft = { isNew: false, id: p.id, link: p.link || "", website: p.website || "", maps: p.maps_url || "", lastVisit: p.mine ? p.mine.last_visit : null, town: p.town || "", cat: p.cat, subcat: p.subcat || "", facts: JSON.parse(JSON.stringify(p.facts || {})), fav: !!p.fav, name: p.name, area: p.area || "", note: p.note || "", rating: null, price: p.price || "", visits: (p.visits || []).slice(), guess: !!p.guess, lat: p.lat, lon: p.lon,
     vis: p.visibility || "alle", expVis: p.mine ? p.mine.visibility : "alle", otherPhotos: (p.photoRows || []).length - ours.length,
-    items: ours.map(function (x) { return { path: x.path, id: x.id, vis: x.visibility, origVis: x.visibility, people: x.faces }; }), removed: [] };
+    items: ours.map(function (x) { return { path: x.path, id: x.id, vis: x.visibility, origVis: x.visibility, people: x.faces, own: x.owner === ui.user.id }; }), removed: [] };
   ui.msg = ""; render(); scrollToForm();
 }
 function scrollToForm() { var f = document.getElementById("editor"); if (f) window.scrollTo({ top: f.getBoundingClientRect().top + window.scrollY - 16, behavior: "smooth" }); }
@@ -1750,7 +1750,8 @@ function suggestVis(item) {
   hasPeople(item.file).then(function (p) { item.people = p; if (!item.visSet) item.vis = p === false ? "alle" : "andel"; render(); });
 }
 var VIS_NAMES = { alle: "Alle", andel: "Vores andel", mig: "Kun mig", lejlighed: "Lejligheden" };
-function nextVis(v) { return v === "alle" || v === "lejlighed" ? "andel" : v === "andel" ? "mig" : "alle"; }
+// "Kun mig" kan kun vælges for egne billeder – et billede, en anden i andelen har lagt ind, skifter mellem Alle og Vores andel
+function nextVis(v, own) { return v === "alle" || v === "lejlighed" ? "andel" : v === "andel" && own !== false ? "mig" : "alle"; }
 /* Ting om lejligheden (kategori "vores"): "Alle" betyder alle andele i samme lejlighed */
 function isAptPlace(target) { var p = raw.places.filter(function (x) { return x.id === target; })[0]; var c = p ? p.cat : (ui.draft && ui.draft.id === target ? ui.draft.cat : null); return c === "vores"; }
 function visFor(target, v) { return v === "alle" && isAptPlace(target) ? "lejlighed" : v; }
@@ -2101,7 +2102,7 @@ function startAreaEdit(kind, name) {
   var o = (kind === "town" ? towns[name] : regions[name]) || {};
   var ours = (o.photoRows || []).filter(function (x) { return x.andel_id === me.andel || x.owner === ui.user.id; });
   ui.areaDraft = { kind: kind, name: name, region: kind === "town" ? (o.region || "") : "", newRegion: "", note: o.note || "", visits: ((o.mine && o.mine.visits) || []).slice(), lastVisit: o.mine ? o.mine.last_visit : null,
-    expVis: o.mine ? o.mine.visibility : "alle", items: ours.map(function (x) { return { path: x.path, id: x.id, vis: x.visibility, people: x.faces }; }), removed: [], err: "" };
+    expVis: o.mine ? o.mine.visibility : "alle", items: ours.map(function (x) { return { path: x.path, id: x.id, vis: x.visibility, people: x.faces, own: x.owner === ui.user.id }; }), removed: [], err: "" };
   ui.msg = ""; render();
   var f = document.getElementById("area-editor"); if (f) window.scrollTo({ top: f.getBoundingClientRect().top + window.scrollY - 16, behavior: "smooth" });
 }
@@ -2187,7 +2188,7 @@ var HELP_MAIL = "c@sorgenfrey.net";
 var HELP_TIPS = {
   scope: ["Alle, Vores og Favoritter", "<p><strong>Alle</strong> viser alle steder i guiden.</p><p><strong>Vores</strong> viser kun de steder, jeres andel selv har givet stjerner eller skrevet om.</p><p><strong>Favoritter</strong> viser de steder, I har trykket på hjertet ♡ ved.</p>", "find"],
   stars: ["Stjernerne", "<p>De store stjerner er <strong>gennemsnittet</strong> af alle andeles vurderinger. Tallet i parentes er, hvor mange der har vurderet.</p><p><strong>Din vurdering</strong> nedenunder er jeres egen.</p><p>Tryk på stjernerne for at give eller ændre jeres vurdering.</p>", "stjerner"],
-  photovis: ["Hvem kan se billedet?", "<p>Mærket viser, hvem der kan se billedet:</p><p><strong>Alle</strong> – alle andelshavere i guiden.<br><strong>Vores andel</strong> – kun jer i andelen.<br><strong>Kun mig</strong> – kun dig.</p><p>Tryk på mærket for at skifte. Det gemmes med det samme.</p>", "billeder"],
+  photovis: ["Hvem kan se billedet?", "<p>Mærket viser, hvem der kan se billedet:</p><p><strong>Alle</strong> – alle andelshavere i guiden.<br><strong>Vores andel</strong> – kun jer i andelen.<br><strong>Kun mig</strong> – kun dig.</p><p>Tryk på mærket for at skifte. Det gemmes med det samme. <strong>Kun mig</strong> kan kun vælges på billeder, du selv har lagt ind.</p>", "billeder"],
   whosee: ["Hvem kan se det?", "<p><strong>Hvem kan se stedet?</strong> Om alle andelshavere kan se stedet, kun jeres andel eller kun dig.</p><p><strong>Hvem kan se vores stjerner og tekst?</strong> Om jeres stjerner og kommentar vises for alle eller kun for jeres andel.</p>", "stjerner"],
   advanced: ["Avanceret redigering", "<p>Her kan man rette stedets navn, by, kategori, links og hvem der kan se det.</p><p>Det er sjældent nødvendigt. Vil du bare skrive en kommentar, skal du kun bruge feltet <strong>Kommentar</strong> øverst og trykke <strong>Gem</strong>.</p>", "avanceret"],
   invite: ["Invitér en person", "<p>1. Skriv personens fornavn og mail.<br>2. Vælg <strong>Gæst</strong> eller <strong>Ejer</strong>.<br>3. Tryk <strong>Invitér</strong>.<br>4. Send beskeden, der kommer frem, til personen – fx på sms eller mail.</p><p>Gæster kan det samme i guiden som ejere, men kan ikke invitere andre.</p>", "andel"]
@@ -2407,8 +2408,8 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.sold) { markSold(t.dataset.sold); return; }
   if (t.id === "copy-invite") { var ta = document.getElementById("invite-copy"); ta.select(); try { navigator.clipboard.writeText(ta.value); t.textContent = "Kopieret"; } catch (x) { document.execCommand("copy"); } return; }
   if (t.id === "recheck") { await checkUser(); if (ui.member) { ui.loaded = false; await load(); } else { ui.msg = "Der er stadig ingen invitation til " + ui.user.email + "."; render(); } return; }
-  if (t.dataset.vis != null && ui.draft) { syncDraft(); var vi = ui.draft.items[+t.dataset.vis]; vi.vis = nextVis(vi.vis || "andel"); vi.visSet = true; render(); return; }
-  if (t.dataset.avis != null && ui.areaDraft) { syncArea(); var va = ui.areaDraft.items[+t.dataset.avis]; va.vis = nextVis(va.vis || "andel"); va.visSet = true; render(); return; }
+  if (t.dataset.vis != null && ui.draft) { syncDraft(); var vi = ui.draft.items[+t.dataset.vis]; vi.vis = nextVis(vi.vis || "andel", vi.own); vi.visSet = true; render(); return; }
+  if (t.dataset.avis != null && ui.areaDraft) { syncArea(); var va = ui.areaDraft.items[+t.dataset.avis]; va.vis = nextVis(va.vis || "andel", va.own); va.visSet = true; render(); return; }
   if (t.dataset.first) { syncDraft(); var it = ui.draft.items.splice(+t.dataset.first, 1)[0]; ui.draft.items.unshift(it); render(); return; }
   if (t.dataset.rm) { syncDraft(); var gone = ui.draft.items.splice(+t.dataset.rm, 1)[0]; if (gone.path) ui.draft.removed.push(gone.path); render(); return; }
   if (t.dataset.rateopen) { openRating(t.dataset.rateopen, t.dataset.key); return; }
@@ -2486,7 +2487,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 111;
+var APP_VERSION = 112;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
