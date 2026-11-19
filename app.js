@@ -985,10 +985,10 @@ function headerHtml() {
   return '<header><div><p class="eyebrow">Andelshavernes guide · Costa Cálida</p><h1>Laderita de Bolnuevo</h1></div><span class="beta" title="Guiden er stadig under udvikling">Beta</span><div class="hbtns">' + navBtns() + "</div></header>";
 }
 function footerHtml() {
-  var h = "<footer><span>Afstand og tid er i bil fra hotellet, beregnet uden trafik.</span>";
-  if (me) h += '<span><button class="linkbtn" type="button" data-page="andel">Vores andel (' + esc(me.label) + ")</button>" + (me.admin ? ' · <button class="linkbtn" type="button" data-page="admin">Administration</button>' : "") + "</span>";
-  if (me && me.admin) h += '<span><button class="linkbtn" type="button" id="open-import">Importér billeder fra PC</button></span>';
-  h += '<span><button class="linkbtn" type="button" data-page="regler">Regler og privatliv</button></span>';
+  var h = "<footer>";
+  h += '<span class="footrow">' + (me ? '<button class="linkbtn" type="button" data-page="andel">Vores andel (' + esc(me.label) + ")</button>" : "<span></span>") + '<button class="linkbtn" type="button" data-page="regler">Regler og privatliv</button></span>';
+  // Kun administratoren
+  if (me && me.admin) h += '<span><button class="linkbtn" type="button" data-page="admin">Administration</button> · <button class="linkbtn" type="button" id="open-import">Importér billeder fra PC</button></span>';
   if (ui.user) h += "<span>Logget ind som " + esc(ui.user.email) + '. <button class="linkbtn" type="button" id="logout">Log ud</button></span>';
   return h + "</footer>";
 }
@@ -2228,7 +2228,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 95;
+var APP_VERSION = 96;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
