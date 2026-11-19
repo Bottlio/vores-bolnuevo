@@ -427,3 +427,5 @@ header{position:relative}
 .advsec{display:flex;flex-direction:column;gap:14px;padding-top:14px;border-top:1px solid var(--line)}
 .advsec label .hint{display:block;margin-top:4px;font-weight:400}
 .row.links{margin-top:2px}
+.kindline{margin:2px 0 0;color:var(--fg);font-size:.95rem}
+.kindline .warn{color:#a4472f}

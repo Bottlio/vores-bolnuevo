@@ -445,8 +445,9 @@ function placeCard(p, detail, showKat) {
     var html = '<article class="place' + (detail ? " detailcard" : "") + '" id="' + esc(p.id) + '" data-pid="' + esc(p.id) + '">' +
       (detail && ui.view === "kort" && p.lat != null ? '<div class="car"><div id="map" class="dmap" role="region" aria-label="Kort over ' + esc(p.name) + '"></div></div>' : carousel(p));
     html += '<div class="place-top"><h3>' + (detail ? esc(p.name) : '<button class="titlebtn" type="button" data-open="' + esc(p.id) + '">' + esc(p.name) + "</button>") + "</h3>" + '<span class="topright">' + ratingButton("place", p.id, p.cat, p) + heartBtn(p) + "</span></div>";
-    var ov = overall(p);
-    if (detail && ov && ov.score != null) html += '<p class="rsum"><strong>' + SCALE[ov.stars][0] + '</strong> "' + SCALE[ov.stars][1] + '"</p>';
+    // Hvad stedet er (underkategori, ellers kategori) og åbningsforhold – som almindelig tekst øverst
+    var kind = isApt(p.cat) ? [] : [esc(subName(p.cat, p.subcat) || CATNAME[p.cat] || "")].concat(factList(p, detail).map(function (t) { return t[0] ? '<span class="warn">' + esc(t[1]) + "</span>" : esc(t[1]); })).filter(Boolean);
+    if (kind.length) html += '<p class="kindline">' + kind.join(" · ") + "</p>";
     var where = p.area && p.area !== p.town ? (p.town && p.area.indexOf(p.town) < 0 ? p.area + ", " + p.town : p.area) : (p.town || p.area);
     var meta = isApt(p.cat) ? "" : [where, distText(p), p.price].filter(Boolean).join(" · ");
     if (meta) html += '<p class="meta">' + esc(meta) + "</p>";
@@ -454,10 +455,7 @@ function placeCard(p, detail, showKat) {
     html += '<div class="tags">';
     if (p.visibility === "andel") html += '<span class="tag priv">Kun vores andel</span>';
     if (p.visibility === "mig") html += '<span class="tag priv">Kun mig</span>';
-    if (showKat) html += '<span class="tag kat">' + esc(CATNAME[p.cat] || p.cat) + "</span>";
     if (detail && p.visits && p.visits.length) html += '<span class="tag">' + esc("Vi har besøgt " + visitsText(p.visits).slice(7)) + "</span>";
-    if (subName(p.cat, p.subcat)) html += '<span class="tag kat">' + esc(subName(p.cat, p.subcat)) + "</span>";
-    html += factTags(p, detail);
     if (p.guess) html += '<span class="tag guess">Navnet er gættet ud fra billeder</span>';
     html += "</div>";
     if (ui.editor) {
@@ -1417,7 +1415,7 @@ var QUESTIONS = {
   dagligvarer: [["saeson", "Sæsonlukket?"], ["sondag", "Åbent om søndagen?"]],
   spisesteder: [["saeson", "Sæsonlukket?"], ["tidlig", "Åbent før kl. 20?"]]
 };
-function factTags(p, full) {
+function factList(p, full) {
   var f = p.facts || {}, q = QUESTIONS[p.cat] || [], out = [];
   q.forEach(function (x) {
     var v = f[x[0]];
@@ -1425,7 +1423,7 @@ function factTags(p, full) {
     if (x[0] === "tidlig") { if (v === "ja") out.push(["", "Åbent før kl. 20"]); else if (v === "nej") out.push(["warn", "Åbner først kl. 20"]); }
     if (x[0] === "sondag") { if (v === "ja" && full) out.push(["", "Søndagsåbent"]); else if (v === "nej") out.push(["warn", "Lukket om søndagen"]); }
   });
-  return out.map(function (t) { return '<span class="tag' + (t[0] ? " " + t[0] : "") + '">' + esc(t[1]) + "</span>"; }).join("");
+  return out;
 }
 function questionsHtml(f) {
   var q = QUESTIONS[f.cat]; if (!q) return "";
@@ -1911,7 +1909,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 67;
+var APP_VERSION = 68;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
