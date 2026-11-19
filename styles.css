@@ -434,3 +434,7 @@ header{position:relative}
 .favtoggle{align-self:flex-start;justify-self:start;display:inline-flex;align-items:center;gap:8px;background:none;border:0;padding:4px 0;font:inherit;font-size:.95rem;color:var(--fg);cursor:pointer}
 .favtoggle svg{width:24px;height:24px;color:var(--muted)}
 .favtoggle.on svg,.favtoggle:hover svg{color:#b8433a}
+#leavemodal{position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.35);display:grid;place-items:center;padding:16px}
+#leavemodal[hidden]{display:none}
+#leavemodal .lbox{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;max-width:380px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+#leavemodal .lbox p{margin:0 0 14px}

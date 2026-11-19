@@ -580,6 +580,7 @@ var APTS = ["lejligheden", "vores"];
 function isApt(c) { return APTS.indexOf(c) >= 0; }
 function render() {
   // Ikke logget ind / ingen andel: kun velkomst og login. Egne sider: Vores andel, Regler og privatliv.
+  markOrig();
   if (!ui.member || ui.page) { renderGate(); return; }
   if (!ui.loaded) { setTop(headerHtml()); toolbar(false); root.innerHTML = '<p class="loading">Henter guiden…</p>'; slim.innerHTML = ""; slim.classList.remove("show"); panel.hidden = true; return; }
   if (ui.cat === "hjem" && !ui.place && !(ui.q || "").trim()) { renderHome(); return; }
@@ -1679,7 +1680,49 @@ function nav(change) {
   try { history.pushState({ nav: navStack.length }, "", ui.place ? "#sted/" + ui.place : (isApt(ui.cat) || CATNAME[ui.cat] || ui.cat === "byer" || ui.cat === "dagsture" || ui.cat === "alle") ? "#" + ui.cat : location.pathname); } catch (x) {}
   render(); window.scrollTo({ top: 0 });
 }
+/* ---------- ændringer, der ikke er gemt ----------
+   Tilbage og hus må altid bruges, mens man retter. Er intet ændret, lukkes formularen bare.
+   Er noget ændret, spørges: "Gem først" eller "Forlad uden at gemme". */
+var DRAFT_SKIP = { info: 1, err: 1, choices: 1, adv: 1, finding: 1, confirmDel: 1, keep: 1, more: 1, orig: 1 };
+function draftKey(d) { return JSON.stringify(d, function (k, v) { return DRAFT_SKIP[k] ? undefined : (typeof Blob !== "undefined" && v instanceof Blob ? "fil" : v); }); }
+function markOrig() {
+  [["draft", "editor", syncDraft], ["areaDraft", "area-editor", syncArea]].forEach(function (x) {
+    var d = ui[x[0]]; if (!d || d.orig != null) return;
+    setTimeout(function () { if (ui[x[0]] !== d || d.orig != null) return; if (document.getElementById(x[1])) x[2](); d.orig = draftKey(d); }, 0);
+  });
+}
+function hasUnsaved() {
+  if (ui.draft) {
+    if (document.getElementById("editor")) syncDraft();
+    var d = ui.draft;
+    if (d.isNew) return (d.items || []).length > 0 || !!(d.name || "").trim() || !!(d.note || "").trim();
+    return d.orig != null && draftKey(d) !== d.orig;
+  }
+  if (ui.areaDraft) { if (document.getElementById("area-editor")) syncArea(); return ui.areaDraft.orig != null && draftKey(ui.areaDraft) !== ui.areaDraft.orig; }
+  return false;
+}
+var leaveBox = document.createElement("div"); leaveBox.id = "leavemodal"; leaveBox.hidden = true; document.body.appendChild(leaveBox);
+function leaveDraft(action) {
+  if (!ui.draft && !ui.areaDraft) { action(); return; }
+  if (!hasUnsaved()) { ui.draft = null; ui.areaDraft = null; action(); return; }
+  ui.leave = action;
+  leaveBox.innerHTML = '<div class="lbox" role="dialog" aria-modal="true" aria-labelledby="leave-t"><p id="leave-t"><strong>Du har ændringer, der ikke er gemt.</strong></p>' +
+    '<div class="row"><button class="btn primary" type="button" id="leave-save">Gem først</button><button class="btn" type="button" id="leave-go">Forlad uden at gemme</button></div></div>';
+  leaveBox.hidden = false; var b = document.getElementById("leave-save"); if (b) b.focus();
+}
+leaveBox.addEventListener("click", async function (e) {
+  var a = ui.leave;
+  if (e.target === leaveBox) { leaveBox.hidden = true; ui.leave = null; return; }   // tryk ved siden af: bliv
+  var t = e.target.closest("button"); if (!t) return;
+  leaveBox.hidden = true; ui.leave = null;
+  if (t.id === "leave-go") { ui.draft = null; ui.areaDraft = null; if (a) a(); return; }
+  if (t.id === "leave-save") {
+    if (ui.draft) await saveDraft(); else if (ui.areaDraft) await saveArea();
+    if (!ui.draft && !ui.areaDraft && a) a();
+  }
+});
 function goBack() {
+  if (ui.draft || ui.areaDraft) { leaveDraft(function () { render(); }); return; }
   if (!navStack.length) return;
   try { history.back(); } catch (x) { restore(navStack.pop()); }
 }
@@ -1689,10 +1732,15 @@ function restore(s) {
   render(); window.scrollTo({ top: s.y || 0 });
 }
 function goHome() {
-  if (ui.draft || ui.areaDraft) { ui.msg = "Gem eller annuller først det, du er ved at rette."; render(); return; }
+  if (ui.draft || ui.areaDraft) { leaveDraft(function () { navStack = []; ui.page = null; resetToStart(); }); return; }
   navStack = []; ui.page = null; resetToStart();
 }
 window.addEventListener("popstate", function () {
+  // Telefonens egen tilbage mens man retter: bliv på siden, og luk formularen (eller spørg, hvis noget er ændret)
+  if (ui.draft || ui.areaDraft) {
+    try { history.pushState({ nav: navStack.length }, "", ui.place ? "#sted/" + ui.place : location.pathname + location.search); } catch (x) {}
+    leaveDraft(function () { render(); }); return;
+  }
   if (navStack.length) { restore(navStack.pop()); return; }
   var m = (location.hash || "").match(/^#sted\/(.+)$/);
   ui.place = m ? decodeURIComponent(m[1]) : null; render(); window.scrollTo({ top: 0 });
@@ -1911,7 +1959,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 70;
+var APP_VERSION = 71;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
