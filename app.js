@@ -803,6 +803,12 @@ function render() {
   list.forEach(function (p) { html += detail ? placeCard(p, true, true) : gridCard(p, ui.cat === "alle" || inTowns || inTrips || searching || isApt(ui.cat)); });
   html += "</div>";
 
+  // Administratoren: alle de øvrige lejligheder under Hotellet
+  if (ui.cat === "lejligheden" && !detail && !searching && me && me.admin) {
+    var others = places.filter(function (p) { return p.cat === "vores" && p.subcat === "lejlighed" && aptOf(p) !== myApt(); })
+      .sort(function (a, b) { return String(aptOf(a)).localeCompare(String(aptOf(b)), "da", { numeric: true }); });
+    if (others.length) html += '<h2 class="subhead">Alle lejligheder</h2><p class="hint">Kun synlig for dig som administrator.</p><div class="list grid">' + others.map(function (p) { return gridCard(p, false); }).join("") + "</div>";
+  }
   // På lejlighedskortet: andelenes egne ting om lejligheden + knap til at tilføje (kun andele i lejligheden kan se dem)
   if (detail && detail.cat === "vores" && detail.subcat === "lejlighed" && me) {
     var aptNo2 = detail.name.replace(/^Lejlighed\s*/i, ""), aptTips = places.filter(function (p) { return p.cat === "vores" && p.subcat !== "lejlighed"; });
@@ -2213,7 +2219,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 88;
+var APP_VERSION = 89;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
