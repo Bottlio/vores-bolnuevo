@@ -1108,7 +1108,8 @@ var RULES_HTML = '<article class="panel rules"><h2>Regler og privatliv</h2>' +
   "<h3>Hvad gemmer guiden?</h3><ul><li>Dit navn, din mailadresse og hvilken andel du hører til.</li><li>Det, du selv lægger ind: steder, vurderinger, tekster og billeder.</li>" +
   "<li>Billeder gemmes i mindre størrelse og <strong>uden GPS-placering</strong>. Placeringen og tjekket for personer sker kun på din egen telefon eller computer.</li><li>Vi bruger ikke cookies til sporing og sælger eller deler ikke data med nogen.</li></ul>" +
   "<p><strong>Hvor ligger data?</strong> I en database hos Supabase i Stockholm (EU). Selve siden hentes fra GitHub. Kortene og opslag af adresser kommer fra OpenStreetMap; når du søger et sted eller bruger din placering, sendes søgningen/koordinaterne til OpenStreetMap.</p>" +
-  "<h3>Slet din konto</h3><p>Du kan til enhver tid bede om at få din konto slettet sammen med alt, du har lagt ind – eller få en kopi af det. Skriv til administratoren.</p>" +
+  "<h3>Anmeld</h3><p>Ser du en tekst eller et billede fra en anden andel, som ikke hører hjemme i guiden, så tryk \"Anmeld\" ved det. Administratoren får besked. Den, der har lagt det ind, kan ikke se, hvem der har anmeldt.</p>" +
+  "<h3>Slet din konto</h3><p>Du kan selv slette din konto under \"Vores andel\" nederst på siden. Dit login og din plads på andelen slettes; det, du har lagt ind, bliver hos andelen. Er du den eneste ejer på andelen, eller vil du også have dit indhold slettet – eller have en kopi af det – så skriv til administratoren.</p>" +
   '<h3>Kontakt</h3><p>Administrator: Christian Sorgenfrey (101-043)<br>Mail: <a href="mailto:c@sorgenfrey.net">c@sorgenfrey.net</a> · WhatsApp: <a href="https://wa.me/4529919966">+45 29 91 99 66</a></p></article>';
 
 /* ---------- login ---------- */
@@ -2198,7 +2199,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 86;
+var APP_VERSION = 87;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
