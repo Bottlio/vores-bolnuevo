@@ -444,7 +444,9 @@ function gridCard(p, showKat) {
 function placeCard(p, detail, showKat) {
     var html = '<article class="place' + (detail ? " detailcard" : "") + '" id="' + esc(p.id) + '" data-pid="' + esc(p.id) + '">' +
       (detail && ui.view === "kort" && p.lat != null ? '<div class="car"><div id="map" class="dmap" role="region" aria-label="Kort over ' + esc(p.name) + '"></div></div>' : carousel(p));
-    html += '<div class="place-top"><h3>' + (detail ? esc(p.name) : '<button class="titlebtn" type="button" data-open="' + esc(p.id) + '">' + esc(p.name) + "</button>") + "</h3>" + '<span class="topright">' + ratingButton("place", p.id, p.cat, p) + heartBtn(p) + "</span></div>";
+    var vv = (p.visits || []).slice().sort(), lastV = vv.length ? vv[vv.length - 1] : null;
+    var visitLine = detail && lastV ? '<span class="visitline">' + (vv.length > 1 ? "Senest besøgt " : "Vi har besøgt ") + MONTHS[parseInt(lastV.slice(5, 7), 10) - 1] + " " + lastV.slice(0, 4) + "</span>" : "";
+    html += '<div class="place-top"><div class="ptitle"><h3>' + (detail ? esc(p.name) : '<button class="titlebtn" type="button" data-open="' + esc(p.id) + '">' + esc(p.name) + "</button>") + "</h3>" + visitLine + "</div>" + '<span class="topright">' + ratingButton("place", p.id, p.cat, p) + heartBtn(p) + "</span></div>";
     // Hvad stedet er (underkategori, ellers kategori) og åbningsforhold – som almindelig tekst øverst
     var kind = isApt(p.cat) ? [] : [esc(subName(p.cat, p.subcat) || CATNAME[p.cat] || "")].concat(factList(p, detail).map(function (t) { return t[0] ? '<span class="warn">' + esc(t[1]) + "</span>" : esc(t[1]); })).filter(Boolean);
     if (kind.length) html += '<p class="kindline">' + kind.join(" · ") + "</p>";
@@ -455,7 +457,6 @@ function placeCard(p, detail, showKat) {
     html += '<div class="tags">';
     if (p.visibility === "andel") html += '<span class="tag priv">Kun vores andel</span>';
     if (p.visibility === "mig") html += '<span class="tag priv">Kun mig</span>';
-    if (detail && p.visits && p.visits.length) html += '<span class="tag">' + esc("Vi har besøgt " + visitsText(p.visits).slice(7)) + "</span>";
     if (p.guess) html += '<span class="tag guess">Navnet er gættet ud fra billeder</span>';
     html += "</div>";
     if (ui.editor) {
@@ -1376,7 +1377,7 @@ function formHtml(f) {
     (f.finding ? '<p class="hint">Finder stedet ud fra billedet…</p>' : "") + (f.info ? '<p class="hint">' + esc(f.info) + "</p>" : "") +
     (f.choices ? '<div class="choices">' + f.choices.map(function (x, i) { return '<button class="btn" type="button" data-choose="' + i + '"><strong>' + esc(x.name) + "</strong> " + esc([x.addr, x.km != null ? Math.round(x.km) + " km fra hotellet" : ""].filter(Boolean).join(" · ")) + "</button>"; }).join("") + "</div>" : "") +
     '<label>Kommentar<textarea id="f-note" placeholder="Bestil dagens fisk. Book bord lørdag aften.">' + esc(f.note) + "</textarea></label>" +
-    '<label class="favcheck"><input type="checkbox" id="f-fav"' + (f.fav ? " checked" : "") + '> Læg på jeres favoritter</label>' +
+    '<button type="button" class="favtoggle' + (f.fav ? " on" : "") + '" id="f-favbtn" aria-pressed="' + !!f.fav + '">' + heartSvg(f.fav) + ' Tilføj som favorit</button>' +
     '<div><p class="hint" style="margin-bottom:8px">Jeres billeder (det første vises først). Tryk på mærket på et billede for at vælge, hvem der kan se det.' + (f.otherPhotos ? " Stedet har også " + f.otherPhotos + " billeder fra andre andele." : "") + '</p><div class="photos">' + ph + "</div>" +
     '<label class="btn" style="display:inline-flex;margin-top:10px;color:var(--fg)">+ Tilføj billeder<input type="file" id="f-add" accept="image/*" multiple hidden></label></div>' +
     '<button class="btn advtoggle" type="button" id="adv-toggle" aria-expanded="' + adv + '">' + (adv ? "Skjul avanceret redigering ▴" : "Avanceret redigering ▾") + "</button>" +
@@ -1450,7 +1451,7 @@ function quickHtml(f) {
     (f.lat != null ? '<p class="meta">' + esc([f.town, dist].filter(Boolean).join(" · ")) + "</p>" : "") +
     linkFields(f) + '<p class="hint">Har I ingen billeder, henter siden selv et par stykker fra hjemmesiden eller bloggen, når I gemmer.</p>' +
     '<div class="chips" role="group" aria-label="Kategori">' + chips + "</div>" + subChooser(f) + questionsHtml(f) +
-    '<label class="favcheck"><input type="checkbox" id="f-fav"' + (f.fav ? " checked" : "") + '> Læg på jeres favoritter</label>' +
+    '<button type="button" class="favtoggle' + (f.fav ? " on" : "") + '" id="f-favbtn" aria-pressed="' + !!f.fav + '">' + heartSvg(f.fav) + ' Tilføj som favorit</button>' +
     (thumbs ? '<div class="qthumbs">' + thumbs + "</div>" : "") +
     '<label class="btn" style="display:inline-flex;align-self:flex-start;color:var(--fg)">+ Tilføj billeder (valgfrit)<input type="file" id="f-add" accept="image/*" multiple hidden></label>' +
     (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
@@ -1465,7 +1466,7 @@ function quickHtml(f) {
       (f.info ? '<p class="hint">' + esc(f.info) + "</p>" : "") +
       (f.lat == null ? '<div><button class="btn" type="button" id="my-loc">Brug min placering</button></div>' : "") +
       '<div class="chips" role="group" aria-label="Kategori">' + chips + "</div>" + subChooser(f) + questionsHtml(f) +
-      '<label class="favcheck"><input type="checkbox" id="f-fav"' + (f.fav ? " checked" : "") + '> Læg på jeres favoritter</label>') +
+      '<button type="button" class="favtoggle' + (f.fav ? " on" : "") + '" id="f-favbtn" aria-pressed="' + !!f.fav + '">' + heartSvg(f.fav) + ' Tilføj som favorit</button>') +
     (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
     '<div class="row"><button class="btn primary" type="submit"' + (ui.busy || f.finding ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + "</button>" +
     '<button class="btn" type="button" id="more">Tilføj beskrivelse, karakter m.m.</button><button class="btn" type="button" id="cancel">Annuller</button></div></form>';
@@ -1863,6 +1864,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.setsub) { syncDraft(); ui.draft.subcat = ui.draft.subcat === t.dataset.setsub ? "" : t.dataset.setsub; render(); return; }
   if (t.dataset.setstatus) { syncDraft(); ui.draft.status = t.dataset.setstatus; render(); return; }
   if (t.id === "more") { syncDraft(); ui.draft.more = true; render(); return; }
+  if (t.id === "f-favbtn") { syncDraft(); ui.draft.fav = !ui.draft.fav; render(); return; }
   if (t.id === "adv-toggle") { syncDraft(); ui.draft.adv = !ui.draft.adv; render(); return; }
   if (t.id === "my-loc") { syncDraft(); useMyLocation(); return; }
   if (t.id === "cancel") { ui.draft = null; render(); return; }
@@ -1909,7 +1911,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 68;
+var APP_VERSION = 70;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

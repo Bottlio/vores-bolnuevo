@@ -429,3 +429,8 @@ header{position:relative}
 .row.links{margin-top:2px}
 .kindline{margin:2px 0 0;color:var(--fg);font-size:.95rem}
 .kindline .warn{color:#a4472f}
+.ptitle{display:flex;flex-direction:column;gap:2px;min-width:0}
+.visitline{font-size:.75rem;color:var(--muted);margin-top:7px}
+.favtoggle{align-self:flex-start;justify-self:start;display:inline-flex;align-items:center;gap:8px;background:none;border:0;padding:4px 0;font:inherit;font-size:.95rem;color:var(--fg);cursor:pointer}
+.favtoggle svg{width:24px;height:24px;color:var(--muted)}
+.favtoggle.on svg,.favtoggle:hover svg{color:#b8433a}
