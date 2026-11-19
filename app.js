@@ -103,24 +103,27 @@ function computeScore(cat, r) {
 }
 function dec(n) { return n.toFixed(1).replace(".", ","); }
 /* Samlet vurdering for et sted eller en by: ny score, ellers en gammel samlet karakter */
+/* Den samlede vurdering = gennemsnittet af alle andeles vurderinger (jeres egen tæller med) */
 function overall(o) {
-  if (o && o.rating_score != null) { var s = +o.rating_score; return { score: s, stars: Math.round(s) }; }
   if (o && o.avg_score != null) { var a = +o.avg_score; return { score: a, stars: Math.round(a), avg: true }; }
+  if (o && o.rating_score != null) { var s = +o.rating_score; return { score: s, stars: Math.round(s) }; }
   return null;
 }
 function scoreOf(o) { var v = overall(o); return v ? (v.score != null ? v.score : v.stars) : 0; }
 function starRow(n) { var s = ""; for (var i = 1; i <= 5; i++) s += '<span class="' + (i <= n ? "on" : "off") + '">' + (i <= n ? "★" : "☆") + "</span>"; return s; }
 /* Lille knap ved navnet. Tryk åbner vurderingsvinduet. */
 /* Har vores andel vurderet: vores stjerner + (hvis andre også har) "Alle 4,2 (3)". Ellers: gennemsnittet af alle. */
-function ratingButton(kind, key, cat, o) {
+function ratingButton(kind, key, cat, o, compact) {
   if (!CRITERIA[cat]) return "";
-  var v = overall(o), n = (o && o.n_rated) || 0;
+  var v = overall(o), n = (o && o.n_rated) || 0, own = o && o.rating_score != null ? +o.rating_score : null;
   if (!v && !ui.editor) return "";
-  var label = v ? dec(v.score) + " ud af 5, " + SCALE[v.stars][0] + (v.avg ? ", gennemsnit af " + n + (n === 1 ? " andel" : " andele") + ". Tryk for at give jeres egen vurdering" : ", jeres vurdering") : "Giv en vurdering";
-  var both = v && !v.avg && o.avg_score != null && n > 1;
-  return '<span class="rwrap"><button type="button" class="rbtn' + (v ? "" : " empty") + (v && v.avg ? " avg" : "") + '" data-rateopen="' + kind + '" data-key="' + esc(key) + '" aria-label="' + esc(label) + '">' +
-    (v ? '<span class="rnum">' + dec(v.score) + "</span>" : "") + '<span class="rstars" aria-hidden="true">' + starRow(v ? v.stars : 0) + "</span>" + (v && v.avg ? '<span class="rcount">(' + n + ")</span>" : "") + "</button>" +
-    (both ? '<span class="ravg">Alle ' + dec(+o.avg_score) + " ★ (" + n + ")</span>" : "") + "</span>";
+  var label = v ? "Alle andele: " + dec(v.score) + " ud af 5, " + SCALE[v.stars][0] + ", " + n + (n === 1 ? " vurdering" : " vurderinger") + (own != null ? ". Din vurdering: " + dec(own) : "") + ". Tryk for at se eller give din vurdering" : "Giv din vurdering";
+  var attrs = ' data-rateopen="' + kind + '" data-key="' + esc(key) + '"';
+  var big = '<button type="button" class="rbtn' + (v ? "" : " empty") + '"' + attrs + ' aria-label="' + esc(label) + '">' +
+    (v ? '<span class="rnum">' + dec(v.score) + "</span>" : "") + '<span class="rstars" aria-hidden="true">' + starRow(v ? v.stars : 0) + "</span>" + (v ? '<span class="rcount">(' + n + ")</span>" : "") + "</button>";
+  var mine = "";
+  if (!compact && ui.editor && (v || own != null)) mine = '<button type="button" class="rown"' + attrs + ' tabindex="-1" aria-hidden="true">' + (own != null ? "Din vurdering " + dec(own) + " ★" : "Giv din vurdering") + "</button>";
+  return '<span class="rwrap">' + big + mine + "</span>";
 }
 
 var rateBox = document.createElement("div"); rateBox.id = "ratemodal"; document.body.appendChild(rateBox);
@@ -398,7 +401,7 @@ function areaCard(kind, name, status) {
   var only = kind === "region" && townsInRegion(name).length === 1 ? townsInRegion(name)[0] : null;
   return '<div class="town"><button class="tlink" type="button" data-' + (kind === "town" || only ? "town" : "region") + '="' + esc(only || name) + '">' + (a.cover ? '<img src="' + esc(photoUrl(a.cover)) + '" alt="" loading="lazy">' : '<span class="noimg"></span>') +
     '<span class="tname">' + esc(name) + '</span><span class="tmeta">' + esc(sub) + "</span></button>" +
-    (kind === "town" ? '<div class="trate">' + ratingButton("town", name, "byer", towns[name]) + "</div>" : "") + "</div>";
+    (kind === "town" ? '<div class="trate">' + ratingButton("town", name, "byer", towns[name], true) + "</div>" : "") + "</div>";
 }
 /* Tekster: vores egen først, derefter andre andeles med navn. På listen kun én (vores, ellers den nyeste). */
 function textsHtml(p, detail) {
@@ -436,7 +439,7 @@ function gridCard(p, showKat) {
   return '<div class="town pcard" id="' + esc(p.id) + '"><button class="tlink" type="button" data-open="' + esc(p.id) + '">' +
     (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">' : '<span class="noimg">' + (CAT_ICONS[p.cat] || "") + "</span>") +
     '<span class="tname">' + esc(p.name) + '</span><span class="tmeta">' + esc(meta) + "</span>" + (warn || priv ? '<span class="ptags">' + warn + priv + "</span>" : "") + "</button>" +
-    '<div class="trate">' + ratingButton("place", p.id, p.cat, p) + heartBtn(p) + "</div></div>";
+    '<div class="trate">' + ratingButton("place", p.id, p.cat, p, true) + heartBtn(p) + "</div></div>";
 }
 function placeCard(p, detail, showKat) {
     var html = '<article class="place' + (detail ? " detailcard" : "") + '" id="' + esc(p.id) + '" data-pid="' + esc(p.id) + '">' +
@@ -1896,7 +1899,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 65;
+var APP_VERSION = 66;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

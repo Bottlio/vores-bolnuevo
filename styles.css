@@ -420,3 +420,6 @@ header{position:relative}
 .favcheck{display:flex !important;flex-direction:row !important;align-items:center;gap:8px;font-weight:500}
 .favcheck input{width:18px;height:18px;margin:0}
 #map.dmap{width:100%;height:auto;aspect-ratio:4/3;max-height:560px;border-radius:10px}
+.rown{background:none;border:0;padding:0 2px;font:inherit;font-size:.75rem;color:var(--muted);white-space:nowrap;cursor:pointer;text-align:right}
+.rown:hover{color:var(--fg)}
+.pcard .trate .rown{text-align:left}
