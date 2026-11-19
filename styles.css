@@ -514,3 +514,43 @@ header{position:relative}
 .factbox p{margin:10px 0 0}
 .factbox a,.desc a{color:var(--sea);font-weight:600}
 @media (max-width:480px){.factbox dl{grid-template-columns:1fr;gap:2px}.factbox dd{margin-bottom:8px}}
+/* ---------- Hjælp (19.11.2026) ---------- */
+.helpnav{font-family:var(--display);font-size:1.25rem;font-weight:700;color:var(--sea)}
+.qhelp{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:0 0 auto;border-radius:50%;border:1.5px solid var(--sea);background:var(--surface);color:var(--sea);font:inherit;font-size:.78rem;font-weight:800;line-height:1;padding:0;cursor:pointer;vertical-align:middle}
+.qhelp:hover,.qhelp:focus-visible{background:var(--sea);color:var(--surface)}
+.qhelp.inline{margin-left:6px}
+.pill{position:relative}
+.qhelp.onpill{position:absolute;top:-8px;right:-8px;width:20px;height:20px;font-size:.72rem;z-index:2}
+.detailcard .topright{position:relative}
+.detailcard .topright>.heart{align-self:flex-start}
+.qhelp.nexttop{position:absolute;right:6px;bottom:0;width:20px;height:20px;font-size:.72rem}
+.slide .carvis{right:38px}
+.qhelp.onphoto{position:absolute;right:8px;bottom:8px;z-index:2;width:24px;height:24px;border-color:transparent;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+#helpbox[hidden],#welcomebox[hidden]{display:none}
+.helpmodal{position:fixed;z-index:61;left:50%;top:50%;transform:translate(-50%,-50%);width:min(460px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:16px;padding:22px 22px 18px;box-shadow:0 20px 60px rgba(0,0,0,.3);font-size:1.02rem;line-height:1.5}
+.helpmodal h2{margin:0 0 10px;font-size:1.3rem;color:var(--sea);padding-right:28px}
+.helpmodal p{margin:0 0 10px}
+.helpmodal .row{margin-top:16px}
+.hclose{position:absolute;top:10px;right:12px;width:36px;height:36px;border:0;background:transparent;font-size:1.6rem;line-height:1;color:var(--muted);cursor:pointer}
+.welcome-modal{text-align:center}
+.welcome-modal .row{justify-content:center}
+.wicon{display:flex;justify-content:center;color:var(--sea);margin:10px 0 6px}
+.wicon svg{width:56px;height:56px}
+.wdots{display:flex;justify-content:center;gap:6px;margin:6px 0 2px}
+.wdots span{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.wdots span.on{background:var(--sea)}
+.helppage h3{margin:26px 0 8px;color:var(--sea);font-size:1.15rem}
+.faq{border:1px solid var(--line);border-radius:10px;background:var(--surface);margin:0 0 8px}
+.faq summary{cursor:pointer;padding:13px 16px;font-weight:600;font-size:1.02rem;list-style:none;display:flex;justify-content:space-between;gap:12px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";color:var(--sea);font-weight:700;font-size:1.2rem;line-height:1}
+.faq[open] summary::after{content:"–"}
+.faqa{padding:0 16px 12px;line-height:1.55}
+.faqa p{margin:0 0 8px}
+.faqa ol{margin:0 0 8px;padding-left:22px}
+.faqa li{margin-bottom:4px}
+.faqa a,.helpcontact a{color:var(--sea);font-weight:600}
+.helpcontact{margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+.helpcontact h3{margin-top:0}
+.qhelp.inline[aria-hidden]{cursor:default}
+.pill .qhelp.onpill{display:inline-flex;padding:0;gap:0;border:1.5px solid var(--sea);background:var(--surface);color:var(--sea);border-radius:50%;font-size:.72rem;font-weight:800;box-shadow:0 1px 2px rgba(0,0,0,.15)}

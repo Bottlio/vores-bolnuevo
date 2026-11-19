@@ -327,7 +327,7 @@ function carousel(p) {
     var who = photoCredit(row, x, p.photo_credit), credit = who ? '<span class="credit">Foto: ' + esc(who) + "</span>" : "";
     var rb = row && me && row.andel_id && row.andel_id !== me.andel && p.id ? reportBtn("billede", row.id, "place", p.id, true) : "";
     // Jeres egne billeder: mærke nede til højre med hvem der kan se det – tryk for at skifte
-    if (row && me && row.id && row.andel_id === me.andel) rb += '<button type="button" class="visbtn carvis v-' + esc(row.visibility) + '" data-cvis="' + esc(row.id) + '" title="Hvem kan se billedet? Tryk for at skifte">' + esc(VIS_NAMES[row.visibility] || row.visibility) + "</button>";
+    if (row && me && row.id && row.andel_id === me.andel) rb += '<button type="button" class="visbtn carvis v-' + esc(row.visibility) + '" data-cvis="' + esc(row.id) + '" title="Hvem kan se billedet? Tryk for at skifte">' + esc(VIS_NAMES[row.visibility] || row.visibility) + "</button>" + helpBtn("photovis", "onphoto");
     return '<div class="slide">' + rb + '<img src="' + u + '" alt="' + esc(p.name) + (ph.length > 1 ? ", billede " + (i + 1) : "") + '" loading="lazy" decoding="async">' + credit + "</div>";
   }).join("") + "</div>";
   if (ph.length > 1) {
@@ -476,7 +476,7 @@ function placeCard(p, detail, showKat) {
     var vv = (p.visits || []).slice().sort(), lastV = vv.length ? vv[vv.length - 1] : null;
     var hotelCard = p.cat === "lejligheden" && !!(p.facts && p.facts.beskrivelse);
     var visitLine = detail && lastV && !hotelCard ? '<span class="visitline">' + (vv.length > 1 ? "Senest besøgt " : "Vi har besøgt ") + MONTHS[parseInt(lastV.slice(5, 7), 10) - 1] + " " + lastV.slice(0, 4) + "</span>" : "";
-    html += '<div class="place-top"><div class="ptitle"><h3>' + (detail ? esc(p.name) : '<button class="titlebtn" type="button" data-open="' + esc(p.id) + '">' + esc(p.name) + "</button>") + "</h3>" + visitLine + "</div>" + '<span class="topright">' + ratingButton("place", p.id, p.cat, p) + heartBtn(p) + "</span></div>";
+    html += '<div class="place-top"><div class="ptitle"><h3>' + (detail ? esc(p.name) : '<button class="titlebtn" type="button" data-open="' + esc(p.id) + '">' + esc(p.name) + "</button>") + "</h3>" + visitLine + "</div>" + '<span class="topright">' + ratingButton("place", p.id, p.cat, p) + heartBtn(p) + (detail && !isApt(p.cat) && ui.editor && overall(p) ? helpBtn("stars", "nexttop") : "") + "</span></div>";
     // Hvad stedet er (underkategori, ellers kategori) og åbningsforhold – som almindelig tekst øverst
     var kind = isApt(p.cat) ? [] : [esc(subName(p.cat, p.subcat) || CATNAME[p.cat] || "")].concat(factList(p, detail).map(function (t) { return t[0] ? '<span class="warn">' + esc(t[1]) + "</span>" : esc(t[1]); })).filter(Boolean);
     if (kind.length) html += '<p class="kindline">' + kind.join(" · ") + "</p>";
@@ -637,6 +637,7 @@ function renderHome() {
     html += '<button class="fab" type="button" id="new" aria-label="Nyt sted" aria-expanded="' + !!ui.chooser + '"><span aria-hidden="true">' + (ui.chooser ? "×" : "+") + "</span> " + (ui.chooser ? "Luk" : "Nyt sted") + "</button>";
   }
   root.innerHTML = html;
+  setTimeout(maybeWelcome, 400);
   if (homeMap) drawMap(spots, []);
   slim.innerHTML = ""; slim.classList.remove("show"); panel.hidden = true;
 }
@@ -676,7 +677,7 @@ function toolbar(show, noScope) {
   tbCtrl.innerHTML = (noScope ? "" : '<div class="pill" role="group" aria-label="Vis">' +
       seg("alle", "Alle", "Alle", null, "Alle steder i guiden") +
       seg("vurderet", "★ Vores", "★ Vores", c.vurderet, "Kun steder jeres andel har givet stjerner eller kommenteret") +
-      seg("fav", heartSvg(ui.scope === "fav") + " Favoritter", heartSvg(ui.scope === "fav"), c.fav, "Jeres favoritter") + "</div>") +
+      seg("fav", heartSvg(ui.scope === "fav") + " Favoritter", heartSvg(ui.scope === "fav"), c.fav, "Jeres favoritter") + helpBtn("scope", "onpill") + "</div>") +
     '<button class="tview" type="button" data-view="' + (toMap ? "kort" : "liste") + '" aria-label="' + (toMap ? "Vis på kort" : "Vis som gitter") + '" title="' + (toMap ? "Vis på kort" : "Vis som gitter") + '">' + (toMap ? ICON_MAP : ICON_LIST) + "</button>";
 }
 
@@ -1033,11 +1034,11 @@ function navBtns() {
     (!atStart() ? '<button class="iconbtn" type="button" data-nav="home" aria-label="Til forsiden" title="Til forsiden">' + ICON_HOME + "</button>" : "");
 }
 function headerHtml() {
-  return '<header><div><p class="eyebrow">Andelshavernes guide · Costa Cálida</p><h1>Laderita de Bolnuevo</h1></div><span class="beta" title="Guiden er stadig under udvikling">Beta</span><div class="hbtns">' + navBtns() + "</div></header>";
+  return '<header><div><p class="eyebrow">Andelshavernes guide · Costa Cálida</p><h1>Laderita de Bolnuevo</h1></div><span class="beta" title="Guiden er stadig under udvikling">Beta</span><div class="hbtns">' + navBtns() + (ui.page === "hjaelp" ? "" : '<button class="iconbtn helpnav" type="button" data-page="hjaelp" aria-label="Hjælp" title="Hjælp">?</button>') + "</div></header>";
 }
 function footerHtml() {
   var h = "<footer>";
-  h += '<span class="footrow">' + (me ? '<button class="linkbtn" type="button" data-page="andel">Vores andel (' + esc(me.label) + ")</button>" : "<span></span>") + '<button class="linkbtn" type="button" data-page="regler">Regler og privatliv</button></span>';
+  h += '<span class="footrow">' + (me ? '<button class="linkbtn" type="button" data-page="andel">Vores andel (' + esc(me.label) + ")</button>" : "<span></span>") + '<span><button class="linkbtn" type="button" data-page="hjaelp">Hjælp</button> · <button class="linkbtn" type="button" data-page="regler">Regler og privatliv</button></span></span>';
   // Kun administratoren
   if (me && me.admin) h += '<span><button class="linkbtn" type="button" data-page="admin">Administration</button> · <button class="linkbtn" type="button" id="open-import">Importér billeder fra PC</button></span>';
   if (ui.user) h += "<span>Logget ind som " + esc(ui.user.email) + '. <button class="linkbtn" type="button" id="logout">Log ud</button></span>';
@@ -1049,6 +1050,7 @@ function renderGate() {
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
   if (ui.checking) html += '<p class="loading">Henter…</p>';
   else if (ui.page === "regler") html += pageBack() + RULES_HTML;
+  else if (ui.page === "hjaelp") html += helpPageHtml();
   else if (ui.page === "andel" && ui.member) html += pageBack() + andelPageHtml();
   else if (ui.page === "admin" && me && me.admin) html += pageBack() + adminPageHtml();
   else if (!ui.user) {
@@ -1060,7 +1062,7 @@ function renderGate() {
       "<p>Bed en andelshaver om at invitere dig med præcis denne mailadresse. Når invitationen er sendt, så tryk på knappen herunder.</p>" +
       '<div class="row"><button class="btn primary" type="button" id="recheck">Jeg er inviteret nu – prøv igen</button><button class="btn" type="button" id="logout">Log ud</button></div></section>';
   }
-  html += '<footer><span><button class="linkbtn" type="button" data-page="regler">Regler og privatliv</button></span></footer>';
+  html += ui.member && ui.loaded ? footerHtml() : '<footer><span><button class="linkbtn" type="button" data-page="hjaelp">Hjælp</button> · <button class="linkbtn" type="button" data-page="regler">Regler og privatliv</button></span></footer>';
   root.innerHTML = html;
   slim.innerHTML = ""; slim.classList.remove("show"); panel.hidden = true;
 }
@@ -1083,7 +1085,7 @@ function andelPageHtml() {
     return "<li><span><strong>" + esc(m.name || m.email) + "</strong> " + (m.role === "ejer" ? "Ejer" : "Gæst") + (you ? " (dig)" : "") + '<br><span class="hint">' + esc(m.email) + (m.user_id ? "" : " · inviteret, har ikke logget ind endnu") + "</span></span>" +
       (owner && !you ? '<button class="btn small danger" type="button" data-rmmember="' + esc(m.email) + '">' + (ui.confirmRm === m.email ? "Tryk igen for at fjerne" : "Fjern adgang") + "</button>" : "") + "</li>";
   }).join("") + "</ul>";
-  if (owner) h += '<form id="invite-form" class="invite"><h3>Invitér en person</h3><div class="grid"><label>Fornavn<input id="i-name" required placeholder="Fx Emma"></label><label>Mail<input id="i-email" type="email" required placeholder="navn@mail.dk"></label></div>' +
+  if (owner) h += '<form id="invite-form" class="invite"><h3>Invitér en person ' + helpBtn("invite", "inline") + '</h3><div class="grid"><label>Fornavn<input id="i-name" required placeholder="Fx Emma"></label><label>Mail<input id="i-email" type="email" required placeholder="navn@mail.dk"></label></div>' +
     '<div class="seg small" role="group" aria-label="Rolle"><button type="button" data-irole="gaest" aria-pressed="' + (ui.irole !== "ejer") + '">Gæst</button><button type="button" data-irole="ejer" aria-pressed="' + (ui.irole === "ejer") + '">Ejer</button></div>' +
     '<button class="btn primary" type="submit">Invitér</button></form>';
   if (ui.inviteText) h += '<div class="invitetext"><p class="hint">Send denne besked til personen (sms, WhatsApp eller mail):</p><textarea readonly id="invite-copy">' + esc(ui.inviteText) + '</textarea><button class="btn small" type="button" id="copy-invite">Kopiér beskeden</button></div>';
@@ -1531,8 +1533,8 @@ function formHtml(f) {
     '<button type="button" class="favtoggle' + (f.fav ? " on" : "") + '" id="f-favbtn" aria-pressed="' + !!f.fav + '">' + heartSvg(f.fav) + ' Tilføj som favorit</button>' +
     '<div><p class="hint" style="margin-bottom:8px">Jeres billeder (det første vises først). Tryk på mærket på et billede for at vælge, hvem der kan se det.' + (f.otherPhotos ? " Stedet har også " + f.otherPhotos + " billeder fra andre andele." : "") + '</p><div class="photos">' + ph + "</div>" +
     '<label class="btn" style="display:inline-flex;margin-top:10px;color:var(--fg)">+ Tilføj billeder<input type="file" id="f-add" accept="image/*" multiple hidden></label></div>' +
-    '<button class="btn advtoggle" type="button" id="adv-toggle" aria-expanded="' + adv + '">' + (adv ? "Skjul avanceret redigering ▴" : "Avanceret redigering ▾") + "</button>" +
-    (adv ? '<div class="advsec">' +
+    '<button class="btn advtoggle" type="button" id="adv-toggle" aria-expanded="' + adv + '">' + (adv ? "Skjul avanceret redigering ▴" : "Avanceret redigering ▾") + "</button>" + helpBtn("advanced", "inline") +
+    (adv ? '<div class="advsec">' + '<p class="hint">Hvem kan se hvad? ' + helpBtn("whosee", "inline") + "</p>" +
       (core ? "" : '<p class="hint">Navn, by, kategori og placering kan kun rettes af den, der oprettede stedet. Alt andet – fx åbningstider og links – kan I rette.</p>') +
       '<div class="grid"><label>Navn<input id="f-name" required value="' + esc(f.name) + '" placeholder="Restaurante La Siesta"' + dis + '></label><label>By<input id="f-town" list="townlist" value="' + esc(f.town || "") + '" placeholder="Puerto de Mazarrón"' + dis + '></label><datalist id="townlist">' + allTownNames().sort().map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></div>" +
       '<label>Sted/område (valgfrit)<input id="f-area" value="' + esc(f.area) + '" placeholder="Plaza del Muelle"' + dis + "></label>" +
@@ -2137,10 +2139,115 @@ async function addPhotosToArea(kind, name, files, opts) {
   ui.busy = false; render(); return false;
 }
 
+/* ---------- Hjælp: FAQ-side, ?-forklaringer og velkomst første gang ---------- */
+var HELP_MAIL = "c@sorgenfrey.net";
+var HELP_TIPS = {
+  scope: ["Alle, Vores og Favoritter", "<p><strong>Alle</strong> viser alle steder i guiden.</p><p><strong>Vores</strong> viser kun de steder, jeres andel selv har givet stjerner eller skrevet om.</p><p><strong>Favoritter</strong> viser de steder, I har trykket på hjertet ♡ ved.</p>", "find"],
+  stars: ["Stjernerne", "<p>De store stjerner er <strong>gennemsnittet</strong> af alle andeles vurderinger. Tallet i parentes er, hvor mange der har vurderet.</p><p><strong>Din vurdering</strong> nedenunder er jeres egen.</p><p>Tryk på stjernerne for at give eller ændre jeres vurdering.</p>", "stjerner"],
+  photovis: ["Hvem kan se billedet?", "<p>Mærket viser, hvem der kan se billedet:</p><p><strong>Alle</strong> – alle andelshavere i guiden.<br><strong>Vores andel</strong> – kun jer i andelen.<br><strong>Kun mig</strong> – kun dig.</p><p>Tryk på mærket for at skifte. Det gemmes med det samme.</p>", "billeder"],
+  whosee: ["Hvem kan se det?", "<p><strong>Hvem kan se stedet?</strong> Om alle andelshavere kan se stedet, kun jeres andel eller kun dig.</p><p><strong>Hvem kan se vores stjerner og tekst?</strong> Om jeres stjerner og kommentar vises for alle eller kun for jeres andel.</p>", "stjerner"],
+  advanced: ["Avanceret redigering", "<p>Her kan man rette stedets navn, by, kategori, links og hvem der kan se det.</p><p>Det er sjældent nødvendigt. Vil du bare skrive en kommentar, skal du kun bruge feltet <strong>Kommentar</strong> øverst og trykke <strong>Gem</strong>.</p>", "stjerner"],
+  invite: ["Invitér en person", "<p>1. Skriv personens fornavn og mail.<br>2. Vælg <strong>Gæst</strong> eller <strong>Ejer</strong>.<br>3. Tryk <strong>Invitér</strong>.<br>4. Send beskeden, der kommer frem, til personen – fx på sms eller mail.</p><p>Gæster kan det samme i guiden som ejere, men kan ikke invitere andre.</p>", "andel"]
+};
+function helpBtn(key, cls) { return '<button type="button" class="qhelp' + (cls ? " " + cls : "") + '" data-help="' + key + '" aria-label="Hjælp: ' + esc(HELP_TIPS[key][0]) + '" title="Hjælp">?</button>'; }
+var helpBox = null;
+function openHelpTip(key) {
+  var t = HELP_TIPS[key]; if (!t) return;
+  if (!helpBox) { helpBox = document.createElement("div"); helpBox.id = "helpbox"; document.body.appendChild(helpBox); }
+  helpBox.innerHTML = '<div class="rback" data-helpclose></div><div class="helpmodal" role="dialog" aria-modal="true" aria-labelledby="hb-h"><button type="button" class="hclose" data-helpclose aria-label="Luk">×</button><h2 id="hb-h">' + esc(t[0]) + "</h2>" + t[1] +
+    '<div class="row"><button type="button" class="btn primary" data-helpclose>Forstået</button><button type="button" class="btn" data-helpmore="' + t[2] + '">Læs mere i Hjælp</button></div></div>';
+  helpBox.hidden = false; document.body.classList.add("modal-open");
+  var b = helpBox.querySelector(".btn.primary"); if (b) b.focus();
+}
+function closeHelpTip() { if (helpBox) { helpBox.hidden = true; helpBox.innerHTML = ""; } if (!document.querySelector("#welcomebox:not([hidden])")) document.body.classList.remove("modal-open"); }
+
+var HELP_FAQ = [
+  ["start", "Kom i gang", [
+    ["Hvordan logger jeg ind første gang?", "<ol><li>Åbn linket fra den invitation, du har fået.</li><li>Tryk på <strong>Første gang: opret adgangskode</strong>.</li><li>Skriv den mail, du er inviteret med, og vælg en adgangskode (mindst 8 tegn).</li><li>Du får en mail. Tryk på linket i mailen.</li><li>Kom tilbage til guiden og log ind med mail og adgangskode.</li></ol>"],
+    ["Jeg har glemt min adgangskode", "<p>Skriv til Christian på <a href=\"mailto:" + HELP_MAIL + "\">" + HELP_MAIL + "</a>, så hjælper han dig.</p>"],
+    ["Hvordan får jeg guiden på telefonens hjemmeskærm?", "<p>Så åbner guiden som en app, når du trykker på ikonet.</p><p><strong>iPhone/iPad</strong> (i Safari):</p><ol><li>Tryk på Del-knappen (firkant med en pil op).</li><li>Vælg <strong>Føj til hjemmeskærm</strong>.</li><li>Tryk <strong>Tilføj</strong>.</li></ol><p><strong>Android</strong> (i Chrome):</p><ol><li>Tryk på de tre prikker øverst til højre.</li><li>Vælg <strong>Føj til startskærm</strong> eller <strong>Installer app</strong>.</li></ol>"],
+    ["Teksten er for lille", "<p>På telefon og iPad: sæt to fingre på skærmen og træk dem fra hinanden.</p><p>På computer: hold <strong>Ctrl</strong> nede (Mac: <strong>Cmd</strong>) og tryk på <strong>+</strong>.</p>"],
+    ["Hvordan kommer jeg tilbage?", "<p>Pilen <strong>←</strong> øverst til højre går et skridt tilbage. <strong>Huset</strong> går til forsiden.</p>"],
+    ["Kan jeg se velkomsten igen?", "<p>Ja: <button type=\"button\" class=\"linkbtn\" id=\"show-welcome\">Vis velkomsten igen</button>.</p>"]
+  ]],
+  ["find", "Find steder", [
+    ["Hvordan finder jeg et sted?", "<ol><li>Tryk på et af felterne på forsiden – fx <strong>Spisesteder</strong> eller <strong>Strande</strong>.</li><li>Tryk på et sted for at se billeder, stjerner og kommentarer.</li></ol><p>Leder du efter noget bestemt, så skriv i søgefeltet øverst.</p>"],
+    ["Hvad betyder Alle, Vores og Favoritter?", HELP_TIPS.scope[1]],
+    ["Hvad er forskellen på Byer og Dagsture?", "<p><strong>Byer</strong> er byerne i området med de steder, der ligger i dem.</p><p><strong>Dagsture</strong> er områder mindst en halv time væk i bil. Ture over 2½ time står under <strong>Længere ture</strong>.</p>"],
+    ["Hvordan ser jeg stederne på et kort?", "<p>Tryk på kort-knappen til højre for søgefeltet. Tryk på den igen for at komme tilbage til listen.</p><p>Inde på et sted viser kort-knappen stedet på kortet i stedet for billederne.</p>"],
+    ["Hvad gør Karakter og Sortering?", "<p><strong>Karakter</strong> viser kun steder med mindst så mange stjerner. <strong>Sortering</strong> bestemmer rækkefølgen, fx senest besøgt eller flest stjerner.</p>"],
+    ["Hvad står der under Hotellet?", "<p>Det praktiske om <strong>Laderita de Bolnuevo</strong> – adresse, ankomst, afrejse og link til hotellets ABC – og billeder af jeres egen lejlighed.</p>"]
+  ]],
+  ["stjerner", "Stjerner og kommentarer", [
+    ["Hvordan giver jeg stjerner?", "<ol><li>Åbn stedet.</li><li>Tryk på stjernerne ud for navnet.</li><li>Giv stjerner til hvert spørgsmål.</li><li>Tryk <strong>Gem</strong>.</li></ol>"],
+    ["Hvad betyder de store og de små stjerner?", HELP_TIPS.stars[1]],
+    ["Hvordan skriver jeg en kommentar?", "<ol><li>Åbn stedet.</li><li>Tryk <strong>Tilføj kommentar</strong>.</li><li>Skriv i feltet <strong>Kommentar</strong>.</li><li>Tryk <strong>Gem</strong>.</li></ol>"],
+    ["Hvem kan se det, jeg skriver?", "<p>Som udgangspunkt kan alle andelshavere se jeres stjerner og kommentarer. Vil I holde dem for jer selv, så tryk <strong>Tilføj kommentar</strong> → <strong>Avanceret redigering</strong> og vælg <strong>Vores andel</strong> under <strong>Hvem kan se vores stjerner og tekst?</strong></p>"],
+    ["Hvad er hjertet?", "<p>Tryk på hjertet ♡ ved et sted for at gøre det til en favorit. Tryk igen for at fjerne det. Favoritter deles med alle i jeres andel, men andre andele kan ikke se dem.</p>"]
+  ]],
+  ["billeder", "Billeder og nye steder", [
+    ["Hvordan lægger jeg billeder ind?", "<ol><li>Åbn stedet.</li><li>Tryk <strong>Tilføj billeder</strong>.</li><li>Vælg billederne på telefonen eller computeren.</li><li>Tryk <strong>Gem</strong>.</li></ol>"],
+    ["Hvordan opretter jeg et nyt sted?", "<ol><li>Tryk <strong>+ Nyt sted</strong> nederst til højre.</li><li>Vælg <strong>Vælg billeder</strong>, hvis du har billeder fra stedet. Guiden prøver selv at finde stedet ud fra, hvor billedet er taget. Ellers vælg <strong>Uden billede</strong>.</li><li>Skriv eller ret navnet.</li><li>Tryk <strong>Gem</strong>.</li></ol>"],
+    ["Hvem kan se mine billeder?", HELP_TIPS.photovis[1] + "<p>Billeder, hvor guiden finder personer, bliver automatisk kun vist for jeres andel.</p>"],
+    ["Hvordan sletter jeg et billede?", "<ol><li>Åbn stedet.</li><li>Tryk <strong>Tilføj kommentar</strong>.</li><li>Tryk <strong>Slet</strong> under billedet.</li><li>Tryk <strong>Gem</strong>.</li></ol><p>Du kan kun slette jeres egne billeder.</p>"],
+    ["Hvad gør Anmeld?", "<p>Er en tekst eller et billede fra en anden andel forkert eller upassende, så tryk <strong>Anmeld</strong> og skriv kort hvorfor. Christian ser på det.</p>"]
+  ]],
+  ["andel", "Vores andel og konto", [
+    ["Hvordan inviterer jeg familie eller venner?", "<p>Gå til <strong>Vores andel</strong> nederst på siden.</p>" + HELP_TIPS.invite[1] + "<p>Kun ejere kan invitere.</p>"],
+    ["Hvad er forskellen på Ejer og Gæst?", "<p>Begge kan se og bruge alt i guiden. Kun <strong>ejere</strong> kan invitere andre og fjerne adgang.</p>"],
+    ["Hvordan sletter jeg min konto?", "<p>Gå til <strong>Vores andel</strong> nederst på siden og tryk <strong>Slet min konto</strong>. Det, du har lagt ind, bliver hos andelen.</p>"]
+  ]]
+];
+function helpPageHtml() {
+  var h = '<section class="panel helppage"><p class="eyebrow">Hjælp</p><h2>Sådan bruger du guiden</h2>' +
+    '<p class="hint">Tryk på et spørgsmål for at se svaret. Du kan også trykke på <span class="qhelp inline" aria-hidden="true">?</span> rundt omkring i guiden.</p>';
+  HELP_FAQ.forEach(function (sec) {
+    h += '<h3 id="hjaelp-' + sec[0] + '">' + esc(sec[1]) + "</h3>";
+    sec[2].forEach(function (q) { h += '<details class="faq"><summary>' + esc(q[0]) + '</summary><div class="faqa">' + q[1] + "</div></details>"; });
+  });
+  h += '<div class="helpcontact"><h3>Kan du ikke finde svaret?</h3><p>Skriv til Christian på <a href="mailto:' + HELP_MAIL + '">' + HELP_MAIL + "</a>. Skriv gerne, hvad du prøvede at gøre, og hvad der skete.</p></div></section>";
+  return h;
+}
+
+/* Velkomst første gang (gemmes pr. bruger på enheden) */
+var WELCOME = [
+  ["alle", "Find steder", "Tryk på et af felterne på forsiden – fx <strong>Spisesteder</strong> eller <strong>Strande</strong> – for at se andelshavernes egne steder. Leder du efter noget bestemt, så skriv i søgefeltet."],
+  ["heart", "Gem jeres favoritter", "Tryk på hjertet ♡ ved et sted, så finder I det under <strong>Favoritter</strong>. Favoritterne deles med alle i jeres andel."],
+  ["star", "Del jeres oplevelser", "Tryk på stjernerne for at give jeres vurdering, eller på <strong>+ Nyt sted</strong> for at lægge et sted og billeder ind. Har du brug for hjælp, så tryk på <strong>?</strong> øverst."]
+];
+var welcomeBox = null, welcomeStep = 0;
+function welcomeKey() { return "bol_welcome_" + (ui.user ? ui.user.id : ""); }
+function maybeWelcome() {
+  if (!ui.user || !ui.member || ui.page || welcomeBox && !welcomeBox.hidden) return;
+  var seen = true; try { seen = !!localStorage.getItem(welcomeKey()); } catch (x) { seen = true; }
+  if (!seen) openWelcome();
+}
+function openWelcome() {
+  welcomeStep = 0;
+  if (!welcomeBox) { welcomeBox = document.createElement("div"); welcomeBox.id = "welcomebox"; document.body.appendChild(welcomeBox); }
+  drawWelcome(); welcomeBox.hidden = false; document.body.classList.add("modal-open");
+}
+function drawWelcome() {
+  var w = WELCOME[welcomeStep], last = welcomeStep === WELCOME.length - 1;
+  var icon = w[0] === "heart" ? heartSvg(false) : w[0] === "star" ? CAT_ICONS.oplevelser || "★" : CAT_ICONS.alle;
+  welcomeBox.innerHTML = '<div class="rback"></div><div class="helpmodal welcome-modal" role="dialog" aria-modal="true" aria-labelledby="wb-h">' +
+    '<p class="eyebrow">Velkommen til guiden' + (me && me.name ? ", " + esc(me.name) : "") + '</p><div class="wicon" aria-hidden="true">' + icon + '</div><h2 id="wb-h">' + esc(w[1]) + "</h2><p>" + w[2] + "</p>" +
+    '<div class="wdots" aria-hidden="true">' + WELCOME.map(function (x, i) { return '<span class="' + (i === welcomeStep ? "on" : "") + '"></span>'; }).join("") + "</div>" +
+    '<div class="row"><button type="button" class="btn primary" data-wnext>' + (last ? "Kom i gang" : "Næste") + "</button>" + (last ? "" : '<button type="button" class="btn" data-wskip>Spring over</button>') + "</div></div>";
+  var b = welcomeBox.querySelector(".btn.primary"); if (b) b.focus();
+}
+function closeWelcome() {
+  try { localStorage.setItem(welcomeKey(), "1"); } catch (x) {}
+  if (welcomeBox) { welcomeBox.hidden = true; welcomeBox.innerHTML = ""; }
+  document.body.classList.remove("modal-open");
+}
+
 /* ---------- hændelser ---------- */
 document.addEventListener("click", async function (e) {
   if (!root.contains(e.target) && !panel.contains(e.target) && !tbEl.contains(e.target) && !topEl.contains(e.target)) return;
   var cv = e.target.closest("[data-cvis]"); if (cv) { e.preventDefault(); carouselVis(cv); return; }
+  var hq = e.target.closest("[data-help]"); if (hq) { e.preventDefault(); e.stopPropagation(); openHelpTip(hq.dataset.help); return; }
+  if (e.target.closest("#show-welcome")) { openWelcome(); return; }
   var sl = e.target.closest(".slide"), art = sl && sl.closest("article.place[data-pid]");
   if (art && !art.classList.contains("detailcard")) { openPlace(art.dataset.pid); return; }
   var t = e.target.closest("button"); if (!t) return;
@@ -2292,7 +2399,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 105;
+var APP_VERSION = 106;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -2335,4 +2442,21 @@ BOL.busy = function () { return ui.busy; }; BOL.cancelDraft = function () { ui.d
 sb.auth.onAuthStateChange(function (ev) { if (ev === "SIGNED_OUT") { ui.user = null; ui.editor = false; } });
 render();
 checkUser().then(load);
+/* Hjælpeboks og velkomst ligger uden for siden – egne lyttere */
+document.addEventListener("click", function (e) {
+  if (helpBox && !helpBox.hidden && helpBox.contains(e.target)) {
+    if (e.target.closest("[data-helpclose]")) { closeHelpTip(); return; }
+    var m = e.target.closest("[data-helpmore]");
+    if (m) { var sec = m.dataset.helpmore; closeHelpTip(); nav(function () { ui.page = "hjaelp"; }); setTimeout(function () { var h = document.getElementById("hjaelp-" + sec); if (h) window.scrollTo({ top: h.getBoundingClientRect().top + window.scrollY - 12, behavior: "smooth" }); }, 60); }
+    return;
+  }
+  if (welcomeBox && !welcomeBox.hidden && welcomeBox.contains(e.target)) {
+    if (e.target.closest("[data-wskip]")) { closeWelcome(); return; }
+    if (e.target.closest("[data-wnext]")) { if (welcomeStep < WELCOME.length - 1) { welcomeStep++; drawWelcome(); } else closeWelcome(); }
+  }
+});
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Escape") return;
+  if (helpBox && !helpBox.hidden) closeHelpTip(); else if (welcomeBox && !welcomeBox.hidden) closeWelcome();
+});
 })();
