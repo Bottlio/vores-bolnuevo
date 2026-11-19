@@ -307,6 +307,15 @@ async function saveExp(kind, target, patch) {
 }
 
 /* ---------- visning ---------- */
+/* Hvem billedet er fra: kilden for billeder fra nettet, ellers fornavn + andel på den, der lagde det ind */
+function photoCredit(row, path, fallback) {
+  if (row && row.credit) return row.credit;
+  if (/\/web-/.test(path || "") && fallback) return fallback;
+  if (!row) return "";
+  var a = row.owner && authors[row.owner], label = andelLabels[row.andel_id] || "";
+  if (a && a.name) return a.name + (label ? " (" + label + ")" : "");
+  return label ? "andel " + label : "";
+}
 function carousel(p) {
   var ph = p.photos || [];
   if (!ph.length) return '<div class="noimg-card" aria-hidden="true">' + (CAT_ICONS[p.cat] || "") + "</div>";
@@ -314,8 +323,9 @@ function carousel(p) {
   html += '<div class="track">' + ph.map(function (x, i) {
     var u = esc(photoUrl(x));
     // Den slørede baggrund sættes først når billedet er hentet (se "load"-lytteren), så kun synlige billeder hentes.
-    var credit = /\/web-/.test(x) && p.photo_credit ? '<span class="credit">Foto: ' + esc(p.photo_credit) + "</span>" : "";
-    var row = (p.photoRows || [])[i], rb = row && me && row.andel_id !== me.andel && p.id ? reportBtn("billede", row.id, "place", p.id, true) : "";
+    var row = (p.photoRows || [])[i] || raw.photos.filter(function (r) { return r.path === x; })[0];
+    var who = photoCredit(row, x, p.photo_credit), credit = who ? '<span class="credit">Foto: ' + esc(who) + "</span>" : "";
+    var rb = row && me && row.andel_id && row.andel_id !== me.andel && p.id ? reportBtn("billede", row.id, "place", p.id, true) : "";
     return '<div class="slide">' + rb + '<img src="' + u + '" alt="' + esc(p.name) + (ph.length > 1 ? ", billede " + (i + 1) : "") + '" loading="lazy" decoding="async">' + credit + "</div>";
   }).join("") + "</div>";
   if (ph.length > 1) {
@@ -2216,7 +2226,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 90;
+var APP_VERSION = 91;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
