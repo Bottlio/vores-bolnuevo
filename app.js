@@ -476,6 +476,8 @@ function placeCard(p, detail, showKat) {
 }
 
 /* ---------- forside (to bud, A og B, kan skiftes øverst) ---------- */
+/* Navnet til "Type …" over underkategori-vælgeren, fx "Type indkøb" */
+function typeName(cat) { var t = (typeof HOME_TILES !== "undefined" ? HOME_TILES : []).filter(function (x) { return x[0] === cat; })[0]; return ((t && t[1]) || CATNAME[cat] || "").toLowerCase(); }
 /* Forsidens felter: "Alle steder" først, så alfabetisk, "Hotellet" sidst. Kortet over alle steder ligger på kort-knappen i værktøjslinjen. */
 var HOME_TILES = [["alle", "Alle steder"]].concat([["spisesteder", "Spisesteder"], ["strande", "Strande"], ["natur", "Natur og udsigt"], ["sevaerdigheder", "Seværdigheder"], ["oplevelser", "Oplevelser"], ["dagsture", "Dagsture"],
   ["byer", "Byer"], ["dagligvarer", "Indkøb"], ["sport", "Sport"], ["shopping", "Shopping"], ["parkering", "Parkering"], ["opladning", "Elbil-opladning"]]
@@ -619,12 +621,12 @@ function render() {
   var list = null, sub = "", head = "", grid = "";
   // Rullemenu i stedet for en række knapper: [["", "Alle", n], [værdi, navn, antal], …]
   var ddSel = function (key, label, opts, cur) {
-    return '<label class="sel ddsel"><select data-select="' + key + '" aria-label="' + esc(label) + '">' + opts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + ((cur || "") === o[0] ? " selected" : "") + ">" + esc(o[1]) + (o[2] != null ? " (" + o[2] + ")" : "") + "</option>"; }).join("") + "</select></label>";
+    return '<label class="fbox"><span class="flabel">' + esc(label) + '</span><select data-select="' + key + '">' + opts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + ((cur || "") === o[0] ? " selected" : "") + ">" + esc(o[1]) + (o[2] != null ? " (" + o[2] + ")" : "") + "</option>"; }).join("") + "</select></label>";
   };
   var subChips = function (pool, label) {
-    var o = [["", "Alle kategorier", pool.length]];
+    var o = [["", "Alle", null]];
     CATS.forEach(function (c) { var n = pool.filter(function (p) { return p.cat === c[0]; }).length; if (n) o.push([c[0], c[1], n]); });
-    return '<div class="selects">' + ddSel("sub", label, o, ui.sub) + "</div>";
+    return '<div class="fgrid">' + ddSel("sub", label, o, ui.sub) + "</div>";
   };
   if (inApt) list = places.filter(function (p) { return p.cat === APT; });
   else if ((inTowns || inTrips) && ui.region) {
@@ -655,12 +657,12 @@ function render() {
     if (SUBCATS[ui.cat]) {
       var scs = SUBCATS[ui.cat].map(function (x) { return [x, inCat.filter(function (p) { return p.subcat === x[0]; }).length]; }).filter(function (x) { return x[1] || ui.subcat === x[0][0]; });
       var none = inCat.filter(function (p) { return !subName(ui.cat, p.subcat); }).length;
-      if (scs.length) subSel = ddSel("subcat", "Underkategori", [["", "Alle", inCat.length]].concat(scs.map(function (x) { return [x[0][0], x[0][1], x[1]]; })).concat(none ? [["__ingen", "Ikke valgt", none]] : []), ui.subcat);
+      if (scs.length) subSel = ddSel("subcat", "Type " + typeName(ui.cat), [["", "Alle", null]].concat(scs.map(function (x) { return [x[0][0], x[0][1], x[1]]; })).concat(none ? [["__ingen", "Ikke valgt", none]] : []), ui.subcat);
       if (ui.subcat) inCat = inCat.filter(function (p) { return ui.subcat === "__ingen" ? !subName(ui.cat, p.subcat) : p.subcat === ui.subcat; });
     }
     var qs = (QUESTIONS[ui.cat] || []).map(function (x) { return x[0]; });
     if (qs.length) {
-      factChips = '<div class="chips" role="group" aria-label="Åbningstider">' +
+      factChips = '<div class="ftogs" role="group" aria-label="Åbningstider">' +
         (qs.indexOf("saeson") >= 0 ? chip("fopen", "1", "Skjul sæsonlukkede", inCat.filter(function (p) { return (p.facts || {}).saeson === "ja"; }).length || null, !!ui.fOpen) : "") +
         (qs.indexOf("sondag") >= 0 ? chip("fsun", "1", "Kun søndagsåbent", inCat.filter(function (p) { return (p.facts || {}).sondag === "ja"; }).length, !!ui.fSun) : "") +
         (qs.indexOf("tidlig") >= 0 ? chip("fearly", "1", "Åbent før kl. 20", inCat.filter(function (p) { return (p.facts || {}).tidlig === "ja"; }).length, !!ui.fEarly) : "") + "</div>";
@@ -670,11 +672,9 @@ function render() {
     }
     if (TOWN_CATS.indexOf(ui.cat) >= 0) {
       var ts2 = townsOf(inCat);
-      if (ts2.length > 1 || ui.ftown) townSel = ddSel("ftown", "By", [["", "Alle byer", null]].concat(ts2.map(function (t) { return [t[0], t[0], t[1]]; })), ui.ftown);
+      if (ts2.length > 1 || ui.ftown) townSel = ddSel("ftown", "Byer", [["", "Alle", null]].concat(ts2.map(function (t) { return [t[0], t[0], t[1]]; })), ui.ftown);
       if (ui.ftown) inCat = inCat.filter(function (p) { return p.town === ui.ftown; });
     }
-    if (subSel || townSel) sub += '<div class="selects">' + subSel + townSel + "</div>";
-    sub += factChips;
     list = inCat.filter(rated);
   }
   var q = (ui.q || "").trim().toLowerCase(), searching = q.length > 0;
@@ -712,11 +712,13 @@ function render() {
   CATS.forEach(function (c) { if (ui.cat !== c[0] && ((c[0] === "vores" && !counts.vores) || (ui.scope !== "alle" && (c[0] === "lejligheden" || !counts[c[0]])))) return; f += catBtn(c[0], c[0] === "opladning" ? "Elbil" : c[1], counts[c[0]]); });
   f += "</div>";
   if (sub) f += '<div class="subchips">' + sub + "</div>";
-  f += '<div class="selects">';
+  // Åbningsfiltre øverst, derefter fire lige store bokse: type, by, karakter, sortering
+  if (factChips) f += factChips;
+  f += '<div class="fgrid">' + (subSel || "") + (townSel || "");
   var listView = list !== null;
-  if (!inApt && listView) f += '<label class="sel"><span aria-hidden="true">★</span><select data-select="rating" aria-label="Karakter">' +
-    [[0, "Alle karakterer"], [4, "4 stjerner og op"], [5, "Kun 5 stjerner"]].map(function (r) { return '<option value="' + r[0] + '"' + ((ui.minRating || 0) === r[0] ? " selected" : "") + ">" + r[1] + "</option>"; }).join("") + "</select></label>";
-  f += '<label class="sel"><span aria-hidden="true">⇅</span><select data-select="sort" aria-label="Sortér">' +
+  if (!inApt && listView) f += '<label class="fbox"><span class="flabel">Karakter</span><select data-select="rating">' +
+    [[0, "Alle"], [4, "4 stjerner og op"], [5, "Kun 5 stjerner"]].map(function (r) { return '<option value="' + r[0] + '"' + ((ui.minRating || 0) === r[0] ? " selected" : "") + ">" + r[1] + "</option>"; }).join("") + "</select></label>";
+  f += '<label class="fbox"><span class="flabel">Sortering</span><select data-select="sort">' +
     [["senest", "Senest besøgt"], ["nyeste", "Senest tilføjet"], ["naermeste", "Nærmeste først"], ["stjerner", "Flest stjerner"], ["navn", "Navn A–Å"]].map(function (o) { return '<option value="' + o[0] + '"' + ((ui.sort || "senest") === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>";
   f += "</div>";
   function catBtn(id, label, n) {
@@ -2083,7 +2085,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 77;
+var APP_VERSION = 78;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

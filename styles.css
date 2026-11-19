@@ -449,8 +449,21 @@ header{position:relative}
 .dupbox h3,.dupbox strong{color:var(--fg)}
 .duprow{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 /* Kategori-ikonerne lidt større (19.11.2026) */
-.cat svg{width:28px;height:28px}
-.cat{min-width:66px}
+.cat svg{width:34px;height:34px}
+.cat{min-width:70px}
 .ddsel{padding-left:8px}
 .ddsel select{max-width:220px;color:var(--fg);font-weight:500}
 .subchips .selects{margin-bottom:8px}
+/* Filtre (19.11.2026): åbningsfiltre som afkrydsning øverst; fire lige store bokse med overskrift */
+.ftogs{display:flex;flex-wrap:wrap;gap:4px 20px}
+.ftogs .chip{border:0;background:none;padding:4px 0;display:inline-flex;align-items:center;gap:8px;color:var(--fg);font-size:.92rem;border-radius:0}
+.ftogs .chip::before{content:"";flex:none;width:18px;height:18px;border:1.5px solid var(--muted);border-radius:4px;background:var(--surface) no-repeat center}
+.ftogs .chip[aria-pressed="true"]{background:none;color:var(--fg);border-color:transparent}
+.ftogs .chip[aria-pressed="true"]::before{background-color:var(--sea);border-color:var(--sea);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10' viewBox='0 0 12 10'%3E%3Cpath d='M1 5l3.5 3.5L11 1' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.ftogs .chip .n{color:var(--muted);font-size:.8rem}
+.fgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (min-width:700px){.fgrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.fbox{display:flex !important;flex-direction:column !important;gap:4px;min-width:0;margin:0}
+.flabel{font-size:.75rem;font-weight:600;color:var(--muted)}
+.fbox select{width:100%;height:46px;padding:0 34px 0 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23555' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 14px center;font:inherit;font-size:.95rem;color:var(--fg);-webkit-appearance:none;appearance:none;text-overflow:ellipsis}
+.fbox select:focus{outline:2px solid var(--sea);outline-offset:1px}
