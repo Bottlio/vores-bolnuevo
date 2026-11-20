@@ -1015,6 +1015,9 @@ function render() {
   else if (!list.length && inApt) html += '<p class="empty-state">' + (ui.cat === "vores" ? "Intet om jeres lejlighed endnu. Tryk \"+ Nyt sted\" for at lægge billeder og noter om jeres lejlighed ind – det kan kun jeres andel se." : "Ingen billeder af hotellet endnu.") + "</p>";
   else if (!list.length && searching && !detail) html += '<p class="empty-state">Ingen steder matcher søgningen.</p>';
   else if (!list.length && listView && !((inTowns || inTrips) && (ui.town || ui.region))) html += '<p class="empty-state">' + (ui.status === "wish" ? "Ingen ønsker her endnu." : "Intet her endnu.") + (ui.editor ? ' Tryk "+ Nyt sted" for at tilføje et.' : "") + "</p>";
+  // Mens stedet rettes, vises kun redigeringen – ikke selve stedet nedenunder
+  var editingDetail = detail && ui.draft && !ui.draft.isNew && !ui.draft.wiz && ui.draft.id === detail.id;
+  if (editingDetail) list = [];
   list.forEach(function (p) { html += detail ? placeCard(p, true, true) : gridCard(p, ui.cat === "alle" || inTowns || inTrips || searching || isApt(ui.cat)); });
   html += "</div>";
 
@@ -1966,7 +1969,7 @@ function formHtml(f) {
       (!f.isNew && core ? '<div><button class="btn danger" type="button" id="del-place">' + (f.confirmDel ? "Tryk igen for at slette stedet" : "Slet sted") + "</button></div>" : "") +
       "</div>" : "") +
     dupHtml(f) + (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
-    '<div class="row"><button class="btn primary" type="submit"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + '</button><button class="btn" type="button" id="cancel">Annuller</button></div></form>';
+    '<div class="row savebar"><button class="btn primary" type="submit"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + '</button><button class="btn" type="button" id="cancel">Annuller</button></div></form>';
 }
 function visBtn(it, i) {
   var vv = ui.draft && ui.draft.cat === "vores" && it.vis === "alle" ? "lejlighed" : (it.vis || "andel");
@@ -2039,7 +2042,7 @@ function quickHtml(f) {
       '<div class="chips" role="group" aria-label="Kategori">' + chips + "</div>" + subChooser(f) + questionsHtml(f) +
       '<button type="button" class="favtoggle' + (f.fav ? " on" : "") + '" id="f-favbtn" aria-pressed="' + !!f.fav + '">' + heartSvg(f.fav) + ' Tilføj som favorit</button>') +
     dupHtml(f) + (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
-    '<div class="row"><button class="btn primary" type="submit"' + (ui.busy || f.finding ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + "</button>" +
+    '<div class="row savebar"><button class="btn primary" type="submit"' + (ui.busy || f.finding ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + "</button>" +
     '<button class="btn" type="button" id="more">Tilføj beskrivelse, karakter m.m.</button><button class="btn" type="button" id="cancel">Annuller</button></div></form>';
 }
 
@@ -2849,7 +2852,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.choose != null && ui.draft && ui.draft.choices) { syncDraft(); applyChoice(ui.draft, ui.draft.choices[+t.dataset.choose]); return; }
   if (t.dataset.comment) { ui.commentFor = { kind: t.dataset.comment, key: t.dataset.key }; ui.commentErr = ""; render(); var cn = document.getElementById("c-note"); if (cn) { cn.focus(); cn.setSelectionRange(cn.value.length, cn.value.length); } return; }
   if (t.dataset.cmt === "close") { ui.commentFor = null; render(); return; }
-  if (t.dataset.edit) { editPlace(t.dataset.edit); ui.draft.adv = true; render(); scrollToForm(); return; }
+  if (t.dataset.edit) { editPlace(t.dataset.edit); ui.draft.adv = false; render(); scrollToForm(); return; }
   if (t.dataset.editarea) { ui.draft = null; startAreaEdit(t.dataset.editarea, t.dataset.key); return; }
   if (t.dataset.addarea) { addInput.dataset.kind = t.dataset.addarea; addInput.dataset.target = t.dataset.key; addInput.value = ""; addInput.click(); return; }
   if (t.dataset.afirst) { syncArea(); var ai = ui.areaDraft.items.splice(+t.dataset.afirst, 1)[0]; ui.areaDraft.items.unshift(ai); render(); return; }
@@ -2971,7 +2974,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 147;
+var APP_VERSION = 148;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
