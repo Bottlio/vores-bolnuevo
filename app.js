@@ -1941,7 +1941,7 @@ function formHtml(f) {
   var adv = !!f.adv || f.isNew;
   var posTxt = f.lat != null ? "Placeringen er fundet automatisk (" + (+f.lat).toFixed(4).replace(".", ",") + " / " + (+f.lon).toFixed(4).replace(".", ",") + ")." : "Stedet har ingen placering endnu.";
   return '<form class="panel" id="editor"><h2>' + (f.isNew ? "Nyt sted" : esc(f.name)) + "</h2>" +
-    (f.finding ? '<p class="hint">Finder stedet ud fra billedet…</p>' : "") + (f.info ? '<p class="hint">' + esc(f.info) + "</p>" : "") +
+    (f.finding ? '<p class="finding" role="status"><span class="spin" aria-hidden="true"></span>Finder stedet ud fra billederne …</p>' : "") + (f.info ? '<p class="hint">' + esc(f.info) + "</p>" : "") +
     (f.choices ? '<div class="choices">' + f.choices.map(function (x, i) { return '<button class="btn" type="button" data-choose="' + i + '"><strong>' + esc(x.name) + "</strong> " + esc([x.addr, x.km != null ? Math.round(x.km) + " km fra hotellet" : ""].filter(Boolean).join(" · ")) + "</button>"; }).join("") + "</div>" : "") +
     '<label>Kommentar<textarea id="f-note" placeholder="' + esc(notePh(f.cat)) + '">' + esc(f.note) + "</textarea></label>" +
     '<button type="button" class="favtoggle' + (f.fav ? " on" : "") + '" id="f-favbtn" aria-pressed="' + !!f.fav + '">' + heartSvg(f.fav) + ' Tilføj som favorit</button>' +
@@ -2031,7 +2031,7 @@ function quickHtml(f) {
   return '<form class="panel" id="editor"><h2>Nyt sted</h2>' +
     '<div class="qthumbs">' + thumbs + '</div><p class="hint">Billeder med personer bliver kun vist for jeres andel. Tryk på mærket for at ændre det.</p>' +
     (f.match && !f.finding ? '<div class="match"><p>Billederne er taget ' + (f.match.m < 15 ? "ved" : f.match.m + " m fra") + " <strong>" + esc(f.match.name) + '</strong>.</p><button class="btn primary" type="button" id="add-to-match"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Tilføj billederne dér") + '</button><p class="hint">Eller opret et nyt sted nedenfor.</p></div>' : "") +
-    (f.finding ? '<p class="hint">Finder stedet ud fra billedet…</p>' :
+    (f.finding ? '<p class="finding" role="status"><span class="spin" aria-hidden="true"></span>Finder stedet ud fra billederne …</p>' :
       '<label>Navn<input id="f-name" required value="' + esc(f.name) + '" placeholder="Skriv stedets navn"></label>' +
       '<p class="meta">' + esc([f.area, dist].filter(Boolean).join(" · ") || "Ingen placering fundet") + "</p>" +
       (f.info ? '<p class="hint">' + esc(f.info) + "</p>" : "") +
@@ -2726,7 +2726,7 @@ function wizardHtml(f) {
   var choices = f.choices ? '<div class="choices">' + f.choices.map(function (x, i) { return '<button class="btn" type="button" data-choose="' + i + '"><strong>' + esc(x.name) + "</strong> " + esc([x.addr, x.km != null ? Math.round(x.km) + " km fra hotellet" : ""].filter(Boolean).join(" · ")) + "</button>"; }).join("") + "</div>" : "";
   if (step === 2) {
     var thumbs = f.items.length ? '<div class="qthumbs">' + f.items.map(function (it, i) { return '<div class="qthumb"><img src="' + esc(it.url || photoUrl(it.path)) + '" alt="">' + visBtn(it, i) + "</div>"; }).join("") + "</div>" : "";
-    body = thumbs + (f.finding ? '<p class="hint">Finder stedet ud fra billedet…</p>' : "") +
+    body = thumbs + (f.finding ? '<p class="finding" role="status"><span class="spin" aria-hidden="true"></span>Finder stedet ud fra billederne …</p>' : "") +
       (f.match && !f.finding ? '<div class="match"><p>Billederne er taget ' + (f.match.m < 15 ? "ved" : f.match.m + " m fra") + " <strong>" + esc(f.match.name) + "</strong>, som allerede er i guiden. Er det det sted?</p>" +
         '<button class="btn primary" type="button" id="add-to-match"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Ja – læg billederne dér") + '</button><p class="hint">Er det et andet sted, så fortsæt herunder.</p></div>' : "") +
       '<label>Stedets navn<input id="f-name" value="' + esc(f.name) + '" placeholder="Fx Restaurante El Puerto" autocomplete="off"></label>' +
@@ -2971,7 +2971,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 146;
+var APP_VERSION = 147;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
