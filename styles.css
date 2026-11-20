@@ -722,3 +722,9 @@ footer.foot .footlabel:first-child{margin-top:0}
   .pcard .trate .rstars span{font-size:1rem;letter-spacing:0}
 }
 @media (max-width:400px){.pcard .trate .rstars span{font-size:.88rem}.pcard .trate .rnum{font-size:.85rem}.pcard .trate{padding-left:6px;padding-right:2px}}
+/* Administration – Ændringer (v153) */
+.loglist{list-style:none;margin:0;padding:0}
+.loglist li{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;padding:9px 0;border-top:1px solid var(--line);font-size:.9rem;line-height:1.35}
+.loglist li:first-child{border-top:0}
+.logt{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:.82rem;padding-top:1px}
+.logw strong{font-weight:700}

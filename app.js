@@ -1388,13 +1388,14 @@ async function loadAdmin() {
   var rp = await sb.from("reports").select("*").eq("handled", false).order("created_at", { ascending: false });
   var nn = await sb.from("andel_numre").select("*").order("lejlighed").order("nummer");
   var kk = await sb.from("andel_kontakter").select("*").order("sort");
-  adminData = { andele: a.data || [], members: m.data || [], reports: rp.data || [], nums: nn.data || [], contacts: kk.data || [], err: a.error ? a.error.message : "" };
+  var lg = await sb.from("activity_log").select("*").order("at", { ascending: false }).limit(300);
+  adminData = { andele: a.data || [], members: m.data || [], reports: rp.data || [], nums: nn.data || [], contacts: kk.data || [], log: lg.data || [], err: a.error ? a.error.message : "" };
   render();
 }
 function adminPageHtml() {
   var d = adminData;
   if (!d) { loadAdmin(); return '<h2 class="pagetitle">Administration</h2><section class="panel"><p>Henter…</p></section>'; }
-  var h = '<h2 class="pagetitle">Administration</h2>' + (d.err ? '<p class="err">' + esc(d.err) + "</p>" : "") + reportsHtml(d.reports) + andelshaverListHtml(d);
+  var h = '<h2 class="pagetitle">Administration</h2>' + (d.err ? '<p class="err">' + esc(d.err) + "</p>" : "") + reportsHtml(d.reports) + logHtml(d) + andelshaverListHtml(d);
   var addnum = '<form id="addnum-form" class="invite"><h3>Tilføj et ekstra andelsnummer til en husstand</h3><p class="hint">Til andelshavere med flere andele (fx Trærup: 203-002, 102-025 og 102-039). Stjerner, kommentarer og favoritter er fælles for husstanden, og de ser alle deres lejligheder under Hotellet.</p>' +
     '<div class="grid"><label>Husstand<select id="x-andel" required><option value="">Vælg …</option>' + d.andele.filter(function (a) { return a.aktiv; }).map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.lejlighed + "-" + a.nummer) + " · " + esc(d.members.filter(function (m) { return m.andel_id === a.id; }).map(function (m) { return m.name || m.email; }).join(", ")) + "</option>"; }).join("") + "</select></label>" +
     '<label>Lejlighed<input id="x-lejl" required placeholder="102" inputmode="numeric"></label><label>Andelsnummer<input id="x-num" required placeholder="025" inputmode="numeric"></label></div><button class="btn" type="submit">Tilføj nummer</button></form>';
@@ -1404,6 +1405,68 @@ function adminPageHtml() {
     '<p class="hint">"Marker som solgt" (under Andelshavere) lukker andelens adgang. Deres private indhold følger ikke med til køberen, som får en ny andel med samme nummer.</p>';
   h += foldBox("adm-new", "<strong>Opret ny andel</strong>", "Ny andel og invitation til første ejer – fx ved salg", newandel);
   return h;
+}
+/* ---------- Ændringer: alt der oprettes, rettes og slettes (logges af databasen) ---------- */
+var LOG_FIELDS = { name: "navn", town: "by", area: "område", cat: "kategori", subcat: "type", lat: "placering", lon: "placering", visibility: "synlighed", facts: "fakta", website: "hjemmeside", link: "link", maps_url: "Google Maps-link", lejlighed: "lejlighed", guess: "navn ikke bekræftet", region: "område", note: "kommentar", visits: "besøg", last_visit: "besøg", ratings: "stjerner", rating_score: "stjerner", favorite: "hjerte", role: "rolle", user_id: "login", aktiv: "aktiv", rul: "rul", handled: "behandlet", reason: "begrundelse", path: "fil", credit: "kilde" };
+var VIS_TXT = { alle: "Alle", andel: "Vores andel", mig: "Kun mig", lejlighed: "Lejligheden" };
+function logWho(r) {
+  var a = r.user_id && authors[r.user_id], lab = r.andel_id && andelLabels[r.andel_id];
+  if (a && a.name) return a.name + " (" + (a.label || lab || "") + ")";
+  if (!r.user_id) return "Systemet (rettet direkte i databasen)";
+  return lab ? "Andel " + lab : "En bruger";
+}
+function logTarget(ref) {
+  var id = ref.kind === "place" ? ref.target : ref.target || ref.id;
+  var p = raw.places.filter(function (x) { return x.id === (ref.kind ? ref.target : ref.id); })[0];
+  if (p) return p.name;
+  if (ref.kind === "town" || ref.kind === "region") return ref.target;
+  return ref.name || id || "";
+}
+function logWhat(r) {
+  var ref = r.ref || {}, c = r.changes || {}, op = r.op, ks = Object.keys(c);
+  var val = function (k) { return c[k] ? c[k][1] : null; }, was = function (k) { return c[k] ? c[k][0] : null; };
+  var fields = ks.map(function (k) { return LOG_FIELDS[k] || k; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
+  var t = logTarget(ref);
+  switch (r.tbl) {
+    case "places": return op === "INSERT" ? "Oprettede stedet " + t : op === "DELETE" ? "Slettede stedet " + (ref.name || t) : "Rettede " + t + ": " + fields.join(", ");
+    case "experiences":
+      if (op === "DELETE") return "Slettede sin vurdering af " + t;
+      var bits = [];
+      if ("rating_score" in c) bits.push(val("rating_score") == null ? "fjernede stjernerne" : "gav " + dec(+val("rating_score")) + " ★");
+      if ("note" in c) bits.push(!val("note") ? "fjernede kommentaren" : was("note") ? "rettede kommentaren" : "skrev en kommentar");
+      if ("favorite" in c) bits.push(val("favorite") ? "satte hjerte" : "fjernede hjertet");
+      if ("visibility" in c && op === "UPDATE") bits.push("synlighed → " + (VIS_TXT[val("visibility")] || val("visibility")));
+      if (("visits" in c || "last_visit" in c) && !bits.length) bits.push("rettede besøg");
+      if (!bits.length) bits.push(op === "INSERT" ? "åbnede" : "rettede " + fields.join(", "));
+      var txt = bits.join(", "); return txt.charAt(0).toUpperCase() + txt.slice(1) + " – " + t;
+    case "photos":
+      return op === "INSERT" ? "Lagde et billede ind – " + t : op === "DELETE" ? "Slettede et billede – " + t
+        : "visibility" in c ? "Billedet ved " + t + ": synlighed " + (VIS_TXT[was("visibility")] || was("visibility")) + " → " + (VIS_TXT[val("visibility")] || val("visibility")) : "Rettede et billede (" + fields.join(", ") + ") – " + t;
+    case "members":
+      var who = (ref.name || "") + (ref.email ? " (" + ref.email + ")" : "");
+      if (op === "INSERT") return "Inviterede " + who;
+      if (op === "DELETE") return "Fjernede adgang for " + who;
+      if ("user_id" in c && val("user_id")) return who + " loggede ind første gang";
+      return "Rettede " + who + ": " + fields.join(", ");
+    case "towns": return (op === "INSERT" ? "Ny by: " : op === "DELETE" ? "Slettede byen " : "Rettede byen ") + (ref.name || "") + (op === "UPDATE" ? ": " + fields.join(", ") : "");
+    case "regions": return (op === "INSERT" ? "Nyt område: " : op === "DELETE" ? "Slettede området " : "Rettede området ") + (ref.name || "") + (op === "UPDATE" ? ": " + fields.join(", ") : "");
+    case "reports": return op === "INSERT" ? "Anmeldte " + (ref.kind === "tekst" ? "en tekst" : "et billede") : "handled" in c ? "Anmeldelse behandlet" : "Anmeldelse rettet";
+    case "andele": return (op === "INSERT" ? "Oprettede andel " : op === "DELETE" ? "Slettede andel " : "Rettede andel ") + (ref.lejlighed || "") + "-" + (ref.nummer || "") + (op === "UPDATE" ? ": " + fields.join(", ") : "");
+    case "andel_numre": return (op === "DELETE" ? "Fjernede ekstra nummer " : "Tilføjede ekstra nummer ") + (ref.lejlighed || "") + "-" + (ref.nummer || "");
+  }
+  return r.tbl + " " + op;
+}
+function logTime(at) { var d = new Date(at); return String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
+function logHtml(d) {
+  var list = d.log || [], today = new Date().toDateString();
+  var nToday = list.filter(function (r) { return new Date(r.at).toDateString() === today; }).length;
+  var hint = list.length ? (nToday === 1 ? "1 ændring i dag" : nToday + " ændringer i dag") + " · seneste " + logTime(list[0].at) : "Ingen ændringer endnu";
+  var body = list.length ? '<ul class="loglist">' + list.map(function (r) {
+    var open = r.ref && (r.ref.kind === "place" ? r.ref.target : r.tbl === "places" && r.op !== "DELETE" ? r.ref.id : null);
+    return "<li><span class=\"logt\">" + logTime(r.at) + '</span><span class="logw"><strong>' + esc(logWho(r)) + "</strong><br>" + esc(logWhat(r)) + "</span>" +
+      (open && raw.places.some(function (x) { return x.id === open; }) ? '<button class="linkbtn" type="button" data-open="' + esc(open) + '">Åbn</button>' : "") + "</li>";
+  }).join("") + "</ul>" + '<p class="hint">Viser de seneste ' + list.length + " ændringer. Logningen startede 20.11.2026.</p>" : '<p class="hint">Når nogen opretter, retter eller sletter noget, kommer det her. Logningen startede 20.11.2026.</p>';
+  return foldBox("adm-log", "<strong>Ændringer</strong>", hint, body);
 }
 /* Liste over alle andelshavere med søgning og Invitér-knap */
 function hhNums(d, a) { return [{ l: a.lejlighed, n: a.nummer, r: a.rul }].concat((d.nums || []).filter(function (x) { return x.andel_id === a.id; }).map(function (x) { return { l: x.lejlighed, n: x.nummer, r: x.rul }; })); }
@@ -2982,7 +3045,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 152;
+var APP_VERSION = 153;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
