@@ -1085,7 +1085,7 @@ function andelPageHtml() {
   if (!d) { loadAndel(); return h + "<p>Henter…</p></section>"; }
   h += '<ul class="members">' + d.members.map(function (m) {
     var you = m.user_id === ui.user.id;
-    return "<li><span><strong>" + esc(m.name || m.email) + "</strong> " + (m.role === "ejer" ? "Ejer" : "Gæst") + (you ? " (dig)" : "") + '<br><span class="hint">' + esc(m.email) + (m.user_id ? "" : " · inviteret, har ikke logget ind endnu") + "</span></span>" +
+    return "<li><span><strong>" + esc(m.name || m.email) + "</strong> " + (m.role === "ejer" ? "Ejer" : "Gæst") + (you ? " (dig)" : "") + '<br><span class="hint">' + esc(m.email) + (m.user_id ? "" : " · inviteret, har ikke logget ind endnu") + "</span>" + (!m.user_id && owner ? '<br><button class="linkbtn" type="button" data-reinvite="' + esc(m.email) + '" data-rname="' + esc(m.name || "") + '">Send invitationen igen</button>' : "") + "</span>" +
       (owner && !you ? '<button class="btn small danger" type="button" data-rmmember="' + esc(m.email) + '">' + (ui.confirmRm === m.email ? "Tryk igen for at fjerne" : "Fjern adgang") + "</button>" : "") + "</li>";
   }).join("") + "</ul>";
   if (owner) h += '<form id="invite-form" class="invite"><h3>Invitér en person ' + helpBtn("invite", "inline") + '</h3><div class="grid"><label>Fornavn<input id="i-name" required placeholder="Fx Emma"></label><label>Mail<input id="i-email" type="email" required placeholder="navn@mail.dk"></label></div>' +
@@ -1147,7 +1147,7 @@ var ICON_WA = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="c
 var ICON_MSG = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-8l-4.5 3.5v-3.5H5A1.5 1.5 0 0 1 3.5 15V6A1.5 1.5 0 0 1 5 4.5z"/><circle cx="8.5" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10.5" r="1" fill="currentColor" stroke="none"/></svg>';
 /* Invitationsbesked med en kort log ind-guide */
 function inviteMsg(name, email, andel) {
-  return "Hej " + name + ".\n\nDu er inviteret til Laderita de Bolnuevo guide – en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer" + (andel ? ". Du er med som ejer af andel " + andel : "") + ".\n\n" +
+  return "Hej" + (name ? " " + name : "") + ".\n\nDu er inviteret til Laderita de Bolnuevo guide – en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer" + (andel ? ". Du er med som ejer af andel " + andel : "") + ".\n\n" +
     "Sådan kommer du i gang:\n" +
     "1. Åbn " + location.origin + location.pathname + "\n" +
     "2. Tryk på \"Første gang: opret adgangskode\".\n" +
@@ -1161,7 +1161,13 @@ async function invite() {
   var name = document.getElementById("i-name").value.trim(), email = document.getElementById("i-email").value.trim().toLowerCase(), role = ui.irole === "ejer" ? "ejer" : "gaest";
   if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { andelData.err = "Skriv fornavn og en gyldig mail."; render(); return; }
   var r = await sb.from("members").insert({ andel_id: me.andel, email: email, name: name, role: role, invited_by: ui.user.id });
-  if (r.error) { andelData.err = /duplicate|unique/i.test(r.error.message) ? "Den mail er allerede inviteret." : "Invitationen blev ikke gemt: " + r.error.message; render(); return; }
+  if (r.error && /duplicate|unique/i.test(r.error.message)) {
+    // Allerede på listen: har personen ikke logget ind endnu, vises invitationen igen, så den kan sendes
+    var ex = ((andelData && andelData.members) || []).filter(function (m) { return (m.email || "").toLowerCase() === email; })[0];
+    if (ex && ex.user_id) { andelData.err = (ex.name || email) + " har allerede adgang til guiden."; render(); return; }
+    andelData.err = ""; ui.inviteText = inviteMsg(name, email, ""); ui.inviteTo = email; ui.inviteName = name; render(); openInvite(); return;
+  }
+  if (r.error) { andelData.err = "Invitationen blev ikke gemt: " + r.error.message; render(); return; }
   ui.inviteText = inviteMsg(name, email, ""); ui.inviteTo = email; ui.inviteName = name; openInvite();
   andelData.err = ""; await loadAndel();
 }
@@ -2443,6 +2449,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.irole) { ui.irole = t.dataset.irole; render(); return; }
   if (t.dataset.setvis) { setPhotoVis(t.dataset.setvis, t.dataset.v); return; }
   if (t.dataset.sold) { markSold(t.dataset.sold); return; }
+  if (t.dataset.reinvite) { ui.inviteText = inviteMsg(t.dataset.rname || "", t.dataset.reinvite, ""); ui.inviteTo = t.dataset.reinvite; ui.inviteName = t.dataset.rname || ""; openInvite(); return; }
   if (t.id === "copy-invite") { var ta = document.getElementById("invite-copy"); ta.select(); try { navigator.clipboard.writeText(ta.value); t.textContent = "Kopieret"; } catch (x) { document.execCommand("copy"); } return; }
   if (t.id === "recheck") { await checkUser(); if (ui.member) { ui.loaded = false; await load(); } else { ui.msg = "Der er stadig ingen invitation til " + ui.user.email + "."; render(); } return; }
   if (t.dataset.vis != null && ui.draft) { syncDraft(); var vi = ui.draft.items[+t.dataset.vis]; vi.vis = nextVis(vi.vis || "andel", vi.own); vi.visSet = true; render(); return; }
@@ -2524,7 +2531,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 117;
+var APP_VERSION = 118;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
