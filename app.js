@@ -327,7 +327,7 @@ function carousel(p) {
     var who = photoCredit(row, x, p.photo_credit), credit = who ? '<span class="credit">Foto: ' + esc(who) + "</span>" : "";
     var rb = row && me && row.andel_id && row.andel_id !== me.andel && p.id ? reportBtn("billede", row.id, "place", p.id, true) : "";
     // Jeres egne billeder: mærke nede til højre med hvem der kan se det – tryk for at skifte
-    if (row && me && row.id && row.andel_id === me.andel) rb += '<button type="button" class="visbtn carvis v-' + esc(row.visibility) + '" data-cvis="' + esc(row.id) + '" title="Hvem kan se billedet? Tryk for at skifte">' + esc(VIS_NAMES[row.visibility] || row.visibility) + "</button>" + helpBtn("photovis", "onphoto");
+    if (row && me && row.id && row.andel_id === me.andel) rb += '<button type="button" class="visbtn carvis v-' + esc(row.visibility) + '" data-cvis="' + esc(row.id) + '" title="Hvem kan se billedet? Tryk for at skifte">' + esc(VIS_NAMES[row.visibility] || row.visibility) + "</button>" + helpBtn(row.visibility === "lejlighed" || (row.kind === "place" && isAptPlace(row.target)) ? "photovisapt" : "photovis", "onphoto");
     return '<div class="slide">' + rb + '<img src="' + u + '" alt="' + esc(p.name) + (ph.length > 1 ? ", billede " + (i + 1) : "") + '" loading="lazy" decoding="async">' + credit + "</div>";
   }).join("") + "</div>";
   if (ph.length > 1) {
@@ -1593,7 +1593,7 @@ function formHtml(f) {
     '<div><p class="hint" style="margin-bottom:8px">Jeres billeder (det første vises først). Tryk på mærket på et billede for at vælge, hvem der kan se det.' + (f.otherPhotos ? " Stedet har også " + f.otherPhotos + " billeder fra andre andele." : "") + '</p><div class="photos">' + ph + "</div>" +
     '<label class="btn" style="display:inline-flex;margin-top:10px;color:var(--fg)">+ Tilføj billeder<input type="file" id="f-add" accept="image/*" multiple hidden></label></div>' +
     '<button class="btn advtoggle" type="button" id="adv-toggle" aria-expanded="' + adv + '">' + (adv ? "Skjul avanceret redigering ▴" : "Avanceret redigering ▾") + "</button>" + helpBtn("advanced", "inline") +
-    (adv ? '<div class="advsec">' + '<p class="hint">Hvem kan se hvad? ' + helpBtn("whosee", "inline") + "</p>" +
+    (adv ? '<div class="advsec">' + '<p class="hint">Hvem kan se hvad? ' + helpBtn(f.cat === "vores" ? "whoseeapt" : "whosee", "inline") + "</p>" +
       (core ? "" : '<p class="hint">Navn, by, kategori og placering kan kun rettes af den, der oprettede stedet. Alt andet – fx åbningstider og links – kan I rette.</p>') +
       '<div class="grid"><label>Navn<input id="f-name" required value="' + esc(f.name) + '" placeholder="Restaurante La Siesta"' + dis + '></label><label>By<input id="f-town" list="townlist" value="' + esc(f.town || "") + '" placeholder="Puerto de Mazarrón"' + dis + '></label><datalist id="townlist">' + allTownNames().sort().map(function (n) { return '<option value="' + esc(n) + '">'; }).join("") + "</datalist></div>" +
       '<label>Sted/område (valgfrit)<input id="f-area" value="' + esc(f.area) + '" placeholder="Plaza del Muelle"' + dis + "></label>" +
@@ -2205,6 +2205,8 @@ var HELP_TIPS = {
   scope: ["Alle, Vores og Favoritter", "<p><strong>Alle</strong> viser alle steder i guiden.</p><p><strong>Vores</strong> viser kun de steder, jeres andel selv har givet stjerner eller skrevet om.</p><p><strong>Favoritter</strong> viser de steder, I har trykket på hjertet ♡ ved.</p>", "find"],
   stars: ["Stjernerne", "<p>De store stjerner er <strong>gennemsnittet</strong> af alle andeles vurderinger. Tallet i parentes er, hvor mange der har vurderet.</p><p><strong>Din vurdering</strong> nedenunder er jeres egen.</p><p>Tryk på stjernerne for at give eller ændre jeres vurdering.</p>", "stjerner"],
   photovis: ["Hvem kan se billedet?", "<p>Mærket viser, hvem der kan se billedet:</p><p><strong>Alle</strong> – alle andelshavere i guiden.<br><strong>Vores andel</strong> – kun jer i andelen.<br><strong>Kun mig</strong> – kun dig.</p><p>Tryk på mærket for at skifte. Det gemmes med det samme. <strong>Kun mig</strong> kan kun vælges på billeder, du selv har lagt ind.</p>", "billeder"],
+  photovisapt: ["Hvem kan se billedet?", "<p>Mærket viser, hvem der kan se billedet:</p><p><strong>Lejligheden</strong> – alle andele i samme lejlighed (fx alle, der har en andel i lejlighed 101).<br><strong>Vores andel</strong> – kun jer i andelen.<br><strong>Kun mig</strong> – kun dig.</p><p>Tryk på mærket for at skifte. Det gemmes med det samme. <strong>Kun mig</strong> kan kun vælges på billeder, du selv har lagt ind.</p>", "billeder"],
+  whoseeapt: ["Hvem kan se det?", "<p><strong>Hvem kan se stedet?</strong> <em>Lejligheden</em> – alle andele i samme lejlighed. <em>Vores andel</em> – kun jer. <em>Kun mig</em> – kun dig.</p><p><strong>Hvem kan se vores stjerner og tekst?</strong> Om jeres stjerner og kommentar vises for alle, der kan se stedet, eller kun for jeres andel.</p>", "stjerner"],
   whosee: ["Hvem kan se det?", "<p><strong>Hvem kan se stedet?</strong> Om alle andelshavere kan se stedet, kun jeres andel eller kun dig.</p><p><strong>Hvem kan se vores stjerner og tekst?</strong> Om jeres stjerner og kommentar vises for alle eller kun for jeres andel.</p>", "stjerner"],
   advanced: ["Avanceret redigering", "<p>Her kan man rette stedets navn, by, kategori, links og hvem der kan se det.</p><p>Det er sjældent nødvendigt. Vil du bare skrive en kommentar, skal du kun bruge feltet <strong>Kommentar</strong> øverst og trykke <strong>Gem</strong>.</p>", "avanceret"],
   invite: ["Invitér en person", "<p>1. Skriv personens fornavn og mail.<br>2. Vælg <strong>Gæst</strong> eller <strong>Ejer</strong>.<br>3. Tryk <strong>Invitér</strong>.<br>4. Tryk <strong>Mail</strong>, <strong>SMS</strong> eller <strong>WhatsApp</strong>. Beskeden er skrevet på forhånd – du trykker bare send.</p><p>Gæster kan det samme i guiden som ejere, men kan ikke invitere andre.</p>", "andel"]
@@ -2503,7 +2505,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 115;
+var APP_VERSION = 116;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
