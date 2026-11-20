@@ -744,3 +744,13 @@ footer.foot .footlabel:first-child{margin-top:0}
   .detailcard .topright .rwrap{align-items:flex-start}
   .detailcard .topright .rown{text-align:left}
 }
+/* v161: små stjerner over "Giv din vurdering", dobbelt så stort hjerte med bunden ud for stjernerne */
+.rown .rmini{display:block;line-height:1}
+.rown .rmini span{font-size:.8rem;letter-spacing:1px}
+.rown .rmini .on{color:var(--gold)}.rown .rmini .off{color:var(--star-off)}
+.rown .rmtxt{display:block;margin-top:2px}
+.detailcard .topright{align-items:flex-start}
+.detailcard .topright .rbtn{min-height:60px;align-items:flex-end;padding-bottom:6px}
+.detailcard .topright>.heart{width:76px;height:76px;align-self:flex-start;display:flex;align-items:flex-end;justify-content:center;padding-bottom:0;margin-top:-25px}
+.detailcard .topright>.heart svg{width:72px;height:72px}
+.detailcard .topright .rown .rmini span{font-size:1rem}

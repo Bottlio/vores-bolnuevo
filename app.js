@@ -120,7 +120,7 @@ function ratingButton(kind, key, cat, o, compact) {
   var big = '<button type="button" class="rbtn' + (v ? "" : " empty") + '"' + attrs + ' aria-label="' + esc(label) + '">' +
     (v ? '<span class="rnum">' + dec(v.score) + "</span>" : "") + '<span class="rstars" aria-hidden="true">' + starRow(v ? v.stars : 0) + "</span>" + (v ? '<span class="rcount">(' + n + ")</span>" : "") + "</button>";
   var mine = "";
-  if (!compact && ui.editor && (v || own != null)) mine = '<button type="button" class="rown"' + attrs + ' tabindex="-1" aria-hidden="true">' + (own != null ? "Din vurdering " + dec(own) + " ★" : "Giv din vurdering") + "</button>";
+  if (!compact && ui.editor && (v || own != null)) mine = '<button type="button" class="rown"' + attrs + ' tabindex="-1" aria-hidden="true">' + (own != null ? '<span class="rmini" aria-hidden="true">' + starRow(Math.round(own)) + '</span><span class="rmtxt">Din vurdering ' + dec(own) + "</span>" : '<span class="rmini" aria-hidden="true">' + starRow(0) + '</span><span class="rmtxt">Giv din vurdering</span>') + "</button>";
   return '<span class="rwrap">' + big + mine + "</span>";
 }
 
@@ -504,7 +504,7 @@ function placeCard(p, detail, showKat) {
     var vv = (p.visits || []).slice().sort(), lastV = vv.length ? vv[vv.length - 1] : null;
     var hotelCard = p.cat === "lejligheden" && !!(p.facts && p.facts.beskrivelse);
     var visitLine = detail && lastV && !hotelCard ? '<span class="visitline">' + (vv.length > 1 ? "Senest besøgt " : "Vi har besøgt ") + MONTHS[parseInt(lastV.slice(5, 7), 10) - 1] + " " + lastV.slice(0, 4) + "</span>" : "";
-    html += '<div class="place-top"><div class="ptitle"><h3>' + (detail ? esc(p.name) : '<button class="titlebtn" type="button" data-open="' + esc(p.id) + '">' + esc(p.name) + "</button>") + "</h3>" + visitLine + "</div>" + '<span class="topright">' + ratingButton("place", p.id, p.cat, p) + heartBtn(p) + (detail && !isApt(p.cat) && ui.editor && overall(p) ? helpBtn("stars", "nexttop") : "") + "</span></div>";
+    html += '<div class="place-top"><div class="ptitle"><h3>' + (detail ? esc(p.name) : '<button class="titlebtn" type="button" data-open="' + esc(p.id) + '">' + esc(p.name) + "</button>") + "</h3>" + visitLine + "</div>" + '<span class="topright">' + ratingButton("place", p.id, p.cat, p) + heartBtn(p) + "</span></div>";
     // Hvad stedet er (underkategori, ellers kategori) og åbningsforhold – som almindelig tekst øverst
     var kind = isApt(p.cat) ? [] : [esc(subName(p.cat, p.subcat) || CATNAME[p.cat] || "")].concat(factList(p, detail).map(function (t) { return t[0] ? '<span class="warn">' + esc(t[1]) + "</span>" : esc(t[1]); })).filter(Boolean);
     if (kind.length) html += '<p class="kindline">' + kind.join(" · ") + "</p>";
@@ -3081,7 +3081,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 160;
+var APP_VERSION = 161;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
