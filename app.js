@@ -1737,7 +1737,7 @@ async function photonNear(lat, lon) {
     var k = q.osm_type + q.osm_id; if (seen[k] || !q.name || PH_SMALL.indexOf(q.osm_value) >= 0) return; seen[k] = 1;
     if (["amenity", "shop", "tourism", "historic", "leisure", "place"].indexOf(q.osm_key) < 0 || (q.osm_key === "place" && q.osm_value !== "square")) return;
     var tags = { name: q.name }; tags[q.osm_key] = q.osm_value;
-    var cc = q.osm_key === "place" ? ["sevaerdigheder", "bymiljo"] : catFromTags(tags), ex = q.extent;
+    var cc = q.osm_key === "place" ? ["sevaerdigheder", "historisk"] : catFromTags(tags), ex = q.extent;
     list.push({ name: q.name, key: q.osm_key, cat: cc[0], subcat: cc[1], d: g.length ? distM(lat, lon, g[1], g[0]) : 9999, bd: boxDist(lat, lon, ex), area: ex ? Math.abs((ex[2] - ex[0]) * (ex[1] - ex[3])) : 0 });
   });
   return { city: city, list: list };
@@ -2968,7 +2968,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 144;
+var APP_VERSION = 145;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
