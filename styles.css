@@ -695,3 +695,9 @@ footer.foot .footlabel:first-child{margin-top:0}
 .nhead .hint{display:block;margin-top:2px}
 .nhead .sincego{color:var(--sea)}
 .nbody{border-top:1px solid var(--line);padding:8px 0 4px}
+/* Vores andel med bokse (v141) */
+.pagetitle{margin:18px 2px 10px;font-size:1.5rem}
+.nbox+.nbox,.panel+.nbox{margin-top:10px}
+.nhead strong.danger-t{color:var(--danger)}
+.nbody .members{margin-top:4px}
+.nbody .invite{margin-top:10px}

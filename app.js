@@ -238,13 +238,13 @@ function uid() { return "p" + Date.now().toString(36) + Math.random().toString(3
 async function load() {
   if (!ui.member) { ui.loaded = true; render(); return; }
   var res = await Promise.all([sb.from("towns").select("*"), sb.from("regions").select("*"), sb.from("places").select("*"),
-    sb.from("experiences").select("*"), sb.from("photos").select("*").order("sort").order("created_at"), sb.rpc("author_names"), sb.from("andele").select("id,lejlighed,nummer"), sb.from("andel_numre").select("andel_id,lejlighed,nummer")]);
+    sb.from("experiences").select("*"), sb.from("photos").select("*").order("sort").order("created_at"), sb.rpc("author_names"), sb.from("andele").select("id,lejlighed,nummer,rul"), sb.from("andel_numre").select("andel_id,lejlighed,nummer,rul")]);
   if (res[2].error) { ui.msg = "Kunne ikke hente stederne. Prøv at genindlæse siden."; ui.loaded = true; render(); return; }
   raw.towns = res[0].data || []; raw.regions = res[1].data || []; raw.places = res[2].data || []; raw.exps = res[3].data || []; raw.photos = res[4].data || [];
   authors = {}; (res[5].data || []).forEach(function (a) { authors[a.user_id] = a; });
   // En husstand kan have flere andelsnumre: label = laveste nummer + " m.fl." (fx "102-025 m.fl.")
-  andelNums = {}; (res[6].data || []).forEach(function (a) { andelNums[a.id] = [{ l: a.lejlighed, n: a.nummer }]; });
-  (res[7].data || []).forEach(function (x) { if (andelNums[x.andel_id] && !andelNums[x.andel_id].some(function (y) { return y.l === x.lejlighed && y.n === x.nummer; })) andelNums[x.andel_id].push({ l: x.lejlighed, n: x.nummer }); });
+  andelNums = {}; (res[6].data || []).forEach(function (a) { andelNums[a.id] = [{ l: a.lejlighed, n: a.nummer, r: a.rul }]; });
+  (res[7].data || []).forEach(function (x) { if (andelNums[x.andel_id] && !andelNums[x.andel_id].some(function (y) { return y.l === x.lejlighed && y.n === x.nummer; })) andelNums[x.andel_id].push({ l: x.lejlighed, n: x.nummer, r: x.rul }); });
   andelLabels = {}; Object.keys(andelNums).forEach(function (id) {
     var ns = andelNums[id].slice().sort(function (a, b) { return String(a.n).localeCompare(String(b.n), "da", { numeric: true }); }); andelNums[id] = ns;
     andelLabels[id] = ns[0].l + "-" + ns[0].n + (ns.length > 1 ? " m.fl." : "");
@@ -645,8 +645,8 @@ function notifyOn(k) { var n = ui.notify || {}; return !n.off && n[k] !== false;
 function notifyHtml() {
   var n = ui.notify || {}, many = myApts().length > 1;
   var state = n.off ? "Slået fra" : NOTIFY_TYPES.every(function (t) { return n[t[0]] !== false; }) ? "Alt slået til" : NOTIFY_TYPES.filter(function (t) { return n[t[0]] !== false; }).length + " af 4 slået til";
-  var h = '<section class="panel nbox"><button type="button" class="nhead" data-notifyopen="1" aria-expanded="' + !!ui.notifyOpen + '"><span><strong>Notifikationer:</strong> Nyt siden sidst<span class="hint">' + state + '</span></span><span class="sincego" aria-hidden="true">' + (ui.notifyOpen ? "⌃" : "›") + "</span></button>";
-  if (!ui.notifyOpen) return h + "</section>";
+  var h = '<section class="panel nbox"><button type="button" class="nhead" data-fold="notify" aria-expanded="' + !!(ui.fold && ui.fold.notify) + '"><span><strong>Notifikationer:</strong> Nyt siden sidst<span class="hint">' + state + '</span></span><span class="sincego" aria-hidden="true">' + (ui.fold && ui.fold.notify ? "⌃" : "›") + "</span></button>";
+  if (!(ui.fold && ui.fold.notify)) return h + "</section>";
   return h + '<div class="nbody"><p class="hint">Bestem, hvad der skal stå i "Nyt siden sidst" øverst på forsiden. Gælder kun dig.</p>' +
     '<label class="chk nchk"><input type="checkbox" data-notify="off"' + (n.off ? "" : " checked") + "> Vis \"Nyt siden sidst\" på forsiden</label>" +
     (n.off ? "" : '<div class="nlist">' + NOTIFY_TYPES.map(function (t) { return '<label class="chk nchk"><input type="checkbox" data-notify="' + t[0] + '"' + (n[t[0]] === false ? "" : " checked") + "> " + esc(t[0] === "apt" && many ? "Billeder og kommentarer på jeres lejligheder" : t[1]) + "</label>"; }).join("") + "</div>") +
@@ -1229,27 +1229,39 @@ async function loadAndel() {
   andelData = { members: m.data || [], err: m.error ? m.error.message : "" };
   render();
 }
+/* Boks der foldes ud ved tryk (Vores andel) */
+function foldBox(key, titleHtml, hint, bodyHtml, cls) {
+  var open = !!(ui.fold && ui.fold[key]);
+  return '<section class="panel nbox' + (cls ? " " + cls : "") + '"><button type="button" class="nhead" data-fold="' + esc(key) + '" aria-expanded="' + open + '"><span>' + titleHtml + (hint ? '<span class="hint">' + esc(hint) + "</span>" : "") + '</span><span class="sincego" aria-hidden="true">' + (open ? "⌃" : "›") + "</span></button>" +
+    (open ? '<div class="nbody">' + bodyHtml + "</div>" : "") + "</section>";
+}
 function andelPageHtml() {
-  var d = andelData, owner = me.role === "ejer" || me.admin;
-  var h = '<section class="panel andelpage"><p class="eyebrow">' + (me.allLabels && me.allLabels.length > 1 ? "Vores andele" : "Vores andel") + '</p><h2>' + (me.allLabels && me.allLabels.length > 1 ? "Andele " + esc(me.allLabels.join(" · ")) : "Andel " + esc(me.label)) + "</h2>" + andelSwitchHtml() +
-    '<p class="hint">Ejere og gæster ser og kan det samme i guiden. Kun ejere kan give og fjerne adgang.</p>';
-  if (!d) { loadAndel(); return h + "<p>Henter…</p></section>"; }
-  h += '<ul class="members">' + d.members.map(function (m) {
+  var d = andelData, owner = me.role === "ejer" || me.admin, many = me.allLabels && me.allLabels.length > 1;
+  var h = '<h2 class="pagetitle">' + (many ? "Vores andele" : "Vores andel") + "</h2>";
+  var sw = andelSwitchHtml(); if (sw) h += '<section class="panel">' + sw + "</section>";
+  if (!d) { loadAndel(); return h + '<section class="panel"><p>Henter…</p></section>'; }
+  function personRow(m) {
     var you = m.user_id === ui.user.id;
     return "<li><span><strong>" + esc(m.name || m.email) + "</strong> " + (m.role === "ejer" ? "Ejer" : "Gæst") + (you ? " (dig)" : "") + '<br><span class="hint">' + esc(m.email) + (m.user_id ? "" : " · inviteret, har ikke logget ind endnu") + "</span>" + (!m.user_id && owner ? '<br><button class="linkbtn" type="button" data-reinvite="' + esc(m.email) + '" data-rname="' + esc(m.name || "") + '" data-rrole="' + esc(m.role) + '">Send invitationen igen</button>' : "") + "</span>" +
       (owner && !you ? '<button class="btn small danger" type="button" data-rmmember="' + esc(m.email) + '">' + (ui.confirmRm === m.email ? "Tryk igen for at fjerne" : "Fjern adgang") + "</button>" : "") + "</li>";
-  }).join("") + "</ul>";
-  if (owner) h += '<form id="invite-form" class="invite"><h3>Låner nogen jeres lejlighed? ' + helpBtn("invite", "inline") + '</h3><p class="hint">Giv familie eller venner, der skal låne lejligheden, adgang til guiden, så de kan finde rundt i området.</p><div class="grid"><label>Fornavn<input id="i-name" required placeholder="Fx Emma"></label><label>Mail<input id="i-email" type="email" required placeholder="navn@mail.dk"></label></div>' +
-    '<div class="seg small" role="group" aria-label="Rolle"><button type="button" data-irole="gaest" aria-pressed="' + (ui.irole !== "ejer") + '">Gæst</button><button type="button" data-irole="ejer" aria-pressed="' + (ui.irole === "ejer") + '">Ejer</button></div>' +
-    '<button class="btn primary" type="submit">Invitér</button></form>';
-  if (d.err) h += '<p class="err">' + esc(d.err) + "</p>";
-  h += "</section>";
+  }
+  var owners = d.members.filter(function (m) { return m.role === "ejer"; }), guests = d.members.filter(function (m) { return m.role !== "ejer"; });
+  var nums = (andelNums[me.andel] || [{ l: String(me.label).split("-")[0], n: String(me.label).split("-")[1] }]);
+  var ownerBody = '<ul class="members">' + owners.map(personRow).join("") + "</ul>" + '<p class="hint">Ejere og gæster ser og kan det samme i guiden. Kun ejere kan give og fjerne adgang.</p>';
+  nums.forEach(function (x) {
+    h += foldBox("andel-" + x.l + "-" + x.n, "<strong>Andel " + esc(x.l + "-" + x.n) + "</strong>", ["Lejlighed " + x.l, x.r ? "rul " + x.r : "", owners.length === 1 ? "1 ejer" : owners.length + " ejere"].filter(Boolean).join(" · "), ownerBody);
+  });
+  var gBody = (guests.length ? '<ul class="members">' + guests.map(personRow).join("") + "</ul>" : "") +
+    (owner ? '<form id="invite-form" class="invite"><h3>Låner nogen jeres lejlighed? ' + helpBtn("invite", "inline") + '</h3><p class="hint">Giv familie eller venner, der skal låne lejligheden, adgang til guiden, så de kan finde rundt i området.</p><div class="grid"><label>Fornavn<input id="i-name" required placeholder="Fx Emma"></label><label>Mail<input id="i-email" type="email" required placeholder="navn@mail.dk"></label></div>' +
+      '<button class="btn primary" type="submit">Invitér</button></form>' : "") +
+    (d.err ? '<p class="err">' + esc(d.err) + "</p>" : "");
+  h += foldBox("gaester", "<strong>Gæster</strong>", guests.length ? (guests.length === 1 ? "1 gæst" : guests.length + " gæster") + " · Låner nogen jeres lejlighed?" : "Låner nogen jeres lejlighed?", gBody);
   h += notifyHtml();
   // Billeder med personer, som kun vores andel kan se
   var ph = raw.photos.filter(function (p) { return p.andel_id === me.andel && (p.faces !== false || p.visibility !== "alle"); });
   if (ph.length) {
-    h += '<section class="panel nbox"><button type="button" class="nhead" data-facesopen="1" aria-expanded="' + !!ui.facesOpen + '"><span><strong>Billeder med personer</strong> (' + ph.length + ')<span class="hint">Vælg, hvem der kan se dem</span></span><span class="sincego" aria-hidden="true">' + (ui.facesOpen ? "⌃" : "›") + "</span></button>";
-    if (ui.facesOpen) h += '<div class="nbody">' +
+    h += '<section class="panel nbox"><button type="button" class="nhead" data-fold="faces" aria-expanded="' + !!(ui.fold && ui.fold.faces) + '"><span><strong>Billeder med personer</strong> (' + ph.length + ')<span class="hint">Vælg, hvem der kan se dem</span></span><span class="sincego" aria-hidden="true">' + (ui.fold && ui.fold.faces ? "⌃" : "›") + "</span></button>";
+    if (ui.fold && ui.fold.faces) h += '<div class="nbody">' +
       '<p class="hint">Billeder, hvor guiden har fundet personer (eller ikke kunne tjekke). De er som udgangspunkt kun for jeres andel. Tryk "Alle" på et billede, hvis andre andelshavere gerne må se det.</p>' +
       '<div class="pgrid">' + ph.map(function (p) {
         return '<div class="pcell"><img src="' + esc(photoUrl(p.path)) + '" alt="" loading="lazy"><div class="seg small" role="group" aria-label="Hvem kan se billedet">' +
@@ -1258,10 +1270,10 @@ function andelPageHtml() {
     h += "</section>";
   }
   // Slet min konto
-  h += '<section class="panel"><h2>Slet min konto</h2><p class="hint">Sletter dit login og din plads på andel ' + esc(me.label) + ". Det, du har lagt ind – steder, vurderinger, tekster og billeder – bliver hos andelen, så de andre ikke mister det.</p>" +
+  h += foldBox("slet", '<strong class="danger-t">Slet min konto</strong>', "", '<p class="hint">Sletter dit login og din plads på andel ' + esc(me.label) + ". Det, du har lagt ind – steder, vurderinger, tekster og billeder – bliver hos andelen, så de andre ikke mister det.</p>" +
     (me.admin ? '<p class="hint">Som administrator kan du ikke slette din egen konto her.</p>'
       : '<button class="btn danger" type="button" id="del-account"' + (ui.busy ? " disabled" : "") + ">" + (ui.confirmDelAcc ? "Tryk igen for at slette din konto – det kan ikke fortrydes" : "Slet min konto") + "</button>") +
-    (ui.delAccErr ? '<p class="err" role="alert">' + esc(ui.delAccErr) + "</p>" : "") + "</section>";
+    (ui.delAccErr ? '<p class="err" role="alert">' + esc(ui.delAccErr) + "</p>" : ""), "nslet");
   return h;
 }
 /* Pop-up efter "Invitér": beskeden og knapper til Mail, SMS, WhatsApp og Messenger */
@@ -1323,7 +1335,7 @@ function inviteMsg(name, email, andel, lend) {
     "Tip: Læg guiden på telefonens hjemmeskærm, så den åbner som en app. Har du brug for hjælp, så tryk på ? øverst i guiden – den virker også, før du er logget ind.";
 }
 async function invite() {
-  var name = document.getElementById("i-name").value.trim(), email = document.getElementById("i-email").value.trim().toLowerCase(), role = ui.irole === "ejer" ? "ejer" : "gaest";
+  var name = document.getElementById("i-name").value.trim(), email = document.getElementById("i-email").value.trim().toLowerCase(), role = "gaest";
   if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { andelData.err = "Skriv fornavn og en gyldig mail."; render(); return; }
   var r = await sb.from("members").insert({ andel_id: me.andel, email: email, name: name, role: role, invited_by: ui.user.id });
   if (r.error && /duplicate|unique/i.test(r.error.message)) {
@@ -2514,7 +2526,7 @@ var HELP_TIPS = {
   whoseeapt: ["Hvem kan se det?", "<p><strong>Hvem kan se stedet?</strong> <em>Lejligheden</em> – alle andele i samme lejlighed. <em>Vores andel</em> – kun jer. <em>Kun mig</em> – kun dig.</p><p><strong>Hvem kan se vores stjerner og tekst?</strong> Om jeres stjerner og kommentar vises for alle, der kan se stedet, eller kun for jeres andel.</p>", "stjerner"],
   whosee: ["Hvem kan se det?", "<p><strong>Hvem kan se stedet?</strong> Om alle andelshavere kan se stedet, kun jeres andel eller kun dig.</p><p><strong>Hvem kan se vores stjerner og tekst?</strong> Om jeres stjerner og kommentar vises for alle eller kun for jeres andel.</p>", "stjerner"],
   advanced: ["Avanceret redigering", "<p>Her kan man rette stedets navn, by, kategori, links og hvem der kan se det.</p><p>Vil du bare skrive en kommentar, er knappen <strong>Tilføj kommentar</strong> på stedet nemmere.</p>", "avanceret"],
-  invite: ["Når nogen låner jeres lejlighed", "<p>1. Skriv personens fornavn og mail.<br>2. Vælg <strong>Gæst</strong> eller <strong>Ejer</strong>.<br>3. Tryk <strong>Invitér</strong>.<br>4. Der kommer et vindue: tryk <strong>Mail</strong>, <strong>SMS</strong>, <strong>WhatsApp</strong> eller <strong>Messenger</strong>. Beskeden er skrevet på forhånd – du vælger personen og trykker send.</p><p>Gæster kan det samme i guiden som ejere, men kan ikke invitere andre.</p>", "andel"]
+  invite: ["Når nogen låner jeres lejlighed", "<p>1. Tryk på <strong>Gæster</strong> under Vores andel.<br>2. Skriv personens fornavn og mail.<br>3. Tryk <strong>Invitér</strong>.<br>4. Der kommer et vindue: tryk <strong>Mail</strong>, <strong>SMS</strong>, <strong>WhatsApp</strong> eller <strong>Messenger</strong>. Beskeden er skrevet på forhånd – du vælger personen og trykker send.</p><p>Gæster kan det samme i guiden som ejere, men kan ikke invitere andre.</p>", "andel"]
 };
 function helpBtn(key, cls) { return '<button type="button" class="qhelp' + (cls ? " " + cls : "") + '" data-help="' + key + '" aria-label="Hjælp: ' + esc(HELP_TIPS[key][0]) + '" title="Hjælp">?</button>'; }
 var helpBox = null;
@@ -2817,8 +2829,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.sold) { markSold(t.dataset.sold); return; }
   if (t.dataset.rmnum) { rmAndelNum(t.dataset.rmnum); return; }
   if (t.dataset.adminvite) { adminInvite(t.dataset.adminvite); return; }
-  if (t.dataset.facesopen) { ui.facesOpen = !ui.facesOpen; render(); return; }
-  if (t.dataset.notifyopen) { ui.notifyOpen = !ui.notifyOpen; render(); return; }
+  if (t.dataset.fold) { ui.fold = ui.fold || {}; ui.fold[t.dataset.fold] = !ui.fold[t.dataset.fold]; render(); return; }
   if (t.dataset.since) { if (t.dataset.since === "open") openSince(); else { ui.sinceOpen = false; ui.since = []; render(); } return; }
   if (t.dataset.admf) { ui.admF = t.dataset.admf; document.querySelectorAll("[data-admf]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.admf === ui.admF)); }); filterAdmList(); return; }
   if (t.dataset.switchandel) { try { localStorage.setItem("bol_andel_" + ui.user.id, t.dataset.switchandel); } catch (x) {} location.reload(); return; }
@@ -2908,7 +2919,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 140;
+var APP_VERSION = 141;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
