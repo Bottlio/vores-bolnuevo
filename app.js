@@ -440,7 +440,7 @@ function areaHeader(kind, name) {
   html += '<p class="meta">' + (kind === "town" && regionOf(name) !== NO_REGION && regionOf(name) !== name ? '<button class="linkbtn" type="button" data-region="' + esc(regionOf(name)) + '">' + esc(regionOf(name)) + "</button>" + (meta.length ? " · " : "") : "") + esc(meta.join(" · ")) + "</p>";
   html += textsHtml({ note: a.note, texts: (a.rec && a.rec.texts) || [], mine: a.rec && a.rec.mine, cat: "byer" }, true);
   var mq = kind === "town" ? name + ", Murcia, España" : name + ", España";
-  if (ui.editor) html += '<div class="actrow"><button class="btn act" type="button" data-editarea="' + kind + '" data-key="' + esc(name) + '">' + ICON_PEN + 'Tilføj kommentar</button><button class="btn act" type="button" data-addarea="' + kind + '" data-key="' + esc(name) + '">' + ICON_CAM + 'Tilføj billeder</button></div>';
+  if (ui.editor) html += '<div class="actrow act3"><button class="btn act" type="button" data-comment="' + kind + '" data-key="' + esc(name) + '">' + ICON_CHAT + '<span>Tilføj kommentar</span></button><button class="btn act" type="button" data-addarea="' + kind + '" data-key="' + esc(name) + '">' + ICON_CAM + '<span>Tilføj billeder</span></button><button class="btn act" type="button" data-editarea="' + kind + '" data-key="' + esc(name) + '">' + ICON_PEN + "<span>Rediger</span></button></div>";
   html += '<div class="linklist">' + lrow("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(mq), ICON_PIN, "Åbn i Google Maps", true) + "</div>";
   return html + "</section>";
 }
@@ -479,6 +479,7 @@ var ICON_GLOBE = licon('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 
 var ICON_LINK = licon('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>');
 var ICON_TOWN = licon('<path d="M3 21h18M5 21V10l5-3v14M10 21V5l6 3v13M16 21v-9l4 2v7"/>');
 var ICON_PEN = licon('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>');
+var ICON_CHAT = licon('<path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 16h-8l-4.5 3.5V16H5a1.5 1.5 0 0 1-1.5-1.5v-8A1.5 1.5 0 0 1 5 5z"/><path d="M8 9.5h8M8 12.5h5"/>');
 var ICON_CAM = licon('<path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.3"/>');
 function placeCard(p, detail, showKat) {
     var html = '<article class="place' + (detail ? " detailcard" : "") + '" id="' + esc(p.id) + '" data-pid="' + esc(p.id) + '">' +
@@ -502,7 +503,8 @@ function placeCard(p, detail, showKat) {
     if (p.guess) html += '<span class="tag guess">Navnet er gættet ud fra billeder</span>';
     html += "</div>";
     if (ui.editor) {
-      html += '<div class="' + (detail ? "actrow" : "row") + '"><button class="btn ' + (detail ? "act" : "small") + '" type="button" data-edit="' + esc(p.id) + '">' + (detail ? ICON_PEN : "") + 'Tilføj kommentar</button><button class="btn ' + (detail ? "act" : "small") + '" type="button" data-addphotos="' + esc(p.id) + '">' + (detail ? ICON_CAM : "") + 'Tilføj billeder</button>';
+      html += detail ? '<div class="actrow act3"><button class="btn act" type="button" data-comment="place" data-key="' + esc(p.id) + '">' + ICON_CHAT + '<span>Tilføj kommentar</span></button><button class="btn act" type="button" data-addphotos="' + esc(p.id) + '">' + ICON_CAM + '<span>Tilføj billeder</span></button><button class="btn act" type="button" data-edit="' + esc(p.id) + '">' + ICON_PEN + "<span>Rediger</span></button>"
+        : '<div class="row"><button class="btn small" type="button" data-comment="place" data-key="' + esc(p.id) + '">Tilføj kommentar</button><button class="btn small" type="button" data-addphotos="' + esc(p.id) + '">Tilføj billeder</button><button class="btn small" type="button" data-edit="' + esc(p.id) + '">Rediger</button>';
       if ((!p.photos || !p.photos.length) && (p.website || (p.link && !isMapsLink(p.link)))) html += '<button class="btn small" type="button" data-fetchimg="' + esc(p.id) + '">Hent billeder fra nettet</button>';
       html += "</div>";
     }
@@ -634,6 +636,7 @@ function renderHome() {
   html += hiddenDupHtml();
   html += scopeHint();
   if (ui.draft) html += formHtml(ui.draft);
+  html += wizOverlays();
   if (ui.areaDraft) html += areaFormHtml(ui.areaDraft);
   spots = spots.filter(function (p) { return p.status === ui.status; });
   var homeMap = ui.view === "kort";
@@ -814,6 +817,7 @@ function render() {
   if (detail) html += hiddenDupHtml(detail.id);
   if (ui.login) html += loginHtml();
   if (ui.draft) html += formHtml(ui.draft);
+  html += wizOverlays();
   if (ui.areaDraft) html += areaFormHtml(ui.areaDraft);
 
   var f = "";
@@ -1521,7 +1525,8 @@ async function startNew(files, opts) {
     items: files.map(function (f) { return { file: f, url: URL.createObjectURL(f) }; }), removed: [], finding: true, info: "" };
   ui.draft.vis = ui.draft.cat === "vores" ? "andel" : "alle"; ui.draft.expVis = "alle";
   ui.draft.items.forEach(suggestVis);
-  render(); scrollToForm();
+  if (ui.wizFlow) { ui.draft.wiz = 2; ui.wizFlow = false; ui.wizStart = false; }
+  render(); if (!ui.draft.wiz) scrollToForm();
   var info = await readPhotoInfo(files);
   var d = ui.draft; if (!d) return;
   if (info.month) d.visits = [info.month];
@@ -1547,14 +1552,15 @@ async function startNew(files, opts) {
     d.info = 'Billedet har ingen placering gemt. Tip: Tryk på "Valg" øverst, når du vælger billeder, og slå "Placering" til (iPhone fjerner den ellers). Står du på stedet nu, kan du trykke "Brug min placering".';
   }
   d.finding = false;
-  render(); scrollToForm();
+  render(); if (!d.wiz) scrollToForm();
 }
 
 function startManual() {
   ui.msg = "";
   ui.draft = { isNew: true, manual: true, id: uid(), cat: CATNAME[ui.cat] && ui.cat !== "lejligheden" ? ui.cat : "spisesteder", fav: false, name: "", area: "", town: "", note: "", rating: null, price: "",
     visits: [], guess: false, lat: null, lon: null, link: "", website: "", maps: "", items: [], removed: [], info: 'Skriv navnet og tryk "Find på kortet", så finder siden by, placering og køretid.', vis: ui.cat === "vores" ? "andel" : "alle", expVis: "alle" };
-  render(); scrollToForm(); var n = document.getElementById("f-name"); if (n) n.focus();
+  if (ui.wizFlow) { ui.draft.wiz = 2; ui.wizFlow = false; ui.wizStart = false; }
+  render(); if (!ui.draft.wiz) scrollToForm(); var n = document.getElementById("f-name"); if (n) n.focus();
 }
 function keepCore(d) { if (d && d.keep) { Object.assign(d, d.keep); } }
 async function findOnMap() {
@@ -1645,6 +1651,7 @@ function useMyLocation(auto) {
 
 /* ---------- formular ---------- */
 function formHtml(f) {
+  if (f.wiz) return wizardHtml(f);
   var opts = CATS.map(function (c) { return '<option value="' + c[0] + '"' + (f.cat === c[0] ? " selected" : "") + ">" + c[1] + "</option>"; }).join("");
   var r = [["", "Ingen"], ["1", "1"], ["2", "2"], ["3", "3"], ["4", "4"], ["5", "5"]].map(function (o) { return '<option value="' + o[0] + '"' + (String(f.rating || "") === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("");
   var pr = ["", "€", "€€", "€€€"].map(function (o) { return '<option value="' + o + '"' + (f.price === o ? " selected" : "") + ">" + (o || "Ikke relevant") + "</option>"; }).join("");
@@ -1953,6 +1960,7 @@ async function saveDraft() {
     }
     var townMsg = core && row.town !== undefined ? await ensureTown(row.town, row.lat !== undefined ? row.lat : d.lat, row.lon !== undefined ? row.lon : d.lon) : "";
     ui.status = d.status || "tried"; ui.cat = isApt(d.cat) ? "lejligheden" : CATNAME[d.cat] ? d.cat : ui.cat; ui.draft = null; ui.msg = "Gemt." + townMsg;
+    if (d.wiz) { ui.wizDone = { id: d.id, name: d.name.trim(), cat: d.cat }; ui.msg = townMsg.trim(); }
     await load();
     var hasPhotos = (raw.photos || []).some(function (x) { return x.kind === "place" && x.target === d.id; });
     if (!hasPhotos && (web || link)) await fetchWebImages(d.id, true);
@@ -2293,7 +2301,7 @@ var HELP_TIPS = {
   photovisapt: ["Hvem kan se billedet?", "<p>Mærket viser, hvem der kan se billedet:</p><p><strong>Lejligheden</strong> – alle andele i samme lejlighed (fx alle, der har en andel i lejlighed 101).<br><strong>Vores andel</strong> – kun jer i andelen.<br><strong>Kun mig</strong> – kun dig.</p><p>Tryk på mærket for at skifte. Det gemmes med det samme. <strong>Kun mig</strong> kan kun vælges på billeder, du selv har lagt ind.</p>", "billeder"],
   whoseeapt: ["Hvem kan se det?", "<p><strong>Hvem kan se stedet?</strong> <em>Lejligheden</em> – alle andele i samme lejlighed. <em>Vores andel</em> – kun jer. <em>Kun mig</em> – kun dig.</p><p><strong>Hvem kan se vores stjerner og tekst?</strong> Om jeres stjerner og kommentar vises for alle, der kan se stedet, eller kun for jeres andel.</p>", "stjerner"],
   whosee: ["Hvem kan se det?", "<p><strong>Hvem kan se stedet?</strong> Om alle andelshavere kan se stedet, kun jeres andel eller kun dig.</p><p><strong>Hvem kan se vores stjerner og tekst?</strong> Om jeres stjerner og kommentar vises for alle eller kun for jeres andel.</p>", "stjerner"],
-  advanced: ["Avanceret redigering", "<p>Her kan man rette stedets navn, by, kategori, links og hvem der kan se det.</p><p>Det er sjældent nødvendigt. Vil du bare skrive en kommentar, skal du kun bruge feltet <strong>Kommentar</strong> øverst og trykke <strong>Gem</strong>.</p>", "avanceret"],
+  advanced: ["Avanceret redigering", "<p>Her kan man rette stedets navn, by, kategori, links og hvem der kan se det.</p><p>Vil du bare skrive en kommentar, er knappen <strong>Tilføj kommentar</strong> på stedet nemmere.</p>", "avanceret"],
   invite: ["Invitér en person", "<p>1. Skriv personens fornavn og mail.<br>2. Vælg <strong>Gæst</strong> eller <strong>Ejer</strong>.<br>3. Tryk <strong>Invitér</strong>.<br>4. Der kommer et vindue: tryk <strong>Mail</strong>, <strong>SMS</strong>, <strong>WhatsApp</strong> eller <strong>Messenger</strong>. Beskeden er skrevet på forhånd – du vælger personen og trykker send.</p><p>Gæster kan det samme i guiden som ejere, men kan ikke invitere andre.</p>", "andel"]
 };
 function helpBtn(key, cls) { return '<button type="button" class="qhelp' + (cls ? " " + cls : "") + '" data-help="' + key + '" aria-label="Hjælp: ' + esc(HELP_TIPS[key][0]) + '" title="Hjælp">?</button>'; }
@@ -2343,34 +2351,25 @@ var HELP_FAQ = [
   ["stjerner", "Stjerner og kommentarer", [
     ["Hvordan giver jeg stjerner?", "<ol><li>Åbn stedet.</li><li>Tryk på stjernerne " + DEMO.stars + " ud for navnet.</li><li>Der kommer et vindue med nogle få spørgsmål – for et spisested fx <em>Mad og drikke</em>, <em>Betjening</em>, <em>Beliggenhed og stemning</em> og <em>Værdi for pengene</em>. Tryk på 1–5 stjerner ved hvert spørgsmål. Du behøver ikke svare på dem alle.</li><li>Nederst ser du den samlede vurdering. Tryk <strong>Gem</strong>.</li></ol><p>Du kan altid ændre jeres stjerner ved at trykke på dem igen.</p>"],
     ["Hvad betyder de store og de små stjerner?", "<p>" + DEMO.rating + "</p><p>De <strong>store stjerner</strong> er gennemsnittet af alle andeles vurderinger. Tallet foran er gennemsnittet, og tallet i parentes er, hvor mange andele der har vurderet.</p><p><strong>Din vurdering</strong> nedenunder er jeres egen.</p><p>Tryk på stjernerne for at give eller ændre jeres vurdering.</p>"],
-    ["Hvordan skriver jeg en kommentar?", "<ol><li>Åbn stedet.</li><li>Tryk <strong>Tilføj kommentar</strong>.</li><li>Skriv i feltet <strong>Kommentar</strong> – fx hvad I spiste, priser eller gode råd.</li><li>Tryk <strong>Gem</strong>.</li></ol>"],
-    ["Hvem kan se det, jeg skriver?", "<p>Som udgangspunkt kan alle andelshavere se jeres stjerner og kommentarer. Vil I holde dem for jer selv, så tryk <strong>Tilføj kommentar</strong> → <strong>Avanceret redigering</strong> og vælg <strong>Vores andel</strong> under <strong>Hvem kan se vores stjerner og tekst?</strong></p>"],
+    ["Hvordan skriver jeg en kommentar?", "<ol><li>Åbn stedet.</li><li>Tryk <strong>Tilføj kommentar</strong>. Der kommer et vindue med kun et tekstfelt.</li><li>Skriv fx hvad I spiste, priser eller gode råd.</li><li>Tryk <strong>Gem</strong>.</li></ol><p>Har I allerede skrevet noget, kan I rette det samme sted. Sletter I teksten og trykker Gem, fjernes kommentaren.</p>"],
+    ["Hvem kan se det, jeg skriver?", "<p>Som udgangspunkt kan alle andelshavere se jeres stjerner og kommentarer. Vil I holde dem for jer selv, så tryk <strong>Rediger</strong> på stedet og vælg <strong>Vores andel</strong> under <strong>Hvem kan se vores stjerner og tekst?</strong></p>"],
     ["Hvad er hjertet?", "<p>Tryk på hjertet " + DEMO.heart + " ved et sted for at gøre det til en favorit. Tryk igen for at fjerne det. Favoritter deles med alle i jeres andel, men andre andele kan ikke se dem.</p>"]
   ]],
   ["billeder", "Billeder og nye steder", [
     ["Hvordan lægger jeg billeder ind?", "<ol><li>Åbn stedet.</li><li>Tryk <strong>Tilføj billeder</strong>.</li><li>Vælg billederne på telefonen eller computeren.</li><li>Tryk <strong>Gem</strong>.</li></ol>"],
-    ["Hvordan opretter jeg et nyt sted?", "<p>Tryk <strong>+ Nyt sted</strong> nederst til højre. Du kan vælge mellem to måder:</p>" +
-      "<p><strong>Med billeder fra stedet</strong> (nemmest)</p><ol>" +
-      "<li>Tryk <strong>Vælg billeder</strong> og vælg et eller flere billeder.</li>" +
-      "<li>Guiden ser, hvor billederne er taget – hvis telefonen gemmer placeringen på billederne.</li>" +
-      "<li>Ligger der allerede et sted i guiden tæt på, står der fx <em>Billederne er taget ved Las Gredas</em>. Er det samme sted, så tryk <strong>Tilføj billederne dér</strong> – så er du færdig.</li>" +
-      "<li>Ellers foreslår guiden et navn. Ret det, hvis det er forkert. Fandt guiden ingen placering, og står du på stedet, så tryk <strong>Brug min placering</strong>.</li>" +
-      "<li>Vælg en kategori, fx <strong>Spisesteder</strong>, og evt. hvilken slags (fx <strong>Strandbar</strong>).</li>" +
-      "<li>Svar <strong>Ja</strong>, <strong>Nej</strong> eller <strong>Ved ikke</strong> på de korte spørgsmål, hvis der er nogen.</li>" +
-      "<li>Tryk " + DEMO.heart + " <strong>Tilføj som favorit</strong>, hvis I vil gemme stedet.</li>" +
-      "<li>Tryk <strong>Gem</strong>. Vil I skrive en kommentar eller give stjerner med det samme, så tryk <strong>Tilføj beskrivelse, karakter m.m.</strong> i stedet.</li></ol>" +
-      "<p><strong>Uden billeder</strong></p><ol>" +
-      "<li>Tryk <strong>Uden billede</strong>.</li>" +
-      "<li>Skriv stedets navn og tryk <strong>Find på kortet</strong>. Tryk på det rigtige sted i listen, der kommer frem.</li>" +
-      "<li>Skriv gerne stedets hjemmeside. Har I ingen billeder, henter guiden selv et par billeder fra hjemmesiden, når I gemmer.</li>" +
-      "<li>Vælg kategori, svar på spørgsmålene og tryk <strong>Gem</strong>.</li></ol>" +
-      "<p><strong>Godt at vide</strong></p><ul><li>Findes der allerede et sted med et lignende navn, viser guiden det. Brug hellere det, så det samme sted ikke står to gange.</li><li>Billeder, hvor guiden finder personer, bliver kun vist for jeres andel. Tryk på mærket på billedet for at ændre det.</li><li>Fortryder du, så tryk <strong>Annuller</strong>.</li></ul>"],
+    ["Hvordan opretter jeg et nyt sted?", "<p>Tryk <strong>+ Nyt sted</strong> nederst til højre. Så kommer en guide i fire trin. Prikkerne øverst viser, hvor langt du er, og du kan altid trykke <strong>Tilbage</strong>.</p>" +
+      "<ol><li><strong>Har du billeder fra stedet?</strong> Tryk <strong>Vælg billeder</strong> eller <strong>Ingen billeder</strong>.</li>" +
+      "<li><strong>Hvor er det?</strong> Med billeder finder guiden selv stedet ud fra, hvor billedet er taget. Ligger der allerede et sted i guiden tæt på, spørger den fx <em>Er det Las Gredas?</em> – tryk <strong>Ja – læg billederne dér</strong>, så er du færdig. Ellers skriv navnet og tryk <strong>Find på kortet</strong>, og tryk på det rigtige sted i listen. Står du på stedet, kan du trykke <strong>Brug min placering</strong>.</li>" +
+      "<li><strong>Hvad er det?</strong> Tryk på en kategori, fx <strong>Spisesteder</strong>, og evt. hvilken slags, fx <strong>Restaurant</strong>.</li>" +
+      "<li><strong>Jeres oplevelse</strong> (kan springes over): skriv en kommentar, svar på de korte spørgsmål (fx <em>Frokoståbent</em>) og tryk " + DEMO.heart + " for favorit. Tryk <strong>Gem stedet</strong>.</li></ol>" +
+      "<p>Til sidst står der, at stedet er oprettet. Her kan du trykke <strong>Giv stjerner</strong>, <strong>Se stedet</strong> eller <strong>Tilføj flere detaljer</strong> (hjemmeside, links, pris, hvem der kan se det).</p>" +
+      "<p><strong>Godt at vide</strong></p><ul><li>Findes der allerede et sted med et lignende navn, viser guiden det, før du gemmer. Brug hellere det, så det samme sted ikke står to gange.</li><li>Billeder, hvor guiden finder personer, bliver kun vist for jeres andel.</li><li>Fortryder du, så tryk på krydset øverst.</li></ul>"],
     ["Hvem kan se mine billeder?", HELP_TIPS.photovis[1] + "<p>Billeder, hvor guiden finder personer, bliver automatisk kun vist for jeres andel.</p>"],
-    ["Hvordan sletter jeg et billede?", "<ol><li>Åbn stedet.</li><li>Tryk <strong>Tilføj kommentar</strong>.</li><li>Tryk <strong>Slet</strong> under billedet.</li><li>Tryk <strong>Gem</strong>.</li></ol><p>Du kan kun slette jeres egne billeder. Med <strong>Gør til forside</strong> vælger du, hvilket billede der vises først.</p>"],
+    ["Hvordan sletter jeg et billede?", "<ol><li>Åbn stedet.</li><li>Tryk <strong>Rediger</strong>.</li><li>Tryk <strong>Slet</strong> under billedet.</li><li>Tryk <strong>Gem</strong>.</li></ol><p>Du kan kun slette jeres egne billeder. Med <strong>Gør til forside</strong> vælger du, hvilket billede der vises først.</p>"],
     ["Hvad gør Anmeld?", "<p>Er en tekst eller et billede fra en anden andel forkert eller upassende, så tryk <strong>Anmeld</strong> og skriv kort hvorfor. Administratoren ser på det.</p>"]
   ]],
-  ["avanceret", "Avanceret redigering", [
-    ["Hvad kan jeg under Avanceret redigering?", "<p>Tryk <strong>Tilføj kommentar</strong> på et sted og derefter <strong>Avanceret redigering ▾</strong>. Her kan du rette alt om stedet. Det er sjældent nødvendigt – til en kommentar skal du kun bruge feltet <strong>Kommentar</strong> øverst.</p><ul>" +
+  ["avanceret", "Rediger et sted", [
+    ["Hvordan retter jeg et sted?", "<p>Åbn stedet og tryk <strong>Rediger</strong> (til højre for Tilføj billeder). Her kan du rette alt om stedet – også kommentar, favorit og billeder. Vil du kun skrive en kommentar, er knappen <strong>Tilføj kommentar</strong> nemmere.</p><p>Under <strong>Avanceret redigering</strong> finder du:</p><ul>" +
       "<li><strong>Navn</strong>, <strong>By</strong> og <strong>Sted/område</strong> – fx <em>Plaza del Muelle</em>. Kan kun rettes af den, der oprettede stedet.</li>" +
       "<li><strong>Kategori</strong> og <strong>Underkategori</strong> – fx Spisesteder › Strandbar.</li>" +
       "<li><strong>Pris</strong> – prisniveau, eller <em>Ikke relevant</em>.</li>" +
@@ -2432,6 +2431,95 @@ function closeWelcome() {
   document.body.classList.remove("modal-open");
 }
 
+/* ---------- Guide til nyt sted: 1 billeder · 2 hvor · 3 hvad · 4 oplevelse · gem ---------- */
+var WIZ_STEPS = ["Billeder", "Hvor er det?", "Hvad er det?", "Jeres oplevelse"];
+function wizHead(step, title) {
+  return '<button type="button" class="hclose" data-wiz="close" aria-label="Luk">×</button>' +
+    '<div class="wizdots" aria-label="Trin ' + step + ' af 4">' + WIZ_STEPS.map(function (s, i) { return '<span class="' + (i + 1 < step ? "done" : i + 1 === step ? "on" : "") + '"></span>'; }).join("") + "</div>" +
+    '<p class="eyebrow">Nyt sted · trin ' + step + " af 4</p><h2>" + esc(title) + "</h2>";
+}
+function wizStartHtml() {
+  return '<div class="wizwrap"><div class="rback" data-wiz="close"></div><div class="helpmodal wiz" role="dialog" aria-modal="true">' + wizHead(1, "Har du billeder fra stedet?") +
+    '<p class="hint">Med billeder kan guiden ofte selv finde stedet ud fra, hvor billedet er taget.</p>' +
+    '<div class="wizbig"><button type="button" class="wizopt" id="new-photo">' + ICON_CAM + '<span><strong>Vælg billeder</strong><small>Fra telefonen eller computeren</small></span></button>' +
+    '<button type="button" class="wizopt" id="new-manual">' + ICON_PIN + '<span><strong>Ingen billeder</strong><small>Jeg skriver navnet selv</small></span></button></div></div></div>';
+}
+function wizardHtml(f) {
+  var step = f.wiz, body = "", foot = "";
+  var choices = f.choices ? '<div class="choices">' + f.choices.map(function (x, i) { return '<button class="btn" type="button" data-choose="' + i + '"><strong>' + esc(x.name) + "</strong> " + esc([x.addr, x.km != null ? Math.round(x.km) + " km fra hotellet" : ""].filter(Boolean).join(" · ")) + "</button>"; }).join("") + "</div>" : "";
+  if (step === 2) {
+    var thumbs = f.items.length ? '<div class="qthumbs">' + f.items.map(function (it, i) { return '<div class="qthumb"><img src="' + esc(it.url || photoUrl(it.path)) + '" alt="">' + visBtn(it, i) + "</div>"; }).join("") + "</div>" : "";
+    body = thumbs + (f.finding ? '<p class="hint">Finder stedet ud fra billedet…</p>' : "") +
+      (f.match && !f.finding ? '<div class="match"><p>Billederne er taget ' + (f.match.m < 15 ? "ved" : f.match.m + " m fra") + " <strong>" + esc(f.match.name) + "</strong>, som allerede er i guiden. Er det det sted?</p>" +
+        '<button class="btn primary" type="button" id="add-to-match"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Ja – læg billederne dér") + '</button><p class="hint">Er det et andet sted, så fortsæt herunder.</p></div>' : "") +
+      '<label>Stedets navn<input id="f-name" value="' + esc(f.name) + '" placeholder="Fx Restaurante El Puerto" autocomplete="off"></label>' +
+      '<div class="wizrow"><button class="btn" type="button" id="find-map">' + ICON_PIN + " Find på kortet</button>" + (navigator.geolocation ? '<button class="btn" type="button" id="my-loc">Brug min placering</button>' : "") + "</div>" +
+      (f.info ? '<p class="hint">' + esc(f.info) + "</p>" : "") + choices +
+      (f.lat != null ? '<p class="wizfound">' + ICON_PIN + "<span>" + esc([f.town, distText(f)].filter(Boolean).join(" · ") || "Placering fundet") + "</span></p>" : "");
+    foot = '<button type="button" class="btn" data-wiz="back">Tilbage</button><button type="button" class="btn primary" data-wiz="next">Næste</button>';
+  } else if (step === 3) {
+    body = '<div class="wizcats">' + CATS.filter(function (c) { return c[0] !== "vores" && c[0] !== "lejligheden"; }).map(function (c) {
+      return '<button class="wizcat" type="button" data-setcat="' + c[0] + '" aria-pressed="' + (f.cat === c[0]) + '">' + (CAT_ICONS[c[0]] || "") + "<span>" + esc(c[1]) + "</span></button>"; }).join("") + "</div>" + subChooser(f);
+    foot = '<button type="button" class="btn" data-wiz="back">Tilbage</button><button type="button" class="btn primary" data-wiz="next">Næste</button>';
+  } else {
+    body = '<p class="hint">Alt her kan springes over – I kan altid tilføje det senere.</p>' +
+      '<label>Kommentar<textarea id="f-note" placeholder="' + esc(notePh(f.cat)) + '">' + esc(f.note || "") + "</textarea></label>" +
+      questionsHtml(f) +
+      '<button type="button" class="favtoggle' + (f.fav ? " on" : "") + '" id="f-favbtn" aria-pressed="' + !!f.fav + '">' + heartSvg(f.fav) + " Tilføj som favorit</button>" +
+      (CRITERIA[f.cat] ? '<p class="hint">Stjerner giver I lige efter, at stedet er gemt.</p>' : "") +
+      dupHtml(f);
+    foot = '<button type="button" class="btn" data-wiz="back">Tilbage</button><button type="submit" class="btn primary"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem stedet") + "</button>";
+  }
+  return '<div class="wizwrap"><div class="rback"></div><form class="helpmodal wiz" id="editor" role="dialog" aria-modal="true">' + wizHead(step, WIZ_STEPS[step - 1]) + body +
+    (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") + '<div class="row wizfoot">' + foot + "</div></form></div>";
+}
+function wizDoneHtml() {
+  var w = ui.wizDone, p = places.filter(function (x) { return x.id === w.id; })[0];
+  return '<div class="wizwrap"><div class="rback" data-wizdone="close"></div><div class="helpmodal wiz wizdone" role="dialog" aria-modal="true"><button type="button" class="hclose" data-wizdone="close" aria-label="Luk">×</button>' +
+    '<div class="wicon" aria-hidden="true">' + (CAT_ICONS[w.cat] || CAT_ICONS.alle) + '</div><h2>' + esc(w.name) + ' er oprettet</h2><p class="hint">Hvad vil du nu?</p>' +
+    '<div class="wizbig">' + (p && CRITERIA[p.cat] ? '<button type="button" class="wizopt" data-rateopen="place" data-key="' + esc(w.id) + '"><span class="wstar" aria-hidden="true">★</span><span><strong>Giv stjerner</strong><small>Hvad synes I om stedet?</small></span></button>' : "") +
+    '<button type="button" class="wizopt" data-wizdone="see">' + ICON_PIN + '<span><strong>Se stedet</strong><small>Sådan ser det ud i guiden</small></span></button>' +
+    '<button type="button" class="wizopt" data-wizdone="more">' + ICON_PEN + '<span><strong>Tilføj flere detaljer</strong><small>Hjemmeside, links, pris, hvem kan se det</small></span></button></div>' +
+    '<div class="row wizfoot"><button type="button" class="btn" data-wizdone="close">Færdig</button></div></div></div>';
+}
+/* "Tilføj kommentar": kun et kommentarfelt */
+function commentTarget() {
+  var c = ui.commentFor; if (!c) return null;
+  var o = c.kind === "place" ? places.filter(function (x) { return x.id === c.key; })[0] : c.kind === "town" ? towns[c.key] : regions[c.key];
+  return o ? { o: o, name: c.kind === "place" ? o.name : c.key, note: (o.mine && o.mine.note) || "", cat: c.kind === "place" ? o.cat : "byer" } : null;
+}
+function commentHtml() {
+  var t = commentTarget(); if (!t) return "";
+  return '<div class="wizwrap"><div class="rback" data-cmt="close"></div><form class="helpmodal wiz" id="cmtform" role="dialog" aria-modal="true"><button type="button" class="hclose" data-cmt="close" aria-label="Luk">×</button>' +
+    '<p class="eyebrow">' + esc(t.name) + "</p><h2>" + (t.note ? "Ret jeres kommentar" : "Tilføj kommentar") + "</h2>" +
+    '<textarea id="c-note" rows="6" placeholder="' + esc(notePh(t.cat)) + '">' + esc(t.note) + "</textarea>" +
+    (ui.commentErr ? '<p class="err" role="alert">' + esc(ui.commentErr) + "</p>" : "") +
+    '<div class="row wizfoot"><button type="button" class="btn" data-cmt="close">Annuller</button><button type="submit" class="btn primary"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + "</button></div></form></div>";
+}
+async function saveComment() {
+  var t = commentTarget(), c = ui.commentFor; if (!t) return;
+  var note = (document.getElementById("c-note").value || "").trim();
+  var vis = t.o.mine && t.o.mine.visibility ? t.o.mine.visibility : (c.kind === "place" && t.o.visibility && t.o.visibility !== "alle" ? "andel" : "alle");
+  ui.busy = true; ui.commentErr = ""; render();
+  var r = await saveExp(c.kind, c.key, { note: note || null, visibility: vis });
+  ui.busy = false;
+  if (r.error) { ui.commentErr = "Kommentaren blev ikke gemt: " + r.error.message; render(); return; }
+  ui.commentFor = null; ui.msg = note ? "Kommentaren er gemt." : "Kommentaren er fjernet."; await load(); render();
+}
+function wizOverlays() { if (ui.commentFor) return commentHtml(); return ui.wizStart && !ui.draft ? wizStartHtml() : ui.wizDone && !ui.draft ? wizDoneHtml() : ""; }
+function wizNav(dir) {
+  syncDraft(); var d = ui.draft; d.err = "";
+  if (dir === "close") { ui.draft = null; ui.wizStart = false; render(); return; }
+  if (dir === "back") { if (d.wiz <= 2) { ui.draft = null; ui.wizStart = true; } else d.wiz--; render(); return; }
+  if (d.wiz === 2) {
+    if (d.finding) { d.err = "Vent et øjeblik – guiden leder efter stedet."; render(); return; }
+    if (!d.name.trim()) { d.err = "Skriv stedets navn."; render(); var n = document.getElementById("f-name"); if (n) n.focus(); return; }
+    if (d.lat == null && !d.noLoc) { d.noLoc = true; d.err = 'Stedet har ingen placering endnu. Tryk "Find på kortet" eller "Brug min placering" – eller tryk Næste igen for at fortsætte uden.'; render(); return; }
+  }
+  d.wiz++; render();
+  var m = document.querySelector(".wiz"); if (m) m.scrollTop = 0;
+}
+
 /* ---------- hændelser ---------- */
 document.addEventListener("click", async function (e) {
   if (!root.contains(e.target) && !panel.contains(e.target) && !tbEl.contains(e.target) && !topEl.contains(e.target)) return;
@@ -2469,9 +2557,11 @@ document.addEventListener("click", async function (e) {
   }
   if (t.dataset.addphotos) { addInput.dataset.kind = ""; addInput.dataset.target = t.dataset.addphotos; addInput.value = ""; addInput.click(); return; }
   if (t.id === "add-to-match") { addPhotosTo(ui.draft.match.id, ui.draft.items.map(function (x) { return x.file; })); return; }
-  if (t.id === "new") { ui.chooser = !ui.chooser; render(); return; }
-  if (t.id === "new-photo") { ui.chooser = false; render(); newInput.value = ""; newInput.click(); return; }
-  if (t.id === "new-manual") { ui.chooser = false; startManual(); return; }
+  if (t.id === "new") { ui.chooser = false; ui.wizDone = null; ui.wizStart = true; render(); return; }
+  if (t.id === "new-photo") { ui.chooser = false; ui.wizFlow = !!ui.wizStart; newInput.value = ""; newInput.click(); return; }
+  if (t.id === "new-manual") { ui.chooser = false; ui.wizFlow = !!ui.wizStart; startManual(); return; }
+  if (t.dataset.wiz) { if (t.dataset.wiz === "close" && !ui.draft) { ui.wizStart = false; render(); return; } wizNav(t.dataset.wiz); return; }
+  if (t.dataset.wizdone) { var wd = ui.wizDone; ui.wizDone = null; if (t.dataset.wizdone === "see") openPlace(wd.id); else if (t.dataset.wizdone === "more") { openPlace(wd.id); editPlace(wd.id); ui.draft.adv = true; render(); scrollToForm(); } else render(); return; }
   if (t.id === "new-apt") {
     startManual(); var ad = ui.draft; if (!ad) return;
     ad.cat = "vores"; ad.vis = "lejlighed"; ad.expVis = "andel"; ad.lat = CFG.hotel.lat; ad.lon = CFG.hotel.lon; ad.town = "Bolnuevo";
@@ -2480,7 +2570,9 @@ document.addEventListener("click", async function (e) {
   }
   if (t.id === "find-map") { syncDraft(); findOnMap(); return; }
   if (t.dataset.choose != null && ui.draft && ui.draft.choices) { syncDraft(); applyChoice(ui.draft, ui.draft.choices[+t.dataset.choose]); return; }
-  if (t.dataset.edit) { editPlace(t.dataset.edit); return; }
+  if (t.dataset.comment) { ui.commentFor = { kind: t.dataset.comment, key: t.dataset.key }; ui.commentErr = ""; render(); var cn = document.getElementById("c-note"); if (cn) { cn.focus(); cn.setSelectionRange(cn.value.length, cn.value.length); } return; }
+  if (t.dataset.cmt === "close") { ui.commentFor = null; render(); return; }
+  if (t.dataset.edit) { editPlace(t.dataset.edit); ui.draft.adv = true; render(); scrollToForm(); return; }
   if (t.dataset.editarea) { ui.draft = null; startAreaEdit(t.dataset.editarea, t.dataset.key); return; }
   if (t.dataset.addarea) { addInput.dataset.kind = t.dataset.addarea; addInput.dataset.target = t.dataset.key; addInput.value = ""; addInput.click(); return; }
   if (t.dataset.afirst) { syncArea(); var ai = ui.areaDraft.items.splice(+t.dataset.afirst, 1)[0]; ui.areaDraft.items.unshift(ai); render(); return; }
@@ -2556,6 +2648,7 @@ document.addEventListener("click", async function (e) {
 root.addEventListener("submit", function (e) {
   e.preventDefault();
   if (e.target.id === "editor") saveDraft();
+  if (e.target.id === "cmtform") saveComment();
   if (e.target.id === "login-form") submitLogin();
   if (e.target.id === "area-editor") saveArea();
   if (e.target.id === "invite-form") invite();
@@ -2592,7 +2685,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 126;
+var APP_VERSION = 128;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
