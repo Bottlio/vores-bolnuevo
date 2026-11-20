@@ -1135,10 +1135,10 @@ function andelPageHtml() {
   if (!d) { loadAndel(); return h + "<p>Henter…</p></section>"; }
   h += '<ul class="members">' + d.members.map(function (m) {
     var you = m.user_id === ui.user.id;
-    return "<li><span><strong>" + esc(m.name || m.email) + "</strong> " + (m.role === "ejer" ? "Ejer" : "Gæst") + (you ? " (dig)" : "") + '<br><span class="hint">' + esc(m.email) + (m.user_id ? "" : " · inviteret, har ikke logget ind endnu") + "</span>" + (!m.user_id && owner ? '<br><button class="linkbtn" type="button" data-reinvite="' + esc(m.email) + '" data-rname="' + esc(m.name || "") + '">Send invitationen igen</button>' : "") + "</span>" +
+    return "<li><span><strong>" + esc(m.name || m.email) + "</strong> " + (m.role === "ejer" ? "Ejer" : "Gæst") + (you ? " (dig)" : "") + '<br><span class="hint">' + esc(m.email) + (m.user_id ? "" : " · inviteret, har ikke logget ind endnu") + "</span>" + (!m.user_id && owner ? '<br><button class="linkbtn" type="button" data-reinvite="' + esc(m.email) + '" data-rname="' + esc(m.name || "") + '" data-rrole="' + esc(m.role) + '">Send invitationen igen</button>' : "") + "</span>" +
       (owner && !you ? '<button class="btn small danger" type="button" data-rmmember="' + esc(m.email) + '">' + (ui.confirmRm === m.email ? "Tryk igen for at fjerne" : "Fjern adgang") + "</button>" : "") + "</li>";
   }).join("") + "</ul>";
-  if (owner) h += '<form id="invite-form" class="invite"><h3>Invitér en person ' + helpBtn("invite", "inline") + '</h3><div class="grid"><label>Fornavn<input id="i-name" required placeholder="Fx Emma"></label><label>Mail<input id="i-email" type="email" required placeholder="navn@mail.dk"></label></div>' +
+  if (owner) h += '<form id="invite-form" class="invite"><h3>Låner nogen jeres lejlighed? ' + helpBtn("invite", "inline") + '</h3><p class="hint">Giv familie eller venner, der skal låne lejligheden, adgang til guiden, så de kan finde rundt i området.</p><div class="grid"><label>Fornavn<input id="i-name" required placeholder="Fx Emma"></label><label>Mail<input id="i-email" type="email" required placeholder="navn@mail.dk"></label></div>' +
     '<div class="seg small" role="group" aria-label="Rolle"><button type="button" data-irole="gaest" aria-pressed="' + (ui.irole !== "ejer") + '">Gæst</button><button type="button" data-irole="ejer" aria-pressed="' + (ui.irole === "ejer") + '">Ejer</button></div>' +
     '<button class="btn primary" type="submit">Invitér</button></form>';
   if (d.err) h += '<p class="err">' + esc(d.err) + "</p>";
@@ -1203,8 +1203,13 @@ function andelSwitchHtml() {
     me.others.map(function (o) { return '<button class="btn small" type="button" data-switchandel="' + esc(o.id) + '">Skift til ' + esc(andelLabels[o.id] || o.label) + "</button>"; }).join(" ") + "</div>";
 }
 /* Invitationsbesked med en kort log ind-guide */
-function inviteMsg(name, email, andel) {
-  return "Hej" + (name ? " " + name : "") + ".\n\nDu er inviteret til Laderita de Bolnuevo guide – en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer" + (andel ? ". Du er med som ejer af " + (/,| og /.test(andel) ? "andelene " : "andel ") + andel : "") + ".\n\n" +
+function listDa(a) { return a.length > 1 ? a.slice(0, -1).join(", ") + " og " + a[a.length - 1] : a[0] || ""; }
+function myAndelTxt() { return me ? listDa(me.allLabels && me.allLabels.length ? me.allLabels : [me.label]) : ""; }
+function myLendTxt() { var a = me && me.apts && me.apts.length ? me.apts : []; return a.length > 1 ? "en af lejlighederne " + listDa(a) : a.length ? "lejlighed " + a[0] : "lejligheden"; }
+function inviteMsg(name, email, andel, lend) {
+  return "Hej" + (name ? " " + name : "") + ".\n\n" + (lend
+    ? "Du er inviteret til Laderita de Bolnuevo guide, fordi du skal låne " + lend + ". Guiden viser steder i området omkring hotellet med billeder og andelshavernes kommentarer."
+    : "Du er inviteret til Laderita de Bolnuevo guide – en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer" + (andel ? ". Du er med som ejer af " + (/,| og /.test(andel) ? "andelene " : "andel ") + andel : "") + ".") + "\n\n" +
     "Sådan kommer du i gang:\n" +
     "1. Åbn " + location.origin + location.pathname + "\n" +
     "2. Tryk på \"Første gang: opret adgangskode\".\n" +
@@ -1221,10 +1226,10 @@ async function invite() {
     // Allerede på listen: har personen ikke logget ind endnu, vises invitationen igen, så den kan sendes
     var ex = ((andelData && andelData.members) || []).filter(function (m) { return (m.email || "").toLowerCase() === email; })[0];
     if (ex && ex.user_id) { andelData.err = (ex.name || email) + " har allerede adgang til guiden."; render(); return; }
-    andelData.err = ""; ui.inviteText = inviteMsg(name, email, ""); ui.inviteTo = email; ui.inviteName = name; render(); openInvite(); return;
+    andelData.err = ""; ui.inviteText = role === "ejer" ? inviteMsg(name, email, myAndelTxt()) : inviteMsg(name, email, "", myLendTxt()); ui.inviteTo = email; ui.inviteName = name; render(); openInvite(); return;
   }
   if (r.error) { andelData.err = "Invitationen blev ikke gemt: " + r.error.message; render(); return; }
-  ui.inviteText = inviteMsg(name, email, ""); ui.inviteTo = email; ui.inviteName = name; openInvite();
+  ui.inviteText = role === "ejer" ? inviteMsg(name, email, myAndelTxt()) : inviteMsg(name, email, "", myLendTxt()); ui.inviteTo = email; ui.inviteName = name; openInvite();
   andelData.err = ""; await loadAndel();
 }
 async function removeMember(email) {
@@ -1339,7 +1344,7 @@ async function adminInvite(kid) {
   }
   var nums = []; aids.forEach(function (id) { var aa = d.andele.filter(function (x) { return x.id === id && x.aktiv; })[0]; if (aa) hhNums(d, aa).forEach(function (x) { if (x.l !== "999") nums.push(x.l + "-" + x.n); }); });
   nums.sort(function (p, q) { return p.localeCompare(q, "da", { numeric: true }); });
-  ui.inviteText = inviteMsg(first, k.mail, nums.length > 1 ? nums.slice(0, -1).join(", ") + " og " + nums[nums.length - 1] : nums[0]);
+  ui.inviteText = inviteMsg(first, k.mail, listDa(nums));
   ui.inviteTo = k.mail; ui.inviteName = first; ui.invitePhone = (k.tlf || "").replace(/\D/g, "");
   openInvite(); ui.invitePhone = "";
   var q = (document.getElementById("adm-q") || {}).value || "";
@@ -2405,7 +2410,7 @@ var HELP_TIPS = {
   whoseeapt: ["Hvem kan se det?", "<p><strong>Hvem kan se stedet?</strong> <em>Lejligheden</em> – alle andele i samme lejlighed. <em>Vores andel</em> – kun jer. <em>Kun mig</em> – kun dig.</p><p><strong>Hvem kan se vores stjerner og tekst?</strong> Om jeres stjerner og kommentar vises for alle, der kan se stedet, eller kun for jeres andel.</p>", "stjerner"],
   whosee: ["Hvem kan se det?", "<p><strong>Hvem kan se stedet?</strong> Om alle andelshavere kan se stedet, kun jeres andel eller kun dig.</p><p><strong>Hvem kan se vores stjerner og tekst?</strong> Om jeres stjerner og kommentar vises for alle eller kun for jeres andel.</p>", "stjerner"],
   advanced: ["Avanceret redigering", "<p>Her kan man rette stedets navn, by, kategori, links og hvem der kan se det.</p><p>Vil du bare skrive en kommentar, er knappen <strong>Tilføj kommentar</strong> på stedet nemmere.</p>", "avanceret"],
-  invite: ["Invitér en person", "<p>1. Skriv personens fornavn og mail.<br>2. Vælg <strong>Gæst</strong> eller <strong>Ejer</strong>.<br>3. Tryk <strong>Invitér</strong>.<br>4. Der kommer et vindue: tryk <strong>Mail</strong>, <strong>SMS</strong>, <strong>WhatsApp</strong> eller <strong>Messenger</strong>. Beskeden er skrevet på forhånd – du vælger personen og trykker send.</p><p>Gæster kan det samme i guiden som ejere, men kan ikke invitere andre.</p>", "andel"]
+  invite: ["Når nogen låner jeres lejlighed", "<p>1. Skriv personens fornavn og mail.<br>2. Vælg <strong>Gæst</strong> eller <strong>Ejer</strong>.<br>3. Tryk <strong>Invitér</strong>.<br>4. Der kommer et vindue: tryk <strong>Mail</strong>, <strong>SMS</strong>, <strong>WhatsApp</strong> eller <strong>Messenger</strong>. Beskeden er skrevet på forhånd – du vælger personen og trykker send.</p><p>Gæster kan det samme i guiden som ejere, men kan ikke invitere andre.</p>", "andel"]
 };
 function helpBtn(key, cls) { return '<button type="button" class="qhelp' + (cls ? " " + cls : "") + '" data-help="' + key + '" aria-label="Hjælp: ' + esc(HELP_TIPS[key][0]) + '" title="Hjælp">?</button>'; }
 var helpBox = null;
@@ -2485,7 +2490,7 @@ var HELP_FAQ = [
       "<li><strong>Slet sted</strong> – kun for den, der oprettede stedet. Tryk to gange for at slette.</li></ul><p>Tryk <strong>Gem</strong>, når du er færdig.</p>"]
   ]],
   ["andel", "Vores andel og konto", [
-    ["Hvordan inviterer jeg familie eller venner?", "<p>Gå til <strong>Vores andel</strong> nederst på siden.</p>" + HELP_TIPS.invite[1] + "<p>Beskeden indeholder en kort vejledning i at logge ind. Kun ejere kan invitere.</p>"],
+    ["Familie eller venner skal låne vores lejlighed – hvordan får de adgang?", "<p>Gå til <strong>Vores andel</strong> nederst på siden.</p>" + HELP_TIPS.invite[1] + "<p>Beskeden indeholder en kort vejledning i at logge ind. Kun ejere kan invitere.</p>"],
     ["Hvad er forskellen på Ejer og Gæst?", "<p>Begge kan se og bruge alt i guiden. Kun <strong>ejere</strong> kan invitere andre og fjerne adgang.</p>"],
     ["Hvordan sletter jeg min konto?", "<p>Gå til <strong>Vores andel</strong> nederst på siden og tryk <strong>Slet min konto</strong>. Det, du har lagt ind, bliver hos andelen.</p>"]
   ]]
@@ -2709,7 +2714,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.adminvite) { adminInvite(t.dataset.adminvite); return; }
   if (t.dataset.admf) { ui.admF = t.dataset.admf; document.querySelectorAll("[data-admf]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.admf === ui.admF)); }); filterAdmList(); return; }
   if (t.dataset.switchandel) { try { localStorage.setItem("bol_andel_" + ui.user.id, t.dataset.switchandel); } catch (x) {} location.reload(); return; }
-  if (t.dataset.reinvite) { ui.inviteText = inviteMsg(t.dataset.rname || "", t.dataset.reinvite, ""); ui.inviteTo = t.dataset.reinvite; ui.inviteName = t.dataset.rname || ""; openInvite(); return; }
+  if (t.dataset.reinvite) { ui.inviteText = t.dataset.rrole === "ejer" ? inviteMsg(t.dataset.rname || "", t.dataset.reinvite, myAndelTxt()) : inviteMsg(t.dataset.rname || "", t.dataset.reinvite, "", myLendTxt()); ui.inviteTo = t.dataset.reinvite; ui.inviteName = t.dataset.rname || ""; openInvite(); return; }
   if (t.id === "copy-invite") { var ta = document.getElementById("invite-copy"); ta.select(); try { navigator.clipboard.writeText(ta.value); t.textContent = "Kopieret"; } catch (x) { document.execCommand("copy"); } return; }
   if (t.id === "recheck") { await checkUser(); if (ui.member) { ui.loaded = false; await load(); } else { ui.msg = "Der er stadig ingen invitation til " + ui.user.email + "."; render(); } return; }
   if (t.dataset.vis != null && ui.draft) { syncDraft(); var vi = ui.draft.items[+t.dataset.vis]; vi.vis = nextVis(vi.vis || "andel", vi.own); vi.visSet = true; render(); return; }
@@ -2794,7 +2799,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 135;
+var APP_VERSION = 136;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
