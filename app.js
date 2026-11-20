@@ -1680,7 +1680,7 @@ function factList(p, full) {
     var v = f[x[0]];
     if (x[0] === "saeson") { if (v === "ja") out.push(["warn", "Sæsonlukket" + (f.periode ? " (" + f.periode + ")" : "")]); else if (v === "nej" && full) out.push(["", "Åbent hele året"]); }
     if (x[0] === "frokost") { if (v === "ja") out.push(["", "Frokoståbent"]); else if (v === "nej" && full) out.push(["", "Ikke frokoståbent"]); }
-    if (x[0] === "tidlig") { if (v === "ja") out.push(["", "Køkken åbent før kl. 20.00"]); else if (v === "nej") out.push(["warn", "Køkken åbner efter kl. 20.00"]); }
+    if (x[0] === "tidlig") { if (v === "ja") out.push(["", "Aften før kl. 20"]); else if (v === "nej") out.push(["warn", "Aften efter kl. 20"]); }
     if (x[0] === "sondag") { if (v === "ja" && full) out.push(["", "Søndagsåbent"]); else if (v === "nej") out.push(["warn", "Lukket om søndagen"]); }
   });
   return out;
@@ -2563,7 +2563,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 123;
+var APP_VERSION = 124;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
