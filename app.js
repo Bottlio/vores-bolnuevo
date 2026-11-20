@@ -1432,16 +1432,27 @@ function logWhat(r) {
   var fields = ks.map(function (k) { return LOG_FIELDS[k] || k; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
   var t = logTarget(ref);
   switch (r.tbl) {
-    case "places": return op === "INSERT" ? "Oprettede stedet " + t : op === "DELETE" ? "Slettede stedet " + (ref.name || t) : "Rettede " + t + ": " + fields.join(", ");
+    case "places":
+      if (op !== "UPDATE") return op === "INSERT" ? "Oprettede stedet " + t : "Slettede stedet " + (ref.name || t);
+      var pb = ks.filter(function (k) { return k !== "facts"; }).map(function (k) { return LOG_FIELDS[k] || k; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
+      if (c.facts) {
+        var fo = c.facts[0] || {}, fn = c.facts[1] || {}, FT = { saeson: ["Sæsonlukket", { ja: "ja", nej: "nej" }], frokost: ["Frokoståbent", { ja: "ja", nej: "nej" }], tidlig: ["Køkkenet om aftenen åbner", { ja: "før kl. 20", nej: "efter kl. 20" }] };
+        Object.keys(Object.assign({}, fo, fn)).forEach(function (k) {
+          if (fo[k] === fn[k] || k === "beskrivelse") { if (k === "beskrivelse" && fo[k] !== fn[k]) pb.push("beskrivelse"); return; }
+          var ft = FT[k]; pb.push(ft ? ft[0] + ": " + (fn[k] ? ft[1][fn[k]] || fn[k] : "ikke angivet") : k);
+        });
+      }
+      return "Rettede " + t + ": " + pb.join(", ");
     case "experiences":
       if (op === "DELETE") return "Slettede sin vurdering af " + t;
       var bits = [];
       if ("rating_score" in c) bits.push(val("rating_score") == null ? "fjernede stjernerne" : "gav " + dec(+val("rating_score")) + " ★");
       if ("note" in c) bits.push(!val("note") ? "fjernede kommentaren" : was("note") ? "rettede kommentaren" : "skrev en kommentar");
-      if ("favorite" in c) bits.push(val("favorite") ? "satte hjerte" : "fjernede hjertet");
+      if ("favorite" in c && (op === "UPDATE" || val("favorite"))) bits.push(val("favorite") ? "satte hjerte" : "fjernede hjertet");
       if ("visibility" in c && op === "UPDATE") bits.push("synlighed → " + (VIS_TXT[val("visibility")] || val("visibility")));
       if (("visits" in c || "last_visit" in c) && !bits.length) bits.push("rettede besøg");
-      if (!bits.length) bits.push(op === "INSERT" ? "åbnede" : "rettede " + fields.join(", "));
+      if (!bits.length && op === "INSERT") return "";   // tom række, der oprettes, når man gemmer – ikke interessant
+      if (!bits.length) bits.push("rettede " + fields.join(", "));
       var txt = bits.join(", "); return txt.charAt(0).toUpperCase() + txt.slice(1) + " – " + t;
     case "photos":
       return op === "INSERT" ? "Lagde et billede ind – " + t : op === "DELETE" ? "Slettede et billede – " + t
@@ -1462,7 +1473,7 @@ function logWhat(r) {
 }
 function logTime(at) { var d = new Date(at); return String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
 function logHtml(d) {
-  var list = d.log || [], today = new Date().toDateString();
+  var list = (d.log || []).filter(function (r) { return logWhat(r) !== ""; }), today = new Date().toDateString();
   var nToday = list.filter(function (r) { return new Date(r.at).toDateString() === today; }).length;
   var hint = list.length ? (nToday === 1 ? "1 ændring i dag" : nToday + " ændringer i dag") + " · seneste " + logTime(list[0].at) : "Ingen ændringer endnu";
   // Samme slags ændring fra samme person på samme sted inden for 10 minutter samles i én linje (fx "Lagde 12 billeder ind")
@@ -2577,7 +2588,7 @@ window.addEventListener("popstate", function () {
   var m = (location.hash || "").match(/^#sted\/(.+)$/);
   ui.place = m ? decodeURIComponent(m[1]) : null; render(); window.scrollTo({ top: 0 });
 });
-function openPlace(id) { nav(function () { ui.place = id; }); }
+function openPlace(id) { nav(function () { ui.place = id; ui.page = null; }); }
 function closePlace() { if (navStack.length) goBack(); else { ui.place = null; try { history.replaceState(null, "", location.pathname); } catch (x) {} render(); } }
 
 /* ---------- ret by / område ---------- */
@@ -3070,7 +3081,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 158;
+var APP_VERSION = 159;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
