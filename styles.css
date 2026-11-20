@@ -751,6 +751,6 @@ footer.foot .footlabel:first-child{margin-top:0}
 .rown .rmtxt{display:block;margin-top:2px}
 .detailcard .topright{align-items:flex-start}
 .detailcard .topright .rbtn{min-height:60px;align-items:flex-end;padding-bottom:6px}
-.detailcard .topright>.heart{width:76px;height:76px;align-self:flex-start;display:flex;align-items:flex-end;justify-content:center;padding-bottom:0;margin-top:-25px}
-.detailcard .topright>.heart svg{width:72px;height:72px}
+.detailcard .topright>.heart{width:60px;height:60px;align-self:flex-start;display:flex;align-items:flex-end;justify-content:center;padding-bottom:0;margin-top:-12px}
+.detailcard .topright>.heart svg{width:54px;height:54px}
 .detailcard .topright .rown .rmini span{font-size:1rem}
