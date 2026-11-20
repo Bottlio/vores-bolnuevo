@@ -560,7 +560,9 @@ function newsItems() {
   function slot(kind, target, andel) { var k = kind + "|" + target + "|" + andel; return ev[k] || (ev[k] = { kind: kind, target: target, andel: andel, t: "", photos: [] }); }
   raw.exps.forEach(function (e) {
     if (!(e.note || e.rating_score != null) || !exists(e.kind, e.target)) return;
-    var o = slot(e.kind, e.target, e.andel_id); o.exp = e; if (String(e.updated_at) > o.t) o.t = String(e.updated_at);
+    // Tidspunktet for stjernerne eller kommentaren – ikke for andre rettelser
+    var et = [e.rating_score != null ? e.rated_at : null, e.note ? e.noted_at : null].filter(Boolean).sort().pop() || "";
+    var o = slot(e.kind, e.target, e.andel_id); o.exp = e; if (String(et) > o.t) o.t = String(et);
   });
   raw.photos.forEach(function (r) {
     if (!r.andel_id || !exists(r.kind, r.target)) return;
@@ -628,7 +630,7 @@ function renderHome() {
     return '<button type="button" class="tile" data-hometile="' + t[0] + '"' + (img ? ' style="--img:url(&quot;' + esc(img) + '&quot;)"' : "") + ">" + (img ? '<span class="tcorner" aria-hidden="true">' + (CAT_ICONS[t[0]] || CAT_ICONS.alle) + "</span>" : '<span class="ticon">' + (CAT_ICONS[t[0]] || CAT_ICONS.alle) + "</span>") + '<span class="tlabel">' + esc(t[1]) + "</span></button>";
   }).join("") + "</div>";
   html += homeRow("Jeres favoritter", wishItems(), "Tryk på hjertet ved et sted, så kommer det her.");
-  html += homeRow("Jeres seneste vurderinger", spots.filter(function (p) { return p.reviewed; }).sort(function (a, b) { return String(b.mine.updated_at).localeCompare(String(a.mine.updated_at)); }).slice(0, 10).map(function (p) { return miniCard(p); }), "Når I giver stjerner eller skriver om et sted, kommer det her.");
+  html += homeRow("Jeres seneste vurderinger", spots.filter(function (p) { return p.mine && p.mine.rating_score != null; }).sort(function (a, b) { return String(b.mine.rated_at || "").localeCompare(String(a.mine.rated_at || "")); }).slice(0, 10).map(function (p) { return miniCard(p); }), "Når I giver stjerner til et sted, kommer det her.");
   html += homeRow("Nyt fra andelshaverne", newsItems(), "Når andelshaverne skriver, giver stjerner eller lægger billeder ind, kommer det her.");
   html += homeRow("Bedst bedømt", spots.filter(function (p) { return overall(p); }).sort(function (a, b) { return scoreOf(b) - scoreOf(a); }).slice(0, 10).map(function (p) { return miniCard(p); }), "Ingen vurderinger endnu.");
   html += footerHtml();
@@ -2487,7 +2489,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 112;
+var APP_VERSION = 113;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
