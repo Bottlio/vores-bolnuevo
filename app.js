@@ -1091,7 +1091,6 @@ function andelPageHtml() {
   if (owner) h += '<form id="invite-form" class="invite"><h3>Invitér en person ' + helpBtn("invite", "inline") + '</h3><div class="grid"><label>Fornavn<input id="i-name" required placeholder="Fx Emma"></label><label>Mail<input id="i-email" type="email" required placeholder="navn@mail.dk"></label></div>' +
     '<div class="seg small" role="group" aria-label="Rolle"><button type="button" data-irole="gaest" aria-pressed="' + (ui.irole !== "ejer") + '">Gæst</button><button type="button" data-irole="ejer" aria-pressed="' + (ui.irole === "ejer") + '">Ejer</button></div>' +
     '<button class="btn primary" type="submit">Invitér</button></form>';
-  if (ui.inviteText) h += '<div class="invitetext"><p class="hint">Send invitationen – beskeden er skrevet på forhånd. Ved Mail er modtageren også udfyldt. Ved SMS og WhatsApp vælger du selv personen. Til sidst trykker du send.</p>' + sendBtns() + '<textarea readonly id="invite-copy">' + esc(ui.inviteText) + '</textarea><button class="btn small" type="button" id="copy-invite">Kopiér beskeden</button></div>';
   if (d.err) h += '<p class="err">' + esc(d.err) + "</p>";
   h += "</section>";
   // Slet min konto
@@ -1111,20 +1110,41 @@ function andelPageHtml() {
   }
   return h;
 }
-/* Knapper der åbner mail, sms eller WhatsApp med invitationen skrevet ind */
+/* Pop-up efter "Invitér": beskeden og knapper til Mail, SMS, WhatsApp og Messenger */
+var inviteBox = null;
 function sendBtns() {
   var t = ui.inviteText || "", enc = encodeURIComponent(t);
   var mail = "mailto:" + encodeURIComponent(ui.inviteTo || "") + "?subject=" + encodeURIComponent("Invitation til Laderita de Bolnuevo guide") + "&body=" + enc;
   var sms = "sms:?&body=" + enc;
   var wa = "https://wa.me/?text=" + enc;
   return '<div class="sendrow">' +
-    '<a class="btn sendbtn" href="' + esc(mail) + '">' + ICON_MAIL + "Mail</a>" +
-    '<a class="btn sendbtn" href="' + esc(sms) + '">' + ICON_SMS + "SMS</a>" +
-    '<a class="btn sendbtn" href="' + esc(wa) + '" target="_blank" rel="noopener">' + ICON_WA + "WhatsApp</a></div>";
+    '<a class="sendbtn s-mail" href="' + esc(mail) + '">' + ICON_MAIL + "<span>Mail</span></a>" +
+    '<a class="sendbtn s-sms" href="' + esc(sms) + '">' + ICON_SMS + "<span>SMS</span></a>" +
+    '<a class="sendbtn s-wa" href="' + esc(wa) + '" target="_blank" rel="noopener">' + ICON_WA + "<span>WhatsApp</span></a>" +
+    '<button type="button" class="sendbtn s-msg" data-sendmsg>' + ICON_MSG + "<span>Messenger</span></button></div>";
 }
-var ICON_MAIL = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg>';
-var ICON_SMS = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5 4V6a1 1 0 0 1 1-1z"/><path d="M8 10h8M8 13h5"/></svg>';
-var ICON_WA = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.3-4A8 8 0 1 1 8 18.7z"/><path d="M9 9.5c0 2.8 2.7 5.5 5.5 5.5l1.2-1.4-1.9-1-1 .8a4 4 0 0 1-2.2-2.2l.8-1-1-1.9z"/></svg>';
+function openInvite() {
+  if (!inviteBox) { inviteBox = document.createElement("div"); inviteBox.id = "invitebox"; document.body.appendChild(inviteBox); }
+  inviteBox.innerHTML = '<div class="rback" data-invclose></div><div class="helpmodal invmodal" role="dialog" aria-modal="true" aria-labelledby="iv-h"><button type="button" class="hclose" data-invclose aria-label="Luk">×</button>' +
+    '<h2 id="iv-h">Send invitationen' + (ui.inviteName ? " til " + esc(ui.inviteName) : "") + "</h2>" +
+    '<p class="hint">' + esc(ui.inviteName || "Personen") + ' er nu inviteret. Vælg, hvordan beskeden skal sendes. Teksten er skrevet på forhånd' + (ui.inviteTo ? ", og ved Mail er modtageren udfyldt" : "") + '. Til sidst trykker du send.</p>' +
+    sendBtns() +
+    '<details class="invpreview"><summary>Se beskeden</summary><textarea readonly id="invite-copy">' + esc(ui.inviteText) + "</textarea></details>" +
+    '<p class="invnote" id="inv-note" role="status"></p>' +
+    '<div class="row"><button type="button" class="btn" id="copy-invite">Kopiér beskeden</button><button type="button" class="btn primary" data-invclose>Færdig</button></div></div>';
+  inviteBox.hidden = false; document.body.classList.add("modal-open");
+}
+function closeInvite() { if (inviteBox) { inviteBox.hidden = true; inviteBox.innerHTML = ""; } ui.inviteText = ""; document.body.classList.remove("modal-open"); }
+async function copyInvite() {
+  try { await navigator.clipboard.writeText(ui.inviteText); return true; } catch (x) {
+    var ta = document.getElementById("invite-copy"); if (ta) { ta.parentNode.open = true; ta.select(); try { return document.execCommand("copy"); } catch (y) {} }
+  }
+  return false;
+}
+var ICON_MAIL = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg>';
+var ICON_SMS = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4c4.97 0 9 3.13 9 7s-4.03 7-9 7c-1 0-1.95-.12-2.84-.35L4 20l1.3-3.6C4.48 15.13 3 13.2 3 11c0-3.87 4.03-7 9-7z"/></svg>';
+var ICON_WA = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="13" rx="4"/><path d="M8 17.5v3l3.5-3"/><circle cx="8.5" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="11.5" r="1" fill="currentColor" stroke="none"/></svg>';
+var ICON_MSG = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-8l-4.5 3.5v-3.5H5A1.5 1.5 0 0 1 3.5 15V6A1.5 1.5 0 0 1 5 4.5z"/><circle cx="8.5" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10.5" r="1" fill="currentColor" stroke="none"/></svg>';
 /* Invitationsbesked med en kort log ind-guide */
 function inviteMsg(name, email, andel) {
   return "Hej " + name + ".\n\nDu er inviteret til Laderita de Bolnuevo guide – en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer" + (andel ? ". Du er med som ejer af andel " + andel : "") + ".\n\n" +
@@ -1142,7 +1162,7 @@ async function invite() {
   if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { andelData.err = "Skriv fornavn og en gyldig mail."; render(); return; }
   var r = await sb.from("members").insert({ andel_id: me.andel, email: email, name: name, role: role, invited_by: ui.user.id });
   if (r.error) { andelData.err = /duplicate|unique/i.test(r.error.message) ? "Den mail er allerede inviteret." : "Invitationen blev ikke gemt: " + r.error.message; render(); return; }
-  ui.inviteText = inviteMsg(name, email, ""); ui.inviteTo = email;
+  ui.inviteText = inviteMsg(name, email, ""); ui.inviteTo = email; ui.inviteName = name; openInvite();
   andelData.err = ""; await loadAndel();
 }
 async function removeMember(email) {
@@ -1191,7 +1211,6 @@ function adminPageHtml() {
   }).join("") + "</ul>";
   h += '<form id="newandel-form" class="invite"><h3>Opret andel og invitér første ejer</h3><div class="grid"><label>Lejlighed<input id="n-lejl" required placeholder="101" inputmode="numeric"></label><label>Andelshavernummer<input id="n-num" required placeholder="043" inputmode="numeric"></label></div>' +
     '<div class="grid"><label>Ejerens fornavn<input id="n-name" required></label><label>Ejerens mail<input id="n-email" type="email" required></label></div><button class="btn primary" type="submit">Opret andel</button></form>';
-  if (ui.inviteText) h += '<div class="invitetext"><p class="hint">Send invitationen til ejeren:</p>' + sendBtns() + '<textarea readonly id="invite-copy">' + esc(ui.inviteText) + '</textarea><button class="btn small" type="button" id="copy-invite">Kopiér beskeden</button></div>';
   if (d.err) h += '<p class="err">' + esc(d.err) + "</p>";
   h += '<p class="hint">"Marker som solgt" lukker andelens adgang. Deres private indhold følger ikke med til køberen, som får en ny andel med samme nummer.</p>';
   return h + "</section>";
@@ -1204,7 +1223,7 @@ async function createAndel() {
   if (a.error) { adminData.err = /unique|duplicate/i.test(a.error.message) ? "Andel " + lejl + "-" + num + " findes allerede." : "Andelen blev ikke oprettet: " + a.error.message; render(); return; }
   var m = await sb.from("members").insert({ andel_id: a.data.id, email: email, name: name, role: "ejer", invited_by: ui.user.id });
   if (m.error) { adminData.err = "Andelen er oprettet, men ejeren blev ikke inviteret: " + m.error.message; render(); return; }
-  ui.inviteText = inviteMsg(name, email, lejl + "-" + num); ui.inviteTo = email;
+  ui.inviteText = inviteMsg(name, email, lejl + "-" + num); ui.inviteTo = email; ui.inviteName = name; openInvite();
   adminData.err = ""; await loadAdmin();
 }
 async function markSold(id) {
@@ -2209,7 +2228,7 @@ var HELP_TIPS = {
   whoseeapt: ["Hvem kan se det?", "<p><strong>Hvem kan se stedet?</strong> <em>Lejligheden</em> – alle andele i samme lejlighed. <em>Vores andel</em> – kun jer. <em>Kun mig</em> – kun dig.</p><p><strong>Hvem kan se vores stjerner og tekst?</strong> Om jeres stjerner og kommentar vises for alle, der kan se stedet, eller kun for jeres andel.</p>", "stjerner"],
   whosee: ["Hvem kan se det?", "<p><strong>Hvem kan se stedet?</strong> Om alle andelshavere kan se stedet, kun jeres andel eller kun dig.</p><p><strong>Hvem kan se vores stjerner og tekst?</strong> Om jeres stjerner og kommentar vises for alle eller kun for jeres andel.</p>", "stjerner"],
   advanced: ["Avanceret redigering", "<p>Her kan man rette stedets navn, by, kategori, links og hvem der kan se det.</p><p>Det er sjældent nødvendigt. Vil du bare skrive en kommentar, skal du kun bruge feltet <strong>Kommentar</strong> øverst og trykke <strong>Gem</strong>.</p>", "avanceret"],
-  invite: ["Invitér en person", "<p>1. Skriv personens fornavn og mail.<br>2. Vælg <strong>Gæst</strong> eller <strong>Ejer</strong>.<br>3. Tryk <strong>Invitér</strong>.<br>4. Tryk <strong>Mail</strong>, <strong>SMS</strong> eller <strong>WhatsApp</strong>. Beskeden er skrevet på forhånd – du trykker bare send.</p><p>Gæster kan det samme i guiden som ejere, men kan ikke invitere andre.</p>", "andel"]
+  invite: ["Invitér en person", "<p>1. Skriv personens fornavn og mail.<br>2. Vælg <strong>Gæst</strong> eller <strong>Ejer</strong>.<br>3. Tryk <strong>Invitér</strong>.<br>4. Der kommer et vindue: tryk <strong>Mail</strong>, <strong>SMS</strong>, <strong>WhatsApp</strong> eller <strong>Messenger</strong>. Beskeden er skrevet på forhånd – du vælger personen og trykker send.</p><p>Gæster kan det samme i guiden som ejere, men kan ikke invitere andre.</p>", "andel"]
 };
 function helpBtn(key, cls) { return '<button type="button" class="qhelp' + (cls ? " " + cls : "") + '" data-help="' + key + '" aria-label="Hjælp: ' + esc(HELP_TIPS[key][0]) + '" title="Hjælp">?</button>'; }
 var helpBox = null;
@@ -2505,7 +2524,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 116;
+var APP_VERSION = 117;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -2560,6 +2579,17 @@ document.addEventListener("click", function (e) {
     if (m) { var sec = m.dataset.helpmore; closeHelpTip(); nav(function () { ui.page = "hjaelp"; }); setTimeout(function () { var h = document.getElementById("hjaelp-" + sec); if (h) window.scrollTo({ top: h.getBoundingClientRect().top + window.scrollY - 12, behavior: "smooth" }); }, 60); }
     return;
   }
+  if (inviteBox && !inviteBox.hidden && inviteBox.contains(e.target)) {
+    if (e.target.closest("[data-invclose]")) { closeInvite(); return; }
+    var note = document.getElementById("inv-note");
+    if (e.target.closest("#copy-invite")) { copyInvite().then(function (ok) { if (note) note.textContent = ok ? "Beskeden er kopieret – sæt den ind, hvor du vil sende den." : "Kunne ikke kopiere. Tryk på \"Se beskeden\" og kopiér teksten selv."; }); return; }
+    if (e.target.closest("[data-sendmsg]")) {
+      // Messenger kan ikke få tekst med i et link: brug telefonens del-menu, ellers kopiér teksten og åbn Messenger
+      if (navigator.share) { navigator.share({ text: ui.inviteText }).catch(function () {}); if (note) note.textContent = "Vælg Messenger i menuen, der kommer frem."; }
+      else { copyInvite().then(function () { if (note) note.textContent = "Beskeden er kopieret. Messenger åbner nu – vælg personen og sæt teksten ind."; window.open("https://www.messenger.com/", "_blank", "noopener"); }); }
+    }
+    return;
+  }
   if (welcomeBox && !welcomeBox.hidden && welcomeBox.contains(e.target)) {
     if (e.target.closest("[data-wskip]")) { closeWelcome(); return; }
     if (e.target.closest("[data-wnext]")) { if (welcomeStep < WELCOME.length - 1) { welcomeStep++; drawWelcome(); } else closeWelcome(); }
@@ -2567,6 +2597,6 @@ document.addEventListener("click", function (e) {
 });
 document.addEventListener("keydown", function (e) {
   if (e.key !== "Escape") return;
-  if (helpBox && !helpBox.hidden) closeHelpTip(); else if (welcomeBox && !welcomeBox.hidden) closeWelcome();
+  if (helpBox && !helpBox.hidden) closeHelpTip(); else if (inviteBox && !inviteBox.hidden) closeInvite(); else if (welcomeBox && !welcomeBox.hidden) closeWelcome();
 });
 })();
