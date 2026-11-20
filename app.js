@@ -13,7 +13,7 @@ var SUBCATS = {
   natur: [["udsigt","Udsigtspunkt"],["vandretur","Vandretur og sti"],["fanomen","Naturfænomen"],["naturpark","Naturpark"]],
   sevaerdigheder: [["kirke","Kirke og kloster"],["borg","Borg, tårn og fæstning"],["palads","Palads"],["museum","Museum"],["historisk","Historisk sted"],["have","Have og park"],["bymiljo","Havn og bymiljø"]],
   oplevelser: [["spa","Bad og spa"],["vin","Vin og smagning"],["baad","Bådtur"],["action","Action (rafting o.l.)"],["familie","Børn og familie"],["fest","Marked og fest"]],
-  sport: [["padel","Padel"],["golf","Golf"],["cykel","Cykling"],["dykning","Dykning og snorkling"],["vandsport","Vandsport (SUP, kajak, sejlads)"],["tennis","Tennis"],["fitness","Løb og fitness"]],
+  sport: [["padel","Padel"],["pickleball","Pickleball"],["tennis","Tennis"],["golf","Golf"],["cykel","Cykling"],["fitness","Løb og fitness"],["svoemning","Svømning"],["dykning","Dykning og snorkling"],["vandsport","Vandsport (SUP, kajak, sejlads)"],["fiskeri","Fiskeri"],["klatring","Klatring"],["ridning","Ridning"],["petanque","Petanque"]],
   dagligvarer: [["supermarked","Supermarked"],["marked","Marked"],["bager","Bager"],["slagter","Slagter og fisk"]],
   opladning: [["lynlader","Lynlader"],["normal","Normallader"]],
   parkering: [["gratis","Gratis parkering"],["betalt","Betalt parkering"],["phus","P-hus og kælder"],["autocamper","Autocamper"]],
@@ -1696,7 +1696,14 @@ function catFromTags(t) {
   if (sh === "mall" || sh === "department_store") return ["shopping", "center"];
   if (sh) return ["shopping", "butik"];
   if (l === "golf_course") return ["sport", "golf"];
-  if (l === "sports_centre" || l === "pitch" || l === "fitness_centre") return ["sport", /padel/i.test(t.sport || "") ? "padel" : /tennis/i.test(t.sport || "") ? "tennis" : /golf/i.test(t.sport || "") ? "golf" : /div/i.test(t.sport || "") ? "dykning" : null];
+  if (l === "swimming_pool" || l === "sports_centre" && /swim/i.test(t.sport || "")) return ["sport", "svoemning"];
+  if (l === "horse_riding" || /equestrian/i.test(t.sport || "")) return ["sport", "ridning"];
+  if (l === "fishing") return ["sport", "fiskeri"];
+  if (l === "sports_centre" || l === "pitch" || l === "fitness_centre") {
+    var sp = t.sport || "";
+    return ["sport", /padel/i.test(sp) ? "padel" : /pickleball/i.test(sp) ? "pickleball" : /tennis/i.test(sp) ? "tennis" : /golf/i.test(sp) ? "golf" : /div/i.test(sp) ? "dykning" :
+      /climb/i.test(sp) ? "klatring" : /boules|petanque/i.test(sp) ? "petanque" : /swim/i.test(sp) ? "svoemning" : l === "fitness_centre" || /fitness/i.test(sp) ? "fitness" : null];
+  }
   if (t.natural === "beach" || l === "beach_resort") return ["strande", null];
   if (to === "viewpoint") return ["natur", "udsigt"];
   if (to === "museum") return ["sevaerdigheder", "museum"];
@@ -2974,7 +2981,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 149;
+var APP_VERSION = 150;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
