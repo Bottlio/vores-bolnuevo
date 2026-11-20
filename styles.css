@@ -751,6 +751,11 @@ footer.foot .footlabel:first-child{margin-top:0}
 .rown .rmtxt{display:block;margin-top:2px}
 .detailcard .topright{align-items:flex-start}
 .detailcard .topright .rbtn{min-height:60px;align-items:flex-end;padding-bottom:6px}
-.detailcard .topright>.heart{width:60px;height:60px;align-self:flex-start;display:flex;align-items:flex-end;justify-content:center;padding-bottom:0;margin-top:-12px}
-.detailcard .topright>.heart svg{width:54px;height:54px}
 .detailcard .topright .rown .rmini span{font-size:1rem}
+/* v163: hjertet som rund knap – lysegrå med omrids, mørkerød med hvidt hjerte når det er valgt */
+.detailcard .topright>.heart{width:52px;height:52px;border-radius:50%;background:#efedea;color:var(--fg);display:grid;place-items:center;align-self:flex-start;margin-top:4px;flex:none;transition:background .15s}
+.detailcard .topright>.heart svg{width:26px;height:26px}
+.detailcard .topright>.heart:hover{background:#e6e3de;color:var(--fg)}
+.detailcard .topright>.heart.on{background:#7b1e2e;color:#fff}
+.detailcard .topright>.heart.on:hover{background:#6a1826;color:#fff}
+@media (prefers-color-scheme:dark){.detailcard .topright>.heart{background:#2a3538;color:var(--fg)}.detailcard .topright>.heart.on{background:#a3283d;color:#fff}}
