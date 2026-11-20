@@ -1655,13 +1655,12 @@ async function afterLogin() {
 
 /* ---------- nyt sted ud fra billede ---------- */
 async function readPhotoInfo(files) {
-  var info = { lat: null, lon: null, month: null, date: null };
-  for (var i = 0; i < files.length; i++) {
+  // Placering: midten af ALLE billedernes placeringer (medianen), så et enkelt billede taget et stykke væk ikke flytter stedet
+  var info = { lat: null, lon: null, month: null, date: null }, lats = [], lons = [];
+  for (var i = 0; i < files.length && i < 30; i++) {
     try {
-      if (info.lat == null) {
-        var gps = await window.exifr.gps(files[i]);
-        if (gps && typeof gps.latitude === "number" && isFinite(gps.latitude)) { info.lat = gps.latitude; info.lon = gps.longitude; }
-      }
+      var gps = await window.exifr.gps(files[i]);
+      if (gps && typeof gps.latitude === "number" && isFinite(gps.latitude)) { lats.push(gps.latitude); lons.push(gps.longitude); }
     } catch (e) { /* billedet har ingen placering */ }
     try {
       if (!info.month) {
@@ -1669,7 +1668,10 @@ async function readPhotoInfo(files) {
         if (data) { info.month = monthOf(data.DateTimeOriginal || data.CreateDate); info.date = dayOf(data.DateTimeOriginal || data.CreateDate); }
       }
     } catch (e) { /* billedet har ingen dato */ }
-    if (info.lat != null && info.month) break;
+  }
+  if (lats.length) {
+    var med = function (a) { a = a.slice().sort(function (x, y) { return x - y; }); var m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+    info.lat = med(lats); info.lon = med(lons);
   }
   if (!info.month && files[0] && files[0].lastModified) { info.month = monthOf(new Date(files[0].lastModified)); info.date = dayOf(new Date(files[0].lastModified)); }
   return info;
@@ -3047,7 +3049,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 154;
+var APP_VERSION = 155;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
