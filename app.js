@@ -2269,7 +2269,9 @@ async function saveDraft() {
     var web = fix(d.website), maps = fix(d.maps), link = fix(d.link);
     [web, link].forEach(function (u) { if (u && isMapsLink(u) && !maps) maps = u; });   // et Google Maps-link havner i Maps-feltet
     if (isMapsLink(web)) web = ""; if (isMapsLink(link)) link = "";
-    if (core && d.lat == null) { var gc = coordsFromLink(maps); if (gc) { d.lat = +gc[0].toFixed(5); d.lon = +gc[1].toFixed(5); if (!d.town) d.town = townFor(d.lat, d.lon, {}); } }
+    // Et nyt eller ændret Google Maps-link med placering vinder over billedernes placering (billederne kan være taget et stykke væk)
+    var newMaps = maps && maps !== ((orig && orig.maps_url) || "");
+    if (core && (d.lat == null || newMaps)) { var gc = coordsFromLink(maps); if (gc) { var noPos = d.lat == null; d.lat = +gc[0].toFixed(5); d.lon = +gc[1].toFixed(5); if (noPos && !d.town) d.town = townFor(d.lat, d.lon, {}); } }
     // Fakta, som alle må rette
     var row = { link: link || null, website: web || null, maps_url: maps || null, facts: cleanFacts(d), price: d.price, guess: d.guess, updated_at: new Date().toISOString() };
     if (core) {
@@ -3045,7 +3047,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 153;
+var APP_VERSION = 154;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
