@@ -682,7 +682,7 @@ function sinceItems() {
     var p = byId[rp.id]; if (!p || isApt(p.cat) || rp.andel_id === me.andel || !after(rp.created_at)) return;
     var hasExp = raw.exps.some(function (e) { return e.kind === "place" && e.target === rp.id && (e.note || e.rating_score != null); });
     if (!(p.photos && p.photos.length) && !hasExp) return;
-    out.push({ ty: "places", t: rp.created_at, id: p.id, title: p.name, text: "Nyt sted · " + [CATNAME[p.cat], p.town].filter(Boolean).join(" · ") + (andelLabels[rp.andel_id] ? " · lagt ind af " + andelLabels[rp.andel_id] : "") });
+    out.push({ ty: "places", t: rp.created_at, id: p.id, title: p.name, text: "Nyt sted · " + [CATNAME[p.cat], p.town].filter(Boolean).join(" · ") + (andelLabels[rp.andel_id] ? " · lagt ind af " + (authors[rp.created_by] && authors[rp.created_by].name ? authors[rp.created_by].name + " (" + andelLabels[rp.andel_id] + ")" : andelLabels[rp.andel_id]) : "") });
   });
   // 3) Jeres lejlighed(er): nye billeder og kommentarer fra andre andele med samme lejlighedsnummer (alle husstandens lejligheder)
   var apts = myApts(), aptIds = {};
@@ -2982,7 +2982,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 151;
+var APP_VERSION = 152;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
