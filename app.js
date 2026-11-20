@@ -1165,8 +1165,9 @@ var inviteBox = null;
 function sendBtns() {
   var t = ui.inviteText || "", enc = encodeURIComponent(t);
   var mail = "mailto:" + encodeURIComponent(ui.inviteTo || "") + "?subject=" + encodeURIComponent("Invitation til Laderita de Bolnuevo guide") + "&body=" + enc;
-  var sms = "sms:?&body=" + enc;
-  var wa = "https://wa.me/?text=" + enc;
+  var ph = ui.invitePhone && /^\d{8}$/.test(ui.invitePhone) ? "45" + ui.invitePhone : "";
+  var sms = "sms:" + (ph ? "+" + ph : "") + "?&body=" + enc;
+  var wa = "https://wa.me/" + ph + "?text=" + enc;
   return '<div class="sendrow">' +
     '<a class="sendbtn s-mail" href="' + esc(mail) + '">' + ICON_MAIL + "<span>Mail</span></a>" +
     '<a class="sendbtn s-sms" href="' + esc(sms) + '">' + ICON_SMS + "<span>SMS</span></a>" +
@@ -1260,19 +1261,14 @@ async function loadAdmin() {
   var m = await sb.from("members").select("andel_id,email,name,role,user_id");
   var rp = await sb.from("reports").select("*").eq("handled", false).order("created_at", { ascending: false });
   var nn = await sb.from("andel_numre").select("*").order("lejlighed").order("nummer");
-  adminData = { andele: a.data || [], members: m.data || [], reports: rp.data || [], nums: nn.data || [], err: a.error ? a.error.message : "" };
+  var kk = await sb.from("andel_kontakter").select("*").order("sort");
+  adminData = { andele: a.data || [], members: m.data || [], reports: rp.data || [], nums: nn.data || [], contacts: kk.data || [], err: a.error ? a.error.message : "" };
   render();
 }
 function adminPageHtml() {
   var d = adminData;
   if (!d) { loadAdmin(); return '<section class="panel"><p class="eyebrow">Administration</p><p>Henter…</p></section>'; }
-  var h = reportsHtml(d.reports) + '<section class="panel"><p class="eyebrow">Administration</p><h2>Andele</h2>';
-  h += '<ul class="members">' + d.andele.map(function (a) {
-    var ms = d.members.filter(function (m) { return m.andel_id === a.id; });
-    var extra = (d.nums || []).filter(function (x) { return x.andel_id === a.id; });
-    return "<li><span><strong>" + esc(a.lejlighed + "-" + a.nummer) + "</strong>" + extra.map(function (x) { return ' · <strong>' + esc(x.lejlighed + "-" + x.nummer) + '</strong> <button class="linkbtn" type="button" data-rmnum="' + esc(x.lejlighed + "|" + x.nummer) + '" title="Fjern nummeret fra husstanden">' + (ui.confirmRmNum === x.lejlighed + "|" + x.nummer ? "tryk igen for at fjerne" : "fjern") + "</button>"; }).join("") + (a.aktiv ? "" : " (solgt)") + '<br><span class="hint">' + esc(ms.map(function (m) { return (m.name || m.email) + (m.role === "ejer" ? " (ejer)" : "") + (m.user_id ? "" : " – inviteret"); }).join(", ") || "Ingen medlemmer") + "</span></span>" +
-      (a.aktiv ? '<button class="btn small" type="button" data-sold="' + esc(a.id) + '">' + (ui.confirmSold === a.id ? "Tryk igen: andelen er solgt" : "Marker som solgt") + "</button>" : "") + "</li>";
-  }).join("") + "</ul>";
+  var h = reportsHtml(d.reports) + andelshaverListHtml(d) + '<section class="panel"><p class="eyebrow">Administration</p><h2>Andele og numre</h2>';
   h += '<form id="addnum-form" class="invite"><h3>Tilføj et ekstra andelsnummer til en husstand</h3><p class="hint">Til andelshavere med flere andele (fx Trærup: 203-002, 102-025 og 102-039). Stjerner, kommentarer og favoritter er fælles for husstanden, og de ser alle deres lejligheder under Hotellet.</p>' +
     '<div class="grid"><label>Husstand<select id="x-andel" required><option value="">Vælg …</option>' + d.andele.filter(function (a) { return a.aktiv; }).map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.lejlighed + "-" + a.nummer) + " · " + esc(d.members.filter(function (m) { return m.andel_id === a.id; }).map(function (m) { return m.name || m.email; }).join(", ")) + "</option>"; }).join("") + "</select></label>" +
     '<label>Lejlighed<input id="x-lejl" required placeholder="102" inputmode="numeric"></label><label>Andelsnummer<input id="x-num" required placeholder="025" inputmode="numeric"></label></div><button class="btn" type="submit">Tilføj nummer</button></form>';
@@ -1281,6 +1277,62 @@ function adminPageHtml() {
   if (d.err) h += '<p class="err">' + esc(d.err) + "</p>";
   h += '<p class="hint">"Marker som solgt" lukker andelens adgang. Deres private indhold følger ikke med til køberen, som får en ny andel med samme nummer.</p>';
   return h + "</section>";
+}
+/* Liste over alle andelshavere med søgning og Invitér-knap */
+function hhNums(d, a) { return [{ l: a.lejlighed, n: a.nummer, r: a.rul }].concat((d.nums || []).filter(function (x) { return x.andel_id === a.id; }).map(function (x) { return { l: x.lejlighed, n: x.nummer, r: x.rul }; })); }
+function personStatus(d, a, k) {
+  if (!k.mail) return "nomail";
+  var m = d.members.filter(function (x) { return x.andel_id === a.id && (x.email || "").toLowerCase() === k.mail.toLowerCase(); })[0];
+  return !m ? "ikke" : m.user_id ? "adgang" : "inviteret";
+}
+var STATUS_TXT = { adgang: "Har adgang", inviteret: "Inviteret – ikke logget ind endnu", ikke: "Ikke inviteret", nomail: "Mangler mail" };
+function andelshaverListHtml(d) {
+  var hh = d.andele.filter(function (a) { return a.aktiv && a.lejlighed !== "999"; }).sort(function (x, y) { return String(x.nummer).localeCompare(String(y.nummer), "da", { numeric: true }); });
+  var cnt = { adgang: 0, inviteret: 0, ikke: 0 };
+  var items = hh.map(function (a) {
+    var ks = (d.contacts || []).filter(function (k) { return k.andel_id === a.id; });
+    var ms = d.members.filter(function (m) { return m.andel_id === a.id; });
+    var nums = hhNums(d, a);
+    var sts = ks.map(function (k) { return personStatus(d, a, k); });
+    var hs = sts.indexOf("adgang") >= 0 ? "adgang" : sts.indexOf("inviteret") >= 0 ? "inviteret" : "ikke"; cnt[hs]++;
+    var extraMembers = ms.filter(function (m) { return !ks.some(function (k) { return k.mail && k.mail.toLowerCase() === (m.email || "").toLowerCase(); }); });
+    var search = [nums.map(function (x) { return x.l + "-" + x.n + " " + x.n + " " + x.l; }).join(" "), ks.map(function (k) { return [k.navn, k.mail, k.tlf, k.bynavn].join(" "); }).join(" "), ms.map(function (m) { return m.name + " " + m.email; }).join(" ")].join(" ").toLowerCase();
+    return '<div class="ahh" data-s="' + esc(search) + '" data-st="' + hs + '"><div class="ahh-top"><strong>' + esc(nums.map(function (x) { return x.l + "-" + x.n; }).join(" · ")) + "</strong>" +
+      '<span class="hint">' + esc([ks[0] && ks[0].bynavn, nums.map(function (x) { return x.r ? "rul " + x.r : ""; }).filter(Boolean).join(", ")].filter(Boolean).join(" · ")) + "</span></div>" +
+      ks.map(function (k, i) {
+        var st = sts[i];
+        return '<div class="aperson"><div><strong>' + esc(k.navn || "–") + '</strong><span class="hint">' + esc([k.mail, k.tlf].filter(Boolean).join(" · ")) + '</span><span class="ast st-' + st + '">' + STATUS_TXT[st] + "</span></div>" +
+          (st === "ikke" ? '<button class="btn small primary" type="button" data-adminvite="' + esc(k.id) + '">Invitér</button>' : st === "inviteret" ? '<button class="btn small" type="button" data-adminvite="' + esc(k.id) + '">Send igen</button>' : "") + "</div>";
+      }).join("") +
+      (extraMembers.length ? '<p class="hint">Også med: ' + esc(extraMembers.map(function (m) { return (m.name || m.email) + (m.role === "ejer" ? " (ejer)" : " (gæst)") + (m.user_id ? "" : " – inviteret"); }).join(", ")) + "</p>" : "") +
+      '<div class="ahh-foot"><button class="linkbtn" type="button" data-sold="' + esc(a.id) + '">' + (ui.confirmSold === a.id ? "Tryk igen: andelen er solgt" : "Marker som solgt") + "</button></div></div>";
+  }).join("");
+  return '<section class="panel"><p class="eyebrow">Administration</p><h2>Andelshavere</h2>' +
+    '<p class="hint">' + hh.length + " husstande · " + cnt.adgang + " har adgang · " + cnt.inviteret + " inviteret · " + cnt.ikke + " ikke inviteret</p>" +
+    '<input type="search" id="adm-q" class="admq" placeholder="Søg: navn, nummer, by eller mail" autocomplete="off">' +
+    '<div class="seg small admfilter" role="group" aria-label="Vis">' + [["alle", "Alle"], ["ikke", "Ikke inviteret"], ["inviteret", "Inviteret"], ["adgang", "Har adgang"]].map(function (o) { return '<button type="button" data-admf="' + o[0] + '" aria-pressed="' + ((ui.admF || "alle") === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>" +
+    '<div class="ahhlist" id="ahhlist">' + items + '</div><p class="hint" id="adm-none" hidden>Ingen andelshavere matcher.</p></section>';
+}
+function filterAdmList() {
+  var q = ((document.getElementById("adm-q") || {}).value || "").trim().toLowerCase(), f = ui.admF || "alle", shown = 0;
+  document.querySelectorAll("#ahhlist .ahh").forEach(function (el) {
+    var ok = (!q || q.split(/\s+/).every(function (w) { return el.dataset.s.indexOf(w) >= 0; })) && (f === "alle" || el.dataset.st === f);
+    el.hidden = !ok; if (ok) shown++;
+  });
+  var n = document.getElementById("adm-none"); if (n) n.hidden = shown > 0;
+}
+async function adminInvite(kid) {
+  var d = adminData, k = (d.contacts || []).filter(function (x) { return x.id === kid; })[0]; if (!k || !k.mail) return;
+  var a = d.andele.filter(function (x) { return x.id === k.andel_id; })[0];
+  var first = (k.navn || "").split(" ")[0];
+  var r = await sb.from("members").insert({ andel_id: k.andel_id, email: k.mail.toLowerCase(), name: first, role: "ejer", invited_by: ui.user.id });
+  if (r.error && !/duplicate|unique/i.test(r.error.message)) { d.err = "Invitationen blev ikke gemt: " + r.error.message; render(); return; }
+  var nums = hhNums(d, a).map(function (x) { return x.l + "-" + x.n; });
+  ui.inviteText = inviteMsg(first, k.mail, nums.length > 1 ? nums.slice(0, -1).join(", ") + " og " + nums[nums.length - 1] : nums[0]);
+  ui.inviteTo = k.mail; ui.inviteName = first; ui.invitePhone = (k.tlf || "").replace(/\D/g, "");
+  openInvite(); ui.invitePhone = "";
+  var q = (document.getElementById("adm-q") || {}).value || "";
+  await loadAdmin(); var qi = document.getElementById("adm-q"); if (qi) { qi.value = q; filterAdmList(); }
 }
 async function addAndelNum() {
   var g = function (id) { return document.getElementById(id).value.trim(); };
@@ -2643,6 +2695,8 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.setvis) { setPhotoVis(t.dataset.setvis, t.dataset.v); return; }
   if (t.dataset.sold) { markSold(t.dataset.sold); return; }
   if (t.dataset.rmnum) { rmAndelNum(t.dataset.rmnum); return; }
+  if (t.dataset.adminvite) { adminInvite(t.dataset.adminvite); return; }
+  if (t.dataset.admf) { ui.admF = t.dataset.admf; document.querySelectorAll("[data-admf]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.admf === ui.admF)); }); filterAdmList(); return; }
   if (t.dataset.switchandel) { try { localStorage.setItem("bol_andel_" + ui.user.id, t.dataset.switchandel); } catch (x) {} location.reload(); return; }
   if (t.dataset.reinvite) { ui.inviteText = inviteMsg(t.dataset.rname || "", t.dataset.reinvite, ""); ui.inviteTo = t.dataset.reinvite; ui.inviteName = t.dataset.rname || ""; openInvite(); return; }
   if (t.id === "copy-invite") { var ta = document.getElementById("invite-copy"); ta.select(); try { navigator.clipboard.writeText(ta.value); t.textContent = "Kopieret"; } catch (x) { document.execCommand("copy"); } return; }
@@ -2687,6 +2741,7 @@ document.addEventListener("click", async function (e) {
   if (t.id === "open-import") { if (BOL.openImport) BOL.openImport(); return; }
   if (t.id === "logout") { await sb.auth.signOut(); ui.user = null; ui.editor = false; ui.member = false; me = null; ui.draft = null; ui.page = null; places = []; raw = { places: [], towns: [], regions: [], exps: [], photos: [] }; render(); return; }
 });
+root.addEventListener("input", function (e) { if (e.target.id === "adm-q") filterAdmList(); });
 root.addEventListener("submit", function (e) {
   e.preventDefault();
   if (e.target.id === "editor") saveDraft();
@@ -2728,7 +2783,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 131;
+var APP_VERSION = 132;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

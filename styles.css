@@ -658,3 +658,16 @@ footer.foot{margin-top:44px;padding-top:6px}
 footer.foot .footlabel:first-child{margin-top:0}
 .switchbox{margin:10px 0 4px;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
 .switchbox .hint{margin:0 0 8px}
+/* Administration: andelshaverliste (20.11.2026) */
+.admq{width:100%;margin:10px 0 8px;font:inherit;font-size:1rem;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.admfilter{max-width:none;margin-bottom:12px}
+.ahhlist{display:flex;flex-direction:column;gap:10px}
+.ahh{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface)}
+.ahh[hidden]{display:none}
+.ahh-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin-bottom:4px}
+.ahh-top strong{color:var(--sea)}
+.aperson{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+.aperson .hint{display:block;margin:1px 0;word-break:break-all}
+.ast{display:inline-block;font-size:.75rem;font-weight:700;margin-top:2px}
+.st-adgang{color:#2e7d4a}.st-inviteret{color:var(--ochre)}.st-ikke{color:var(--muted)}.st-nomail{color:var(--danger,#b8433a)}
+.ahh-foot{margin-top:4px;text-align:right;font-size:.8rem}
