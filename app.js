@@ -1760,6 +1760,8 @@ function editPlace(id) {
   ui.draft = { isNew: false, id: p.id, link: p.link || "", website: p.website || "", maps: p.maps_url || "", lastVisit: p.mine ? p.mine.last_visit : null, town: p.town || "", cat: p.cat, subcat: p.subcat || "", facts: JSON.parse(JSON.stringify(p.facts || {})), fav: !!p.fav, name: p.name, area: p.area || "", note: p.note || "", rating: null, price: p.price || "", visits: (p.visits || []).slice(), guess: !!p.guess, lat: p.lat, lon: p.lon,
     vis: p.visibility || "alle", expVis: p.mine ? p.mine.visibility : "alle", otherPhotos: (p.photoRows || []).length - ours.length,
     items: ours.map(function (x) { return { path: x.path, id: x.id, vis: x.visibility, origVis: x.visibility, people: x.faces, own: x.owner === ui.user.id }; }), removed: [] };
+  // Udgangspunktet: kun felter, der faktisk rettes, bliver gemt (så en gammel kopi ikke overskriver nyere data)
+  ui.draft.start = { name: p.name, cat: p.cat, subcat: p.subcat || "", town: p.town || "", area: p.area || "", lat: p.lat, lon: p.lon, vis: p.visibility || "alle" };
   ui.msg = ""; render(); scrollToForm();
 }
 function scrollToForm() { var f = document.getElementById("editor"); if (f) window.scrollTo({ top: f.getBoundingClientRect().top + window.scrollY - 16, behavior: "smooth" }); }
@@ -1883,8 +1885,18 @@ async function saveDraft() {
     var row = { link: link || null, website: web || null, maps_url: maps || null, facts: cleanFacts(d), price: d.price, guess: d.guess, updated_at: new Date().toISOString() };
     if (core) {
       var drive = orig && orig.lat === d.lat && orig.lon === d.lon && orig.drive_min ? { km: orig.drive_km, min: orig.drive_min } : (d.lat != null ? await driveFromHotel(d.lat, d.lon) : null);
-      Object.assign(row, { name: d.name.trim(), cat: d.cat, subcat: subName(d.cat, d.subcat) ? d.subcat : null, town: (d.town || "").trim() || null, area: d.area.trim(), lat: d.lat, lon: d.lon,
-        drive_km: drive ? drive.km : null, drive_min: drive ? drive.min : null, visibility: d.vis || "alle" });
+      var all = { name: d.name.trim(), cat: d.cat, subcat: subName(d.cat, d.subcat) ? d.subcat : null, town: (d.town || "").trim() || null, area: d.area.trim(), lat: d.lat, lon: d.lon,
+        drive_km: drive ? drive.km : null, drive_min: drive ? drive.min : null, visibility: d.vis || "alle" };
+      var st = d.start;
+      if (!st) Object.assign(row, all);
+      else {
+        if (d.name.trim() !== st.name) row.name = all.name;
+        if (d.cat !== st.cat || (d.subcat || "") !== st.subcat) { row.cat = all.cat; row.subcat = all.subcat; }
+        if ((d.town || "").trim() !== st.town) row.town = all.town;
+        if (d.area.trim() !== st.area) row.area = all.area;
+        if (d.lat !== st.lat || d.lon !== st.lon) { row.lat = all.lat; row.lon = all.lon; row.drive_km = all.drive_km; row.drive_min = all.drive_min; }
+        if ((d.vis || "alle") !== st.vis) row.visibility = all.visibility;
+      }
     }
     var r = d.isNew ? await sb.from("places").insert(Object.assign({ id: d.id, created_by: ui.user.id, andel_id: me.andel }, row))
                     : await sb.from("places").update(row).eq("id", d.id);
@@ -1907,7 +1919,7 @@ async function saveDraft() {
       await sb.from("photos").delete().in("path", d.removed);
       await sb.storage.from("photos").remove(d.removed);
     }
-    var townMsg = core ? await ensureTown(row.town, row.lat, row.lon) : "";
+    var townMsg = core && row.town !== undefined ? await ensureTown(row.town, row.lat !== undefined ? row.lat : d.lat, row.lon !== undefined ? row.lon : d.lon) : "";
     ui.status = d.status || "tried"; ui.cat = isApt(d.cat) ? "lejligheden" : CATNAME[d.cat] ? d.cat : ui.cat; ui.draft = null; ui.msg = "Gemt." + townMsg;
     await load();
     var hasPhotos = (raw.photos || []).some(function (x) { return x.kind === "place" && x.target === d.id; });
@@ -2088,7 +2100,7 @@ function nav(change) {
 /* ---------- ændringer, der ikke er gemt ----------
    Tilbage og hus må altid bruges, mens man retter. Er intet ændret, lukkes formularen bare.
    Er noget ændret, spørges: "Gem først" eller "Forlad uden at gemme". */
-var DRAFT_SKIP = { info: 1, err: 1, choices: 1, adv: 1, finding: 1, confirmDel: 1, keep: 1, more: 1, orig: 1 };
+var DRAFT_SKIP = { start: 1, info: 1, err: 1, choices: 1, adv: 1, finding: 1, confirmDel: 1, keep: 1, more: 1, orig: 1 };
 function draftKey(d) { return JSON.stringify(d, function (k, v) { return DRAFT_SKIP[k] ? undefined : (typeof Blob !== "undefined" && v instanceof Blob ? "fil" : v); }); }
 function markOrig() {
   [["draft", "editor", syncDraft], ["areaDraft", "area-editor", syncArea]].forEach(function (x) {
@@ -2547,7 +2559,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 120;
+var APP_VERSION = 121;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
