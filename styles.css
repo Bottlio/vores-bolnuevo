@@ -684,3 +684,8 @@ footer.foot .footlabel:first-child{margin-top:0}
 .sincebox li strong{font-size:1rem}
 .sincebox li span{font-size:.92rem;opacity:.8}
 .sincebox .sinceq{font-style:italic}
+/* Indstillinger for Nyt siden sidst (v139) */
+.nchk,label.nchk{display:flex;flex-direction:row;align-items:center;color:var(--fg);font-weight:400;gap:12px;padding:11px 0;font-size:1rem;line-height:1.35;cursor:pointer}
+.nchk input{width:22px;height:22px;margin:0;flex:none;accent-color:var(--sea)}
+.nlist{margin-left:34px;border-top:1px solid var(--line)}
+.nlist .nchk+.nchk{border-top:1px solid var(--line)}

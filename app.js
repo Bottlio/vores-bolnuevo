@@ -633,11 +633,29 @@ function newsItems() {
    Første gang sættes tidspunktet til nu, så nye brugere ikke får hele guiden som "nyt". */
 async function loadSeen() {
   ui.since = null; ui.sinceOpen = false;
-  var r = await sb.from("user_state").select("seen_at").maybeSingle();
+  var r = await sb.from("user_state").select("seen_at,notify").maybeSingle();
   if (r.error) { ui.seenAt = null; return; }
-  if (r.data) { ui.seenAt = r.data.seen_at; return; }
+  if (r.data) { ui.seenAt = r.data.seen_at; ui.notify = r.data.notify || {}; return; }
+  ui.notify = {};
   var now = new Date().toISOString(); ui.seenAt = now;
   await sb.from("user_state").insert({ user_id: ui.user.id, seen_at: now });
+}
+var NOTIFY_TYPES = [["stars", "Nye stjerner og kommentarer på steder, I har vurderet eller kommenteret"], ["photos", "Nye billeder på steder, I har vurderet eller kommenteret"], ["places", "Nye steder i guiden"], ["apt", "Billeder og kommentarer på jeres lejlighed"]];
+function notifyOn(k) { var n = ui.notify || {}; return !n.off && n[k] !== false; }
+function notifyHtml() {
+  var n = ui.notify || {}, many = myApts().length > 1;
+  return '<section class="panel"><h2>Nyt siden sidst</h2><p class="hint">Bestem, hvad der skal stå i "Nyt siden sidst" øverst på forsiden. Gælder kun dig.</p>' +
+    '<label class="chk nchk"><input type="checkbox" data-notify="off"' + (n.off ? "" : " checked") + "> Vis \"Nyt siden sidst\" på forsiden</label>" +
+    (n.off ? "" : '<div class="nlist">' + NOTIFY_TYPES.map(function (t) { return '<label class="chk nchk"><input type="checkbox" data-notify="' + t[0] + '"' + (n[t[0]] === false ? "" : " checked") + "> " + esc(t[0] === "apt" && many ? "Billeder og kommentarer på jeres lejligheder" : t[1]) + "</label>"; }).join("") + "</div>") +
+    '<p class="hint" id="notify-msg" role="status"></p></section>';
+}
+async function saveNotify(el) {
+  var n = Object.assign({}, ui.notify || {}), k = el.dataset.notify;
+  if (k === "off") { if (el.checked) delete n.off; else n.off = true; } else { if (el.checked) delete n[k]; else n[k] = false; }
+  ui.notify = n; ui.since = null;
+  var r = await sb.from("user_state").upsert({ user_id: ui.user.id, notify: n });
+  if (k === "off") render();
+  var m = document.getElementById("notify-msg"); if (m) m.textContent = r.error ? "Det blev ikke gemt – prøv igen." : "Gemt.";
 }
 function sinceItems() {
   if (!ui.seenAt || !me) return [];
@@ -651,31 +669,36 @@ function sinceItems() {
     var newStars = e.rating_score != null && after(e.rated_at), newNote = e.note && after(e.noted_at);
     if (!newStars && !newNote) return;
     var what = [newStars ? "gav " + dec(+e.rating_score) + " ★" : "", newNote ? "skrev en kommentar" : ""].filter(Boolean).join(" og ");
-    out.push({ t: [newStars ? e.rated_at : "", newNote ? e.noted_at : ""].filter(Boolean).sort().pop(), id: p.id, title: p.name, text: authorText(e) + " " + what, quote: newNote ? e.note : "" });
+    out.push({ ty: "stars", t: [newStars ? e.rated_at : "", newNote ? e.noted_at : ""].filter(Boolean).sort().pop(), id: p.id, title: p.name, text: authorText(e) + " " + what, quote: newNote ? e.note : "" });
   });
   // 2) Nye steder fra andre andele – kun når de har billeder, en kommentar eller stjerner
   raw.places.forEach(function (rp) {
     var p = byId[rp.id]; if (!p || isApt(p.cat) || rp.andel_id === me.andel || !after(rp.created_at)) return;
     var hasExp = raw.exps.some(function (e) { return e.kind === "place" && e.target === rp.id && (e.note || e.rating_score != null); });
     if (!(p.photos && p.photos.length) && !hasExp) return;
-    out.push({ t: rp.created_at, id: p.id, title: p.name, text: "Nyt sted · " + [CATNAME[p.cat], p.town].filter(Boolean).join(" · ") + (andelLabels[rp.andel_id] ? " · lagt ind af " + andelLabels[rp.andel_id] : "") });
+    out.push({ ty: "places", t: rp.created_at, id: p.id, title: p.name, text: "Nyt sted · " + [CATNAME[p.cat], p.town].filter(Boolean).join(" · ") + (andelLabels[rp.andel_id] ? " · lagt ind af " + andelLabels[rp.andel_id] : "") });
   });
   // 3) Jeres lejlighed(er): nye billeder og kommentarer fra andre andele med samme lejlighedsnummer (alle husstandens lejligheder)
   var apts = myApts(), aptIds = {};
   places.forEach(function (p) { if (isApt(p.cat) && apts.indexOf(String(aptOf(p))) >= 0) aptIds[p.id] = p; });
   raw.exps.forEach(function (e) {
     var p = e.kind === "place" && aptIds[e.target]; if (!p || e.andel_id === me.andel || !e.note || !after(e.noted_at)) return;
-    out.push({ t: e.noted_at, id: p.id, title: p.name, text: authorText(e) + " skrev en kommentar", quote: e.note });
+    out.push({ ty: "apt", t: e.noted_at, id: p.id, title: p.name, text: authorText(e) + " skrev en kommentar", quote: e.note });
   });
+  // 4) Nye billeder fra andre andele på steder, I selv har vurderet eller kommenteret (og på jeres lejlighed)
   var batches = {};
   raw.photos.forEach(function (r) {
-    var p = r.kind === "place" && aptIds[r.target]; if (!p || !r.andel_id || r.andel_id === me.andel || !after(r.created_at)) return;
-    var k = p.id + "|" + r.andel_id; (batches[k] = batches[k] || { p: p, rows: [] }).rows.push(r);
+    if (r.kind !== "place" || !r.andel_id || r.andel_id === me.andel || !after(r.created_at)) return;
+    var p = aptIds[r.target], ty = "apt";
+    if (!p) { p = byId[r.target]; ty = "photos"; if (!p || isApt(p.cat) || !p.mine || !(p.mine.rating_score != null || p.mine.note)) return; }
+    var k = p.id + "|" + r.andel_id; (batches[k] = batches[k] || { p: p, ty: ty, rows: [] }).rows.push(r);
   });
   Object.keys(batches).forEach(function (k) {
     var b = batches[k], rows = b.rows.sort(function (x, y) { return String(y.created_at).localeCompare(String(x.created_at)); });
-    out.push({ t: rows[0].created_at, id: b.p.id, title: b.p.name, text: (photoCredit(rows[0], rows[0].path) || "En andelshaver") + " lagde " + (rows.length === 1 ? "1 nyt billede" : rows.length + " nye billeder") + " ind" });
+    out.push({ ty: b.ty, t: rows[0].created_at, id: b.p.id, title: b.p.name, text: (photoCredit(rows[0], rows[0].path) || "En andelshaver") + " lagde " + (rows.length === 1 ? "1 nyt billede" : rows.length + " nye billeder") + " ind" });
   });
+  // Kun de slags, brugeren har valgt under Vores andel
+  out = out.filter(function (it) { return notifyOn(it.ty); });
   // Samme sted samles i én linje i listen (fx et nyt sted med en kommentar)
   var g = {}, list = [];
   out.forEach(function (it) {
@@ -1218,6 +1241,7 @@ function andelPageHtml() {
     '<button class="btn primary" type="submit">Invitér</button></form>';
   if (d.err) h += '<p class="err">' + esc(d.err) + "</p>";
   h += "</section>";
+  h += notifyHtml();
   // Slet min konto
   h += '<section class="panel"><h2>Slet min konto</h2><p class="hint">Sletter dit login og din plads på andel ' + esc(me.label) + ". Det, du har lagt ind – steder, vurderinger, tekster og billeder – bliver hos andelen, så de andre ikke mister det.</p>" +
     (me.admin ? '<p class="hint">Som administrator kan du ikke slette din egen konto her.</p>'
@@ -2527,7 +2551,7 @@ var HELP_FAQ = [
   ["find", "Find steder", [
     ["Hvordan finder jeg et sted?", "<ol><li>Tryk på et af felterne på forsiden – fx <strong>Spisesteder</strong> eller <strong>Strande</strong>.</li><li>Tryk på et sted for at se billeder, stjerner og kommentarer.</li></ol><p>Leder du efter noget bestemt, så skriv i søgefeltet øverst.</p>"],
     ["Hvad betyder Alle, Vores og Favoritter?", "<p>" + DEMO.pill + "</p><p><strong>Alle</strong> viser alle steder i guiden.</p><p><strong>Vores</strong> viser kun de steder, jeres andel selv har givet stjerner eller skrevet om.</p><p><strong>Favoritter</strong> viser de steder, I har trykket på hjertet " + DEMO.heart + " ved.</p><p>Det valgte står med hvid tekst på mørkeblåt.</p>"],
-    ["Hvad betyder \"nye siden sidst\" på forsiden?", "<p>Står der fx <strong>3 nye siden sidst</strong> øverst på forsiden, er der sket noget, siden du sidst kiggede:</p><ul><li>andre andelshavere har givet stjerner eller skrevet en kommentar til et sted, I selv har vurderet eller kommenteret</li><li>der er kommet et nyt sted i guiden med billeder, en kommentar eller stjerner</li><li>andre andelshavere i jeres lejlighed har lagt billeder ind eller skrevet en kommentar på lejlighedens side (har I flere lejligheder, gælder det dem alle)</li></ul><p>Tryk på linjen for at se listen, og tryk på et sted for at åbne det. Næste gang du åbner guiden, tæller den kun det, der er kommet til siden. Er der intet nyt, står linjen der ikke.</p>"],
+    ["Hvad betyder \"nye siden sidst\" på forsiden?", "<p>Står der fx <strong>3 nye siden sidst</strong> øverst på forsiden, er der sket noget, siden du sidst kiggede:</p><ul><li>andre andelshavere har givet stjerner eller skrevet en kommentar til et sted, I selv har vurderet eller kommenteret</li><li>der er kommet et nyt sted i guiden med billeder, en kommentar eller stjerner</li><li>andre andelshavere i jeres lejlighed har lagt billeder ind eller skrevet en kommentar på lejlighedens side (har I flere lejligheder, gælder det dem alle)</li><li>andre har lagt nye billeder ind på steder, I selv har vurderet eller kommenteret</li></ul><p>Tryk på linjen for at se listen, og tryk på et sted for at åbne det. Næste gang du åbner guiden, tæller den kun det, der er kommet til siden. Er der intet nyt, står linjen der ikke.</p><p>Under <strong>Vores andel</strong> nederst på siden kan du slå \"Nyt siden sidst\" helt fra eller vælge, hvad der skal med. Det gælder kun dig.</p>"],
     ["Hvad er forskellen på Byer og Dagsture?", "<p><strong>Byer</strong> er byerne i området med de steder, der ligger i dem.</p><p><strong>Dagsture</strong> er områder mindst en halv time væk i bil. Ture over 2½ time står under <strong>Længere ture</strong>.</p>"],
     ["Hvordan ser jeg stederne på et kort?", "<p>Tryk på kort-knappen " + DEMO.map + " til højre for søgefeltet.</p><p>På kortet bliver knappen til " + DEMO.list + ". Tryk på den for at komme tilbage til listen.</p><p>Inde på et sted viser " + DEMO.map + " stedet på kortet i stedet for billederne.</p>"],
     ["Hvad gør Karakter og Sortering?", "<p><strong>Karakter</strong> viser kun steder med mindst så mange stjerner. <strong>Sortering</strong> bestemmer rækkefølgen, fx senest besøgt eller flest stjerner.</p>"]
@@ -2835,6 +2859,7 @@ document.addEventListener("click", async function (e) {
   if (t.id === "logout") { await sb.auth.signOut(); ui.user = null; ui.editor = false; ui.member = false; me = null; ui.draft = null; ui.page = null; places = []; raw = { places: [], towns: [], regions: [], exps: [], photos: [] }; render(); return; }
 });
 root.addEventListener("input", function (e) { if (e.target.id === "adm-q") filterAdmList(); });
+root.addEventListener("change", function (e) { if (e.target.dataset && e.target.dataset.notify) saveNotify(e.target); });
 root.addEventListener("submit", function (e) {
   e.preventDefault();
   if (e.target.id === "editor") saveDraft();
@@ -2876,7 +2901,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 138;
+var APP_VERSION = 139;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
