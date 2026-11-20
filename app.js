@@ -644,17 +644,20 @@ var NOTIFY_TYPES = [["stars", "Nye stjerner og kommentarer på steder, I har vur
 function notifyOn(k) { var n = ui.notify || {}; return !n.off && n[k] !== false; }
 function notifyHtml() {
   var n = ui.notify || {}, many = myApts().length > 1;
-  return '<section class="panel"><h2>Nyt siden sidst</h2><p class="hint">Bestem, hvad der skal stå i "Nyt siden sidst" øverst på forsiden. Gælder kun dig.</p>' +
+  var state = n.off ? "Slået fra" : NOTIFY_TYPES.every(function (t) { return n[t[0]] !== false; }) ? "Alt slået til" : NOTIFY_TYPES.filter(function (t) { return n[t[0]] !== false; }).length + " af 4 slået til";
+  var h = '<section class="panel nbox"><button type="button" class="nhead" data-notifyopen="1" aria-expanded="' + !!ui.notifyOpen + '"><span><strong>Notifikationer:</strong> Nyt siden sidst<span class="hint">' + state + '</span></span><span class="sincego" aria-hidden="true">' + (ui.notifyOpen ? "⌃" : "›") + "</span></button>";
+  if (!ui.notifyOpen) return h + "</section>";
+  return h + '<div class="nbody"><p class="hint">Bestem, hvad der skal stå i "Nyt siden sidst" øverst på forsiden. Gælder kun dig.</p>' +
     '<label class="chk nchk"><input type="checkbox" data-notify="off"' + (n.off ? "" : " checked") + "> Vis \"Nyt siden sidst\" på forsiden</label>" +
     (n.off ? "" : '<div class="nlist">' + NOTIFY_TYPES.map(function (t) { return '<label class="chk nchk"><input type="checkbox" data-notify="' + t[0] + '"' + (n[t[0]] === false ? "" : " checked") + "> " + esc(t[0] === "apt" && many ? "Billeder og kommentarer på jeres lejligheder" : t[1]) + "</label>"; }).join("") + "</div>") +
-    '<p class="hint" id="notify-msg" role="status"></p></section>';
+    '<p class="hint" id="notify-msg" role="status"></p></div></section>';
 }
 async function saveNotify(el) {
   var n = Object.assign({}, ui.notify || {}), k = el.dataset.notify;
   if (k === "off") { if (el.checked) delete n.off; else n.off = true; } else { if (el.checked) delete n[k]; else n[k] = false; }
   ui.notify = n; ui.since = null;
   var r = await sb.from("user_state").upsert({ user_id: ui.user.id, notify: n });
-  if (k === "off") render();
+  render();
   var m = document.getElementById("notify-msg"); if (m) m.textContent = r.error ? "Det blev ikke gemt – prøv igen." : "Gemt.";
 }
 function sinceItems() {
@@ -1242,21 +1245,23 @@ function andelPageHtml() {
   if (d.err) h += '<p class="err">' + esc(d.err) + "</p>";
   h += "</section>";
   h += notifyHtml();
+  // Billeder med personer, som kun vores andel kan se
+  var ph = raw.photos.filter(function (p) { return p.andel_id === me.andel && (p.faces !== false || p.visibility !== "alle"); });
+  if (ph.length) {
+    h += '<section class="panel nbox"><button type="button" class="nhead" data-facesopen="1" aria-expanded="' + !!ui.facesOpen + '"><span><strong>Billeder med personer</strong> (' + ph.length + ')<span class="hint">Vælg, hvem der kan se dem</span></span><span class="sincego" aria-hidden="true">' + (ui.facesOpen ? "⌃" : "›") + "</span></button>";
+    if (ui.facesOpen) h += '<div class="nbody">' +
+      '<p class="hint">Billeder, hvor guiden har fundet personer (eller ikke kunne tjekke). De er som udgangspunkt kun for jeres andel. Tryk "Alle" på et billede, hvis andre andelshavere gerne må se det.</p>' +
+      '<div class="pgrid">' + ph.map(function (p) {
+        return '<div class="pcell"><img src="' + esc(photoUrl(p.path)) + '" alt="" loading="lazy"><div class="seg small" role="group" aria-label="Hvem kan se billedet">' +
+          [["alle", "Alle"], ["andel", "Vores andel"], ["mig", "Kun mig"]].filter(function (o) { return o[0] !== "mig" || p.owner === ui.user.id || p.visibility === "mig"; }).map(function (o) { return '<button type="button" data-setvis="' + esc(p.id) + '" data-v="' + o[0] + '" aria-pressed="' + (p.visibility === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div></div>";
+      }).join("") + "</div></div>";
+    h += "</section>";
+  }
   // Slet min konto
   h += '<section class="panel"><h2>Slet min konto</h2><p class="hint">Sletter dit login og din plads på andel ' + esc(me.label) + ". Det, du har lagt ind – steder, vurderinger, tekster og billeder – bliver hos andelen, så de andre ikke mister det.</p>" +
     (me.admin ? '<p class="hint">Som administrator kan du ikke slette din egen konto her.</p>'
       : '<button class="btn danger" type="button" id="del-account"' + (ui.busy ? " disabled" : "") + ">" + (ui.confirmDelAcc ? "Tryk igen for at slette din konto – det kan ikke fortrydes" : "Slet min konto") + "</button>") +
     (ui.delAccErr ? '<p class="err" role="alert">' + esc(ui.delAccErr) + "</p>" : "") + "</section>";
-  // Billeder med personer, som kun vores andel kan se
-  var ph = raw.photos.filter(function (p) { return p.andel_id === me.andel && (p.faces !== false || p.visibility !== "alle"); });
-  if (ph.length) {
-    h += '<section class="panel"><h2>Billeder med personer (' + ph.length + ")</h2>" +
-      '<p class="hint">Billeder, hvor guiden har fundet personer (eller ikke kunne tjekke). De er som udgangspunkt kun for jeres andel. Tryk "Alle" på et billede, hvis andre andelshavere gerne må se det.</p>' +
-      '<div class="pgrid">' + ph.map(function (p) {
-        return '<div class="pcell"><img src="' + esc(photoUrl(p.path)) + '" alt="" loading="lazy"><div class="seg small" role="group" aria-label="Hvem kan se billedet">' +
-          [["alle", "Alle"], ["andel", "Vores andel"], ["mig", "Kun mig"]].filter(function (o) { return o[0] !== "mig" || p.owner === ui.user.id || p.visibility === "mig"; }).map(function (o) { return '<button type="button" data-setvis="' + esc(p.id) + '" data-v="' + o[0] + '" aria-pressed="' + (p.visibility === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div></div>";
-      }).join("") + "</div></section>";
-  }
   return h;
 }
 /* Pop-up efter "Invitér": beskeden og knapper til Mail, SMS, WhatsApp og Messenger */
@@ -2812,6 +2817,8 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.sold) { markSold(t.dataset.sold); return; }
   if (t.dataset.rmnum) { rmAndelNum(t.dataset.rmnum); return; }
   if (t.dataset.adminvite) { adminInvite(t.dataset.adminvite); return; }
+  if (t.dataset.facesopen) { ui.facesOpen = !ui.facesOpen; render(); return; }
+  if (t.dataset.notifyopen) { ui.notifyOpen = !ui.notifyOpen; render(); return; }
   if (t.dataset.since) { if (t.dataset.since === "open") openSince(); else { ui.sinceOpen = false; ui.since = []; render(); } return; }
   if (t.dataset.admf) { ui.admF = t.dataset.admf; document.querySelectorAll("[data-admf]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.admf === ui.admF)); }); filterAdmList(); return; }
   if (t.dataset.switchandel) { try { localStorage.setItem("bol_andel_" + ui.user.id, t.dataset.switchandel); } catch (x) {} location.reload(); return; }
@@ -2901,7 +2908,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 139;
+var APP_VERSION = 140;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

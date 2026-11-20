@@ -689,3 +689,9 @@ footer.foot .footlabel:first-child{margin-top:0}
 .nchk input{width:22px;height:22px;margin:0;flex:none;accent-color:var(--sea)}
 .nlist{margin-left:34px;border-top:1px solid var(--line)}
 .nlist .nchk+.nchk{border-top:1px solid var(--line)}
+.nbox{padding-top:4px;padding-bottom:4px}
+.nhead{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:10px 0;background:none;border:0;color:var(--fg);font:inherit;font-size:1rem;text-align:left;cursor:pointer}
+.nhead strong{color:var(--sea)}
+.nhead .hint{display:block;margin-top:2px}
+.nhead .sincego{color:var(--sea)}
+.nbody{border-top:1px solid var(--line);padding:8px 0 4px}
