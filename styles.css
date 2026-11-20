@@ -570,3 +570,8 @@ header{position:relative}
 .faqa ul{margin:0 0 8px;padding-left:20px}
 .faqa ul li{margin-bottom:5px}
 .forgot{margin:-4px 0 4px;font-size:.9rem}
+/* Send invitation: Mail, SMS, WhatsApp */
+.sendrow{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 10px}
+.sendbtn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:var(--fg);flex:1 1 0;justify-content:center;min-width:96px}
+.sendbtn svg{color:var(--sea)}
+.sendbtn svg{flex:none;width:20px;height:20px}

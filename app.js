@@ -1091,7 +1091,7 @@ function andelPageHtml() {
   if (owner) h += '<form id="invite-form" class="invite"><h3>Invitér en person ' + helpBtn("invite", "inline") + '</h3><div class="grid"><label>Fornavn<input id="i-name" required placeholder="Fx Emma"></label><label>Mail<input id="i-email" type="email" required placeholder="navn@mail.dk"></label></div>' +
     '<div class="seg small" role="group" aria-label="Rolle"><button type="button" data-irole="gaest" aria-pressed="' + (ui.irole !== "ejer") + '">Gæst</button><button type="button" data-irole="ejer" aria-pressed="' + (ui.irole === "ejer") + '">Ejer</button></div>' +
     '<button class="btn primary" type="submit">Invitér</button></form>';
-  if (ui.inviteText) h += '<div class="invitetext"><p class="hint">Send denne besked til personen (sms, WhatsApp eller mail):</p><textarea readonly id="invite-copy">' + esc(ui.inviteText) + '</textarea><button class="btn small" type="button" id="copy-invite">Kopiér beskeden</button></div>';
+  if (ui.inviteText) h += '<div class="invitetext"><p class="hint">Send invitationen – beskeden er skrevet på forhånd. Ved Mail er modtageren også udfyldt. Ved SMS og WhatsApp vælger du selv personen. Til sidst trykker du send.</p>' + sendBtns() + '<textarea readonly id="invite-copy">' + esc(ui.inviteText) + '</textarea><button class="btn small" type="button" id="copy-invite">Kopiér beskeden</button></div>';
   if (d.err) h += '<p class="err">' + esc(d.err) + "</p>";
   h += "</section>";
   // Slet min konto
@@ -1111,6 +1111,20 @@ function andelPageHtml() {
   }
   return h;
 }
+/* Knapper der åbner mail, sms eller WhatsApp med invitationen skrevet ind */
+function sendBtns() {
+  var t = ui.inviteText || "", enc = encodeURIComponent(t);
+  var mail = "mailto:" + encodeURIComponent(ui.inviteTo || "") + "?subject=" + encodeURIComponent("Invitation til Laderita de Bolnuevo guide") + "&body=" + enc;
+  var sms = "sms:?&body=" + enc;
+  var wa = "https://wa.me/?text=" + enc;
+  return '<div class="sendrow">' +
+    '<a class="btn sendbtn" href="' + esc(mail) + '">' + ICON_MAIL + "Mail</a>" +
+    '<a class="btn sendbtn" href="' + esc(sms) + '">' + ICON_SMS + "SMS</a>" +
+    '<a class="btn sendbtn" href="' + esc(wa) + '" target="_blank" rel="noopener">' + ICON_WA + "WhatsApp</a></div>";
+}
+var ICON_MAIL = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg>';
+var ICON_SMS = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5 4V6a1 1 0 0 1 1-1z"/><path d="M8 10h8M8 13h5"/></svg>';
+var ICON_WA = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1.3-4A8 8 0 1 1 8 18.7z"/><path d="M9 9.5c0 2.8 2.7 5.5 5.5 5.5l1.2-1.4-1.9-1-1 .8a4 4 0 0 1-2.2-2.2l.8-1-1-1.9z"/></svg>';
 /* Invitationsbesked med en kort log ind-guide */
 function inviteMsg(name, email, andel) {
   return "Hej " + name + ".\n\nDu er inviteret til Laderita de Bolnuevo guide – en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer" + (andel ? ". Du er med som ejer af andel " + andel : "") + ".\n\n" +
@@ -1128,7 +1142,7 @@ async function invite() {
   if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { andelData.err = "Skriv fornavn og en gyldig mail."; render(); return; }
   var r = await sb.from("members").insert({ andel_id: me.andel, email: email, name: name, role: role, invited_by: ui.user.id });
   if (r.error) { andelData.err = /duplicate|unique/i.test(r.error.message) ? "Den mail er allerede inviteret." : "Invitationen blev ikke gemt: " + r.error.message; render(); return; }
-  ui.inviteText = inviteMsg(name, email, "");
+  ui.inviteText = inviteMsg(name, email, ""); ui.inviteTo = email;
   andelData.err = ""; await loadAndel();
 }
 async function removeMember(email) {
@@ -1177,7 +1191,7 @@ function adminPageHtml() {
   }).join("") + "</ul>";
   h += '<form id="newandel-form" class="invite"><h3>Opret andel og invitér første ejer</h3><div class="grid"><label>Lejlighed<input id="n-lejl" required placeholder="101" inputmode="numeric"></label><label>Andelshavernummer<input id="n-num" required placeholder="043" inputmode="numeric"></label></div>' +
     '<div class="grid"><label>Ejerens fornavn<input id="n-name" required></label><label>Ejerens mail<input id="n-email" type="email" required></label></div><button class="btn primary" type="submit">Opret andel</button></form>';
-  if (ui.inviteText) h += '<div class="invitetext"><p class="hint">Send denne besked til ejeren:</p><textarea readonly id="invite-copy">' + esc(ui.inviteText) + '</textarea><button class="btn small" type="button" id="copy-invite">Kopiér beskeden</button></div>';
+  if (ui.inviteText) h += '<div class="invitetext"><p class="hint">Send invitationen til ejeren:</p>' + sendBtns() + '<textarea readonly id="invite-copy">' + esc(ui.inviteText) + '</textarea><button class="btn small" type="button" id="copy-invite">Kopiér beskeden</button></div>';
   if (d.err) h += '<p class="err">' + esc(d.err) + "</p>";
   h += '<p class="hint">"Marker som solgt" lukker andelens adgang. Deres private indhold følger ikke med til køberen, som får en ny andel med samme nummer.</p>';
   return h + "</section>";
@@ -1190,7 +1204,7 @@ async function createAndel() {
   if (a.error) { adminData.err = /unique|duplicate/i.test(a.error.message) ? "Andel " + lejl + "-" + num + " findes allerede." : "Andelen blev ikke oprettet: " + a.error.message; render(); return; }
   var m = await sb.from("members").insert({ andel_id: a.data.id, email: email, name: name, role: "ejer", invited_by: ui.user.id });
   if (m.error) { adminData.err = "Andelen er oprettet, men ejeren blev ikke inviteret: " + m.error.message; render(); return; }
-  ui.inviteText = inviteMsg(name, email, lejl + "-" + num);
+  ui.inviteText = inviteMsg(name, email, lejl + "-" + num); ui.inviteTo = email;
   adminData.err = ""; await loadAdmin();
 }
 async function markSold(id) {
@@ -2489,7 +2503,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 113;
+var APP_VERSION = 114;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
