@@ -65,7 +65,9 @@ function visitsText(v) { if (!v || !v.length) return ""; return "Besøgt " + v.m
 function isMapsLink(u) { return /google\.[a-z.]+\/maps|goo\.gl\/maps|maps\.app\.goo\.gl|maps\.google\./i.test(u || ""); }
 function mapsUrl(p) {
   if (p.maps_url) return p.maps_url;
-  var q = (p.cat === "spisesteder" || p.cat === "shopping" || p.lat == null) ? (p.name + ", " + (p.area || "Mazarrón")) : (p.lat + "," + p.lon);
+  // Navn + adresse + by, så Google ikke finder et sted med samme navn et helt andet sted i Spanien
+  var where = [p.area && p.area !== p.town ? p.area : "", p.town || (p.area ? "" : "Mazarrón")].filter(Boolean).join(", ");
+  var q = (p.cat === "spisesteder" || p.cat === "shopping" || p.lat == null) ? (p.name + ", " + where + ", España") : (p.lat + "," + p.lon);
   return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
 }
 /* ---------- vurderinger ----------
@@ -1547,6 +1549,13 @@ async function findOnMap() {
       if (ch.length === 1) { await applyChoice(d, ch[0]); return; }
       if (ch.length > 1) { d.choices = ch; d.info = "Jeg fandt " + ch.length + " steder med det navn i nærheden. Vælg det rigtige:"; render(); return; }
     }
+    // Er der skrevet en adresse/by, så søg på den i området, før der søges bredt på navnet
+    var addr = [d.area && d.area !== d.town ? d.area : "", d.town].filter(Boolean).join(", ");
+    if (!hit && d.area && d.area !== d.town) {
+      var ar = await (await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=3&accept-language=es&countrycodes=es&bounded=1&viewbox=-2.3,38.7,-0.3,37.2&q=" + encodeURIComponent(addr))).json();
+      if (ui.draft !== d) return;
+      if (ar && ar.length) { hit = ar[0]; hit.type = null; hit.category = null; hit._addr = d.area; }
+    }
     var words = d.name.trim().split(/\s+/), tries = [d.name.trim()];
     var generic = /^(restaurante|restaurant|bar|cafe|café|cafetería|faro|playa|el|la|los|las)$/i;
     var stripped = words.filter(function (w) { return !generic.test(w); }).join(" "); if (stripped && tries.indexOf(stripped) < 0) tries.push(stripped);
@@ -1557,9 +1566,16 @@ async function findOnMap() {
       if (r.length) hit = r.sort(function (a, b) { return km(+a.lat, +a.lon) - km(+b.lat, +b.lon); })[0];   // nærmest hotellet
     }
     if (ui.draft !== d) return;
+    // Langt væk (fx et sted med samme navn i Barcelona): spørg i stedet for at gemme det
+    if (hit && km(+hit.lat, +hit.lon) > 150) {
+      var fa = hit.address || {};
+      d.choices = [{ name: hit.name || d.name.trim(), lat: +hit.lat, lon: +hit.lon, cat: null, subcat: null, addr: [fa.road, fa.village || fa.town || fa.city].filter(Boolean).join(", ") || (hit.display_name || "").split(",").slice(0, 3).join(","), km: km(+hit.lat, +hit.lon), address: fa }];
+      d.info = "Jeg fandt kun et sted med det navn langt væk – ca. " + Math.round(d.choices[0].km) + " km fra hotellet. Er det ikke det rigtige, så skriv adressen i \"Sted/område\" og byen, og tryk igen – eller indsæt et link fra Google Maps.";
+      render(); return;
+    }
     if (!hit) { d.info = "Fandt ikke stedet på kortet. Tip: indsæt et link fra Google Maps i link-feltet og tryk igen. Du kan også gemme stedet uden placering."; render(); return; }
     d.lat = +(+hit.lat).toFixed(5); d.lon = +(+hit.lon).toFixed(5);
-    d.town = townFor(d.lat, d.lon, hit.address); d.area = d.town;
+    d.town = townFor(d.lat, d.lon, hit.address); d.area = hit._addr || d.town;
     var t = hit.type, c = hit.category;
     if (c === "amenity" && FOOD.indexOf(t) >= 0) d.cat = "spisesteder";
     else if (t === "charging_station") d.cat = "opladning";
@@ -2531,7 +2547,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 119;
+var APP_VERSION = 120;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
