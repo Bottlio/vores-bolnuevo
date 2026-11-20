@@ -440,8 +440,8 @@ function areaHeader(kind, name) {
   html += '<p class="meta">' + (kind === "town" && regionOf(name) !== NO_REGION && regionOf(name) !== name ? '<button class="linkbtn" type="button" data-region="' + esc(regionOf(name)) + '">' + esc(regionOf(name)) + "</button>" + (meta.length ? " · " : "") : "") + esc(meta.join(" · ")) + "</p>";
   html += textsHtml({ note: a.note, texts: (a.rec && a.rec.texts) || [], mine: a.rec && a.rec.mine, cat: "byer" }, true);
   var mq = kind === "town" ? name + ", Murcia, España" : name + ", España";
-  if (ui.editor) html += '<div class="row"><button class="btn small" type="button" data-editarea="' + kind + '" data-key="' + esc(name) + '">Tilføj kommentar</button><button class="btn small" type="button" data-addarea="' + kind + '" data-key="' + esc(name) + '">Tilføj billeder</button></div>';
-  html += '<div class="row links"><a class="maps" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(mq) + '" target="_blank" rel="noopener">Åbn i Google Maps</a></div>';
+  if (ui.editor) html += '<div class="actrow"><button class="btn act" type="button" data-editarea="' + kind + '" data-key="' + esc(name) + '">' + ICON_PEN + 'Tilføj kommentar</button><button class="btn act" type="button" data-addarea="' + kind + '" data-key="' + esc(name) + '">' + ICON_CAM + 'Tilføj billeder</button></div>';
+  html += '<div class="linklist">' + lrow("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(mq), ICON_PIN, "Åbn i Google Maps", true) + "</div>";
   return html + "</section>";
 }
 
@@ -472,6 +472,14 @@ function descHtml(p) {
   var html = rows.length ? '<div class="factbox"><dl>' + rows.join("") + "</dl>" + loose.join("") + "</div>" : '<div class="desc">' + loose.join("") + "</div>";
   return { html: html, usedLink: used };
 }
+function lrow(href, icon, text, ext) { return '<a class="lrow" href="' + esc(href) + '"' + (ext ? ' target="_blank" rel="noopener"' : "") + ">" + icon + '<span class="ltext">' + esc(text) + '</span><span class="lchev" aria-hidden="true">' + (ext ? "↗" : "›") + "</span></a>"; }
+function licon(p) { return '<svg class="licon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + p + "</svg>"; }
+var ICON_PIN = licon('<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>');
+var ICON_GLOBE = licon('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 3.6 5.5 3.6 8.5s-1.1 5.9-3.6 8.5c-2.5-2.6-3.6-5.5-3.6-8.5S9.5 6.1 12 3.5z"/>');
+var ICON_LINK = licon('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>');
+var ICON_TOWN = licon('<path d="M3 21h18M5 21V10l5-3v14M10 21V5l6 3v13M16 21v-9l4 2v7"/>');
+var ICON_PEN = licon('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>');
+var ICON_CAM = licon('<path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.3"/>');
 function placeCard(p, detail, showKat) {
     var html = '<article class="place' + (detail ? " detailcard" : "") + '" id="' + esc(p.id) + '" data-pid="' + esc(p.id) + '">' +
       (detail && ui.view === "kort" && p.lat != null ? '<div class="car"><div id="map" class="dmap" role="region" aria-label="Kort over ' + esc(p.name) + '"></div></div>' : carousel(p));
@@ -494,15 +502,26 @@ function placeCard(p, detail, showKat) {
     if (p.guess) html += '<span class="tag guess">Navnet er gættet ud fra billeder</span>';
     html += "</div>";
     if (ui.editor) {
-      html += '<div class="row"><button class="btn small" type="button" data-edit="' + esc(p.id) + '">Tilføj kommentar</button><button class="btn small" type="button" data-addphotos="' + esc(p.id) + '">Tilføj billeder</button>';
+      html += '<div class="' + (detail ? "actrow" : "row") + '"><button class="btn ' + (detail ? "act" : "small") + '" type="button" data-edit="' + esc(p.id) + '">' + (detail ? ICON_PEN : "") + 'Tilføj kommentar</button><button class="btn ' + (detail ? "act" : "small") + '" type="button" data-addphotos="' + esc(p.id) + '">' + (detail ? ICON_CAM : "") + 'Tilføj billeder</button>';
       if ((!p.photos || !p.photos.length) && (p.website || (p.link && !isMapsLink(p.link)))) html += '<button class="btn small" type="button" data-fetchimg="' + esc(p.id) + '">Hent billeder fra nettet</button>';
       html += "</div>";
     }
-    html += '<div class="row links"><a class="maps" href="' + esc(mapsUrl(p)) + '" target="_blank" rel="noopener">Åbn i Google Maps</a>';
-    if (p.website) html += '<a class="maps" href="' + esc(p.website) + '" target="_blank" rel="noopener">' + (hotelCard ? "Foreningens hjemmeside" : "Hjemmeside") + ' ↗</a>';
-    if (p.link && !(dsc && dsc.usedLink)) html += '<a class="maps" href="' + esc(p.link) + '" target="_blank" rel="noopener">Læs mere (' + esc(hostOf(p.link)) + ") ↗</a>";
-    html += "</div>";
-    if (detail && p.town && !hotelCard) html += '<p class="meta">Mere i <button class="linkbtn" type="button" data-town="' + esc(p.town) + '">' + esc(p.town) + "</button>" + (regionOf(p.town) !== NO_REGION && regionOf(p.town) !== p.town ? ' · <button class="linkbtn" type="button" data-region="' + esc(regionOf(p.town)) + '">' + esc(regionOf(p.town)) + "</button>" : "") + "</p>";
+    if (detail) {
+      // Links som en liste med én række pr. link – store felter, der er lette at ramme
+      var lr = lrow(mapsUrl(p), ICON_PIN, "Åbn i Google Maps", true);
+      if (p.website) lr += lrow(p.website, ICON_GLOBE, hotelCard ? "Foreningens hjemmeside" : "Stedets hjemmeside", true);
+      if (p.link && !(dsc && dsc.usedLink)) lr += lrow(p.link, ICON_LINK, "Læs mere på " + hostOf(p.link), true);
+      if (p.town && !hotelCard) {
+        lr += '<button class="lrow" type="button" data-town="' + esc(p.town) + '">' + ICON_TOWN + '<span class="ltext">Flere steder i ' + esc(p.town) + '</span><span class="lchev" aria-hidden="true">›</span></button>';
+        if (regionOf(p.town) !== NO_REGION && regionOf(p.town) !== p.town) lr += '<button class="lrow" type="button" data-region="' + esc(regionOf(p.town)) + '">' + ICON_TOWN + '<span class="ltext">Flere steder i ' + esc(regionOf(p.town)) + '</span><span class="lchev" aria-hidden="true">›</span></button>';
+      }
+      html += '<div class="linklist">' + lr + "</div>";
+    } else {
+      html += '<div class="row links"><a class="maps" href="' + esc(mapsUrl(p)) + '" target="_blank" rel="noopener">Åbn i Google Maps</a>';
+      if (p.website) html += '<a class="maps" href="' + esc(p.website) + '" target="_blank" rel="noopener">' + (hotelCard ? "Foreningens hjemmeside" : "Hjemmeside") + ' ↗</a>';
+      if (p.link && !(dsc && dsc.usedLink)) html += '<a class="maps" href="' + esc(p.link) + '" target="_blank" rel="noopener">Læs mere (' + esc(hostOf(p.link)) + ") ↗</a>";
+      html += "</div>";
+    }
     return html + "</article>";
 }
 
@@ -2563,7 +2582,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 124;
+var APP_VERSION = 125;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

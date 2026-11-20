@@ -585,3 +585,16 @@ header{position:relative}
 .invpreview textarea{width:100%;min-height:200px;margin-top:8px;font:inherit;font-size:.88rem}
 .invnote{min-height:1.2em;margin:4px 0 0;font-size:.88rem;color:var(--sea)}
 @media (max-width:380px){.sendrow{gap:6px}.sendbtn{font-size:.78rem}.sendbtn svg{padding:9px}}
+/* Stedside: handlinger og links tydeligt adskilt og lette at ramme (20.11.2026) */
+.actrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 4px}
+.btn.act{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;font-size:.95rem;font-weight:600}
+.btn.act .licon{width:19px;height:19px;color:var(--sea);flex:none}
+.actrow .btn[data-fetchimg]{grid-column:1/-1;min-height:44px}
+.linklist{margin:14px 0 4px;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
+.lrow{display:flex;align-items:center;gap:12px;width:100%;min-height:50px;padding:0 14px;border:0;border-top:1px solid var(--line);background:none;color:var(--fg);font:inherit;font-size:.97rem;text-align:left;text-decoration:none;cursor:pointer}
+.lrow:first-child{border-top:0}
+.lrow:hover,.lrow:focus-visible{background:var(--bg)}
+.lrow .licon{width:20px;height:20px;color:var(--sea);flex:none}
+.lrow .ltext{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrow .lchev{color:var(--muted);font-size:1.1rem;flex:none}
+@media (max-width:440px){.btn.act .licon{display:none}.btn.act{padding:8px 6px}}
