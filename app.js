@@ -68,7 +68,10 @@ function mapsUrl(p) {
   if (p.maps_url) return p.maps_url;
   // Navn + adresse + by, så Google ikke finder et sted med samme navn et helt andet sted i Spanien
   var where = [p.area && p.area !== p.town ? p.area : "", p.town || (p.area ? "" : "Mazarrón")].filter(Boolean).join(", ");
-  var q = (p.cat === "spisesteder" || p.cat === "shopping" || p.lat == null) ? (p.name + ", " + where + ", España") : (p.lat + "," + p.lon);
+  // Steder med et rigtigt navn søges på navnet, så Google viser selve stedet (fx Plaza de España) og ikke bare en nål.
+  // Naturspots, parkering og ladestandere har ofte egne navne, som Google ikke kender – dem viser vi med placeringen.
+  var byCoord = ["natur", "parkering", "opladning", "vores", "lejligheden"].indexOf(p.cat) >= 0;
+  var q = (p.lat == null || !byCoord) ? (p.name + ", " + where + ", España") : (p.lat + "," + p.lon);
   return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(q);
 }
 /* ---------- vurderinger ----------
@@ -2968,7 +2971,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 145;
+var APP_VERSION = 146;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
