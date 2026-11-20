@@ -756,7 +756,7 @@ function render() {
         (qs.indexOf("saeson") >= 0 ? chip("fopen", "1", "Skjul sæsonlukkede", inCat.filter(function (p) { return (p.facts || {}).saeson === "ja"; }).length || null, !!ui.fOpen) : "") +
         (qs.indexOf("sondag") >= 0 ? chip("fsun", "1", "Kun søndagsåbent", inCat.filter(function (p) { return (p.facts || {}).sondag === "ja"; }).length, !!ui.fSun) : "") +
         (qs.indexOf("frokost") >= 0 ? chip("flunch", "1", "Frokoståbent", inCat.filter(function (p) { return (p.facts || {}).frokost === "ja"; }).length, !!ui.fLunch) : "") +
-        (qs.indexOf("tidlig") >= 0 ? chip("fearly", "1", "Aftensmad før kl. 20", inCat.filter(function (p) { return (p.facts || {}).tidlig === "ja"; }).length, !!ui.fEarly) : "") + "</div>";
+        (qs.indexOf("tidlig") >= 0 ? chip("fearly", "1", "Køkken åbent før kl. 20.00", inCat.filter(function (p) { return (p.facts || {}).tidlig === "ja"; }).length, !!ui.fEarly) : "") + "</div>";
       if (ui.fOpen) inCat = inCat.filter(function (p) { return (p.facts || {}).saeson !== "ja"; });
       if (ui.fSun) inCat = inCat.filter(function (p) { return (p.facts || {}).sondag === "ja"; });
       if (ui.fEarly) inCat = inCat.filter(function (p) { return (p.facts || {}).tidlig === "ja"; });
@@ -1672,7 +1672,7 @@ function cleanFacts(d) {
 /* Faste spørgsmål pr. kategori (svar: "ja", "nej" eller ikke besvaret) */
 var QUESTIONS = {
   dagligvarer: [["saeson", "Sæsonlukket?"], ["sondag", "Åbent om søndagen?"]],
-  spisesteder: [["saeson", "Sæsonlukket?"], ["frokost", "Frokoståbent?"], ["tidlig", "Aftensmad før kl. 20?"]]
+  spisesteder: [["saeson", "Sæsonlukket?"], ["frokost", "Frokoståbent?"], ["tidlig", "Køkkenet om aftenen åbner", ["Før kl. 20.00", "Efter kl. 20.00"]]]
 };
 function factList(p, full) {
   var f = p.facts || {}, q = QUESTIONS[p.cat] || [], out = [];
@@ -1680,7 +1680,7 @@ function factList(p, full) {
     var v = f[x[0]];
     if (x[0] === "saeson") { if (v === "ja") out.push(["warn", "Sæsonlukket" + (f.periode ? " (" + f.periode + ")" : "")]); else if (v === "nej" && full) out.push(["", "Åbent hele året"]); }
     if (x[0] === "frokost") { if (v === "ja") out.push(["", "Frokoståbent"]); else if (v === "nej" && full) out.push(["", "Ikke frokoståbent"]); }
-    if (x[0] === "tidlig") { if (v === "ja") out.push(["", "Aftensmad før kl. 20"]); else if (v === "nej") out.push(["warn", "Aftensmad først fra kl. 20"]); }
+    if (x[0] === "tidlig") { if (v === "ja") out.push(["", "Køkken åbent før kl. 20.00"]); else if (v === "nej") out.push(["warn", "Køkken åbner efter kl. 20.00"]); }
     if (x[0] === "sondag") { if (v === "ja" && full) out.push(["", "Søndagsåbent"]); else if (v === "nej") out.push(["warn", "Lukket om søndagen"]); }
   });
   return out;
@@ -1691,7 +1691,7 @@ function questionsHtml(f) {
   return '<div class="questions">' + q.map(function (x) {
     var v = fa[x[0]] || "";
     return '<div class="qrow"><span>' + esc(x[1]) + '</span><div class="seg small" role="group" aria-label="' + esc(x[1]) + '">' +
-      [["ja", "Ja"], ["nej", "Nej"], ["", "Ved ikke"]].map(function (o) { return '<button type="button" data-q="' + x[0] + '" data-qv="' + o[0] + '" aria-pressed="' + (v === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div></div>" +
+      [["ja", x[2] ? x[2][0] : "Ja"], ["nej", x[2] ? x[2][1] : "Nej"], ["", "Ved ikke"]].map(function (o) { return '<button type="button" data-q="' + x[0] + '" data-qv="' + o[0] + '" aria-pressed="' + (v === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div></div>" +
       (x[0] === "saeson" && v === "ja" ? '<label class="qperiod">Hvornår er der lukket? (valgfrit)<input id="f-periode" value="' + esc(fa.periode || "") + '" placeholder="Fx november–marts"></label>' : "");
   }).join("") + "</div>";
 }
@@ -2563,7 +2563,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 122;
+var APP_VERSION = 123;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
