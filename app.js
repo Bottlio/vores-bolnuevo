@@ -1062,13 +1062,23 @@ function headerHtml() {
   return '<header><div><p class="eyebrow">Andelshavernes guide · Costa Cálida</p><h1>Laderita de Bolnuevo</h1></div><span class="beta" title="Guiden er stadig under udvikling">Beta</span><div class="hbtns">' + navBtns() + (ui.page === "hjaelp" ? "" : '<button class="iconbtn helpnav" type="button" data-page="hjaelp" aria-label="Hjælp" title="Hjælp">?</button>') + "</div></header>";
 }
 function footerHtml() {
-  var h = "<footer>";
-  h += '<span class="footrow">' + (me ? '<button class="linkbtn" type="button" data-page="andel">Vores andel (' + esc(me.label) + ")</button>" : "<span></span>") + '<span><button class="linkbtn" type="button" data-page="hjaelp">Hjælp</button> · <button class="linkbtn" type="button" data-page="regler">Regler og privatliv</button></span></span>';
+  // Bunden som en liste med store rækker; "Vores andel" øverst med tandhjul (indstillinger)
+  var row = function (attr, icon, text, sub) { return '<button class="lrow" type="button" ' + attr + ">" + icon + '<span class="ltext">' + text + (sub ? ' <span class="lsub">' + sub + "</span>" : "") + '</span><span class="lchev" aria-hidden="true">›</span></button>'; };
+  var h = '<footer class="foot">';
+  h += '<div class="linklist">';
+  if (me) h += row('data-page="andel"', ICON_GEAR, "<strong>Vores andel</strong>", esc(me.label) + " · indstillinger, invitér, konto");
+  h += row('data-page="hjaelp"', ICON_HELP, "Hjælp") + row('data-page="regler"', ICON_SHIELD, "Regler og privatliv");
+  h += "</div>";
   // Kun administratoren
-  if (me && me.admin) h += '<span><button class="linkbtn" type="button" data-page="admin">Administration</button> · <button class="linkbtn" type="button" id="open-import">Importér billeder fra PC</button></span>';
-  if (ui.user) h += "<span>Logget ind som " + esc(ui.user.email) + '. <button class="linkbtn" type="button" id="logout">Log ud</button></span>';
+  if (me && me.admin) h += '<p class="footlabel">Kun for administrator</p><div class="linklist">' + row('data-page="admin"', ICON_ADMIN, "Administration") + row('id="open-import"', ICON_UPLOAD, "Importér billeder fra PC") + "</div>";
+  if (ui.user) h += '<p class="footuser">Logget ind som ' + esc(ui.user.email) + ' · <button class="linkbtn" type="button" id="logout">Log ud</button></p>';
   return h + "</footer>";
 }
+var ICON_GEAR = licon('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>');
+var ICON_HELP = licon('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.5"/><circle cx="12" cy="17" r=".6" fill="currentColor"/>');
+var ICON_SHIELD = licon('<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/>');
+var ICON_ADMIN = licon('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/>');
+var ICON_UPLOAD = licon('<path d="M12 16V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>');
 function renderGate() {
   setTop(headerHtml()); toolbar(false);
   var html = "";
@@ -2582,7 +2592,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 125;
+var APP_VERSION = 126;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

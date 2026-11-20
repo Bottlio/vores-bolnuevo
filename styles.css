@@ -598,3 +598,11 @@ header{position:relative}
 .lrow .ltext{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lrow .lchev{color:var(--muted);font-size:1.1rem;flex:none}
 @media (max-width:440px){.btn.act .licon{display:none}.btn.act{padding:8px 6px}}
+/* Bunden som liste (20.11.2026) */
+footer.foot{gap:0;margin-top:36px}
+footer.foot .linklist{margin:0}
+footer.foot .lrow strong{color:var(--sea)}
+.lrow .lsub{display:block;font-size:.8rem;color:var(--muted);margin-top:1px}
+footer.foot .lrow{min-height:52px;padding-top:6px;padding-bottom:6px}
+.footlabel{margin:18px 0 6px 2px;font-size:.78rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.footuser{margin:14px 2px 0;font-size:.85rem;color:var(--muted)}
