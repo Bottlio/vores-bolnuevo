@@ -671,3 +671,16 @@ footer.foot .footlabel:first-child{margin-top:0}
 .ast{display:inline-block;font-size:.75rem;font-weight:700;margin-top:2px}
 .st-adgang{color:#2e7d4a}.st-inviteret{color:var(--ochre)}.st-ikke{color:var(--muted)}.st-nomail{color:var(--danger,#b8433a)}
 .ahh-foot{margin-top:4px;text-align:right;font-size:.8rem}
+/* Nyt siden sidst (v137) */
+.sincebtn{display:flex;align-items:center;gap:10px;width:100%;margin:12px 0 4px;padding:13px 16px;background:var(--surface);border:1px solid var(--line);border-radius:12px;color:var(--sea);font:inherit;font-weight:700;font-size:1rem;text-align:left;cursor:pointer}
+.sincedot{width:9px;height:9px;border-radius:50%;background:var(--sea);flex:none}
+.sincego{margin-left:auto;font-size:1.3rem;line-height:1}
+.sincebox{margin:12px 0 4px;padding:12px 16px 6px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.sincehead{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.sincehead h2{margin:0;font-size:1.05rem;color:var(--sea)}
+.sincebox ul{list-style:none;margin:6px 0 0;padding:0}
+.sincebox li+li{border-top:1px solid var(--line)}
+.sincebox li button{display:flex;flex-direction:column;gap:2px;width:100%;padding:10px 0;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.sincebox li strong{font-size:1rem}
+.sincebox li span{font-size:.92rem;opacity:.8}
+.sincebox .sinceq{font-style:italic}

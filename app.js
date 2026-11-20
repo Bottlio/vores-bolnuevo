@@ -252,6 +252,7 @@ async function load() {
   if (me && andelNums[me.andel]) { me.label = andelLabels[me.andel]; me.allLabels = andelNums[me.andel].map(function (x) { return x.l + "-" + x.n; }); me.apts = andelNums[me.andel].map(function (x) { return x.l; }).filter(function (v, i, a) { return a.indexOf(v) === i; }); }
   await signPhotos(raw.photos.map(function (p) { return p.path; }));
   await loadReportCount();
+  await loadSeen();
   decorate();
   ui.loaded = true;
   render();
@@ -627,6 +628,63 @@ function newsItems() {
     return o.kind === "place" ? miniCard(byId[o.target], extra) : areaMini(o.kind, o.target, extra);
   });
 }
+/* ---------- Nyt siden sidst ----------
+   Hvornår brugeren sidst så listen gemmes i user_state.seen_at (følger brugeren på alle enheder).
+   Første gang sættes tidspunktet til nu, så nye brugere ikke får hele guiden som "nyt". */
+async function loadSeen() {
+  ui.since = null; ui.sinceOpen = false;
+  var r = await sb.from("user_state").select("seen_at").maybeSingle();
+  if (r.error) { ui.seenAt = null; return; }
+  if (r.data) { ui.seenAt = r.data.seen_at; return; }
+  var now = new Date().toISOString(); ui.seenAt = now;
+  await sb.from("user_state").insert({ user_id: ui.user.id, seen_at: now });
+}
+function sinceItems() {
+  if (!ui.seenAt || !me) return [];
+  var seen = Date.parse(ui.seenAt), after = function (t) { return t && Date.parse(t) > seen; };
+  var byId = {}; places.forEach(function (p) { byId[p.id] = p; });
+  var out = [];
+  // 1) Nye stjerner eller kommentarer fra andre andele på steder, I selv har vurderet eller kommenteret
+  raw.exps.forEach(function (e) {
+    if (e.kind !== "place" || e.andel_id === me.andel) return;
+    var p = byId[e.target]; if (!p || isApt(p.cat) || !p.mine || !(p.mine.rating_score != null || p.mine.note)) return;
+    var newStars = e.rating_score != null && after(e.rated_at), newNote = e.note && after(e.noted_at);
+    if (!newStars && !newNote) return;
+    var what = [newStars ? "gav " + dec(+e.rating_score) + " ★" : "", newNote ? "skrev en kommentar" : ""].filter(Boolean).join(" og ");
+    out.push({ t: [newStars ? e.rated_at : "", newNote ? e.noted_at : ""].filter(Boolean).sort().pop(), id: p.id, title: p.name, text: authorText(e) + " " + what, quote: newNote ? e.note : "" });
+  });
+  // 2) Nye steder fra andre andele – kun når de har billeder, en kommentar eller stjerner
+  raw.places.forEach(function (rp) {
+    var p = byId[rp.id]; if (!p || isApt(p.cat) || rp.andel_id === me.andel || !after(rp.created_at)) return;
+    var hasExp = raw.exps.some(function (e) { return e.kind === "place" && e.target === rp.id && (e.note || e.rating_score != null); });
+    if (!(p.photos && p.photos.length) && !hasExp) return;
+    out.push({ t: rp.created_at, id: p.id, title: p.name, text: "Nyt sted · " + [CATNAME[p.cat], p.town].filter(Boolean).join(" · ") + (andelLabels[rp.andel_id] ? " · lagt ind af " + andelLabels[rp.andel_id] : "") });
+  });
+  // Samme sted samles i én linje i listen (fx et nyt sted med en kommentar)
+  var g = {}, list = [];
+  out.forEach(function (it) {
+    var o = g[it.id]; if (!o) { o = g[it.id] = { id: it.id, title: it.title, t: it.t, lines: [] }; list.push(o); }
+    if (Date.parse(it.t) > Date.parse(o.t)) o.t = it.t;
+    o.lines[/^Nyt sted/.test(it.text) ? "unshift" : "push"]({ text: it.text, quote: it.quote });
+  });
+  list.sort(function (a, b) { return Date.parse(b.t) - Date.parse(a.t); });
+  return list;
+}
+function sinceHtml() {
+  var items = ui.since || sinceItems();
+  if (!items.length) return "";
+  if (!ui.sinceOpen) return '<button type="button" class="sincebtn" data-since="open"><span class="sincedot" aria-hidden="true"></span>' + (items.length === 1 ? "1 nyt siden sidst" : items.length + " nye siden sidst") + '<span class="sincego" aria-hidden="true">›</span></button>';
+  return '<section class="sincebox"><div class="sincehead"><h2>Nyt siden sidst</h2><button class="linkbtn" type="button" data-since="close">Luk</button></div><ul>' + items.map(function (it) {
+    return '<li><button type="button" data-open="' + esc(it.id) + '"><strong>' + esc(it.title) + "</strong>" + it.lines.map(function (l) { return "<span>" + esc(l.text) + "</span>" + (l.quote ? '<span class="sinceq">"' + esc(l.quote.length > 140 ? l.quote.slice(0, 140) + "…" : l.quote) + '"</span>' : ""); }).join("") + "</button></li>";
+  }).join("") + "</ul></section>";
+}
+async function openSince() {
+  ui.since = sinceItems(); ui.sinceOpen = true; render();
+  // Listen bliver stående resten af besøget; næste gang tæller kun det, der er kommet til siden nu
+  var now = new Date().toISOString();
+  var r = await sb.from("user_state").upsert({ user_id: ui.user.id, seen_at: now });
+  if (!r.error) ui.seenAt = now;
+}
 /* Lille kort til forsiden for en by eller et område */
 function areaMini(kind, name, extraHtml) {
   var a = areaObj(kind, name), img = a.cover ? photoUrl(a.cover) : "", o = kind === "town" ? towns[name] : regions[name], v = overall(o);
@@ -647,6 +705,7 @@ function renderHome() {
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
   if (me && me.admin && ui.reportCount) html += '<p class="notice">' + (ui.reportCount === 1 ? "Der er 1 ny anmeldelse." : "Der er " + ui.reportCount + " nye anmeldelser.") + ' <button class="linkbtn" type="button" data-page="admin">Se ' + (ui.reportCount === 1 ? "den" : "dem") + "</button></p>";
   html += hiddenDupHtml();
+  html += sinceHtml();
   html += scopeHint();
   if (ui.draft) html += formHtml(ui.draft);
   html += wizOverlays();
@@ -2452,6 +2511,7 @@ var HELP_FAQ = [
   ["find", "Find steder", [
     ["Hvordan finder jeg et sted?", "<ol><li>Tryk på et af felterne på forsiden – fx <strong>Spisesteder</strong> eller <strong>Strande</strong>.</li><li>Tryk på et sted for at se billeder, stjerner og kommentarer.</li></ol><p>Leder du efter noget bestemt, så skriv i søgefeltet øverst.</p>"],
     ["Hvad betyder Alle, Vores og Favoritter?", "<p>" + DEMO.pill + "</p><p><strong>Alle</strong> viser alle steder i guiden.</p><p><strong>Vores</strong> viser kun de steder, jeres andel selv har givet stjerner eller skrevet om.</p><p><strong>Favoritter</strong> viser de steder, I har trykket på hjertet " + DEMO.heart + " ved.</p><p>Det valgte står med hvid tekst på mørkeblåt.</p>"],
+    ["Hvad betyder \"nye siden sidst\" på forsiden?", "<p>Står der fx <strong>3 nye siden sidst</strong> øverst på forsiden, er der sket noget, siden du sidst kiggede:</p><ul><li>andre andelshavere har givet stjerner eller skrevet en kommentar til et sted, I selv har vurderet eller kommenteret</li><li>der er kommet et nyt sted i guiden med billeder, en kommentar eller stjerner</li></ul><p>Tryk på linjen for at se listen, og tryk på et sted for at åbne det. Næste gang du åbner guiden, tæller den kun det, der er kommet til siden. Er der intet nyt, står linjen der ikke.</p>"],
     ["Hvad er forskellen på Byer og Dagsture?", "<p><strong>Byer</strong> er byerne i området med de steder, der ligger i dem.</p><p><strong>Dagsture</strong> er områder mindst en halv time væk i bil. Ture over 2½ time står under <strong>Længere ture</strong>.</p>"],
     ["Hvordan ser jeg stederne på et kort?", "<p>Tryk på kort-knappen " + DEMO.map + " til højre for søgefeltet.</p><p>På kortet bliver knappen til " + DEMO.list + ". Tryk på den for at komme tilbage til listen.</p><p>Inde på et sted viser " + DEMO.map + " stedet på kortet i stedet for billederne.</p>"],
     ["Hvad gør Karakter og Sortering?", "<p><strong>Karakter</strong> viser kun steder med mindst så mange stjerner. <strong>Sortering</strong> bestemmer rækkefølgen, fx senest besøgt eller flest stjerner.</p>"]
@@ -2712,6 +2772,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.sold) { markSold(t.dataset.sold); return; }
   if (t.dataset.rmnum) { rmAndelNum(t.dataset.rmnum); return; }
   if (t.dataset.adminvite) { adminInvite(t.dataset.adminvite); return; }
+  if (t.dataset.since) { if (t.dataset.since === "open") openSince(); else { ui.sinceOpen = false; ui.since = []; render(); } return; }
   if (t.dataset.admf) { ui.admF = t.dataset.admf; document.querySelectorAll("[data-admf]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.admf === ui.admF)); }); filterAdmList(); return; }
   if (t.dataset.switchandel) { try { localStorage.setItem("bol_andel_" + ui.user.id, t.dataset.switchandel); } catch (x) {} location.reload(); return; }
   if (t.dataset.reinvite) { ui.inviteText = t.dataset.rrole === "ejer" ? inviteMsg(t.dataset.rname || "", t.dataset.reinvite, myAndelTxt()) : inviteMsg(t.dataset.rname || "", t.dataset.reinvite, "", myLendTxt()); ui.inviteTo = t.dataset.reinvite; ui.inviteName = t.dataset.rname || ""; openInvite(); return; }
@@ -2799,7 +2860,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 136;
+var APP_VERSION = 137;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
