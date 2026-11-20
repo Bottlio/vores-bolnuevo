@@ -728,3 +728,4 @@ footer.foot .footlabel:first-child{margin-top:0}
 .loglist li:first-child{border-top:0}
 .logt{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:.82rem;padding-top:1px}
 .logw strong{font-weight:700}
+.visro{cursor:default}

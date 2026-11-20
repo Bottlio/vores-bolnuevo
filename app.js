@@ -345,7 +345,8 @@ function carousel(p) {
     var who = photoCredit(row, x, p.photo_credit), credit = who ? '<span class="credit">Foto: ' + esc(who) + "</span>" : "";
     var rb = row && me && row.andel_id && row.andel_id !== me.andel && p.id ? reportBtn("billede", row.id, "place", p.id, true) : "";
     // Jeres egne billeder: mærke nede til højre med hvem der kan se det – tryk for at skifte
-    if (row && me && row.id && row.andel_id === me.andel) rb += '<button type="button" class="visbtn carvis v-' + esc(row.visibility) + '" data-cvis="' + esc(row.id) + '" title="Hvem kan se billedet? Tryk for at skifte">' + esc(VIS_NAMES[row.visibility] || row.visibility) + "</button>" + helpBtn(row.visibility === "lejlighed" || (row.kind === "place" && isAptPlace(row.target)) ? "photovisapt" : "photovis", "onphoto");
+    if (row && me && row.id && row.andel_id === me.andel && !canSetVis(row.owner === ui.user.id)) rb += '<span class="visbtn carvis visro v-' + esc(row.visibility) + '">' + esc(VIS_NAMES[row.visibility] || row.visibility) + "</span>";
+    else if (row && me && row.id && row.andel_id === me.andel) rb += '<button type="button" class="visbtn carvis v-' + esc(row.visibility) + '" data-cvis="' + esc(row.id) + '" title="Hvem kan se billedet? Tryk for at skifte">' + esc(VIS_NAMES[row.visibility] || row.visibility) + "</button>" + helpBtn(row.visibility === "lejlighed" || (row.kind === "place" && isAptPlace(row.target)) ? "photovisapt" : "photovis", "onphoto");
     return '<div class="slide">' + rb + '<img src="' + u + '" alt="' + esc(p.name) + (ph.length > 1 ? ", billede " + (i + 1) : "") + '" loading="lazy" decoding="async">' + credit + "</div>";
   }).join("") + "</div>";
   if (ph.length > 1) {
@@ -1264,7 +1265,7 @@ function andelPageHtml() {
   h += foldBox("gaester", "<strong>Gæster</strong>", guests.length ? (guests.length === 1 ? "1 gæst" : guests.length + " gæster") + " · Låner nogen jeres lejlighed?" : "Låner nogen jeres lejlighed?", gBody);
   h += notifyHtml();
   // Billeder med personer, som kun vores andel kan se
-  var ph = raw.photos.filter(function (p) { return p.andel_id === me.andel && (p.faces !== false || p.visibility !== "alle"); });
+  var ph = raw.photos.filter(function (p) { return p.andel_id === me.andel && (p.faces !== false || p.visibility !== "alle") && canSetVis(p.owner === ui.user.id); });
   if (ph.length) {
     h += '<section class="panel nbox"><button type="button" class="nhead" data-fold="faces" aria-expanded="' + !!(ui.fold && ui.fold.faces) + '"><span><strong>Billeder med personer</strong> (' + ph.length + ')<span class="hint">Vælg, hvem der kan se dem</span></span><span class="sincego" aria-hidden="true">' + (ui.fold && ui.fold.faces ? "⌃" : "›") + "</span></button>";
     if (ui.fold && ui.fold.faces) h += '<div class="nbody">' +
@@ -1461,9 +1462,23 @@ function logHtml(d) {
   var list = d.log || [], today = new Date().toDateString();
   var nToday = list.filter(function (r) { return new Date(r.at).toDateString() === today; }).length;
   var hint = list.length ? (nToday === 1 ? "1 ændring i dag" : nToday + " ændringer i dag") + " · seneste " + logTime(list[0].at) : "Ingen ændringer endnu";
-  var body = list.length ? '<ul class="loglist">' + list.map(function (r) {
+  // Samme slags ændring fra samme person på samme sted inden for 10 minutter samles i én linje (fx "Lagde 12 billeder ind")
+  var groups = [];
+  list.forEach(function (r) {
+    var key = (r.user_id || "") + "|" + r.tbl + "|" + r.op + "|" + ((r.ref || {}).target || "") + "|" + (r.tbl === "photos" ? "" : logWhat(r));
+    var g = groups[groups.length - 1];
+    if (g && g.key === key && Math.abs(Date.parse(g.r.at) - Date.parse(r.at)) < 6e5) g.n++;
+    else groups.push({ key: key, r: r, n: 1 });
+  });
+  function groupText(g) {
+    var r = g.r, t = logTarget(r.ref || {});
+    if (g.n > 1 && r.tbl === "photos") return (r.op === "INSERT" ? "Lagde " + g.n + " billeder ind" : r.op === "DELETE" ? "Slettede " + g.n + " billeder" : "Ændrede " + g.n + " billeder") + " – " + t;
+    return logWhat(r) + (g.n > 1 ? " (" + g.n + " gange)" : "");
+  }
+  var body = list.length ? '<ul class="loglist">' + groups.map(function (g) {
+    var r = g.r;
     var open = r.ref && (r.ref.kind === "place" ? r.ref.target : r.tbl === "places" && r.op !== "DELETE" ? r.ref.id : null);
-    return "<li><span class=\"logt\">" + logTime(r.at) + '</span><span class="logw"><strong>' + esc(logWho(r)) + "</strong><br>" + esc(logWhat(r)) + "</span>" +
+    return "<li><span class=\"logt\">" + logTime(r.at) + '</span><span class="logw"><strong>' + esc(logWho(r)) + "</strong><br>" + esc(groupText(g)) + "</span>" +
       (open && raw.places.some(function (x) { return x.id === open; }) ? '<button class="linkbtn" type="button" data-open="' + esc(open) + '">Åbn</button>' : "") + "</li>";
   }).join("") + "</ul>" + '<p class="hint">Viser de seneste ' + list.length + " ændringer. Logningen startede 20.11.2026.</p>" : '<p class="hint">Når nogen opretter, retter eller sletter noget, kommer det her. Logningen startede 20.11.2026.</p>';
   return foldBox("adm-log", "<strong>Ændringer</strong>", hint, body);
@@ -2010,7 +2025,7 @@ function formHtml(f) {
   var ph = f.items.map(function (it, i) {
     return '<div class="ph"><img src="' + esc(it.url || photoUrl(it.path)) + '" alt="">' + (i === 0 ? '<span class="first">Forsidebillede</span>' : "") + visBtn(it, i) +
       '<div class="row">' + (i > 0 ? '<button class="btn small" type="button" data-first="' + i + '">Gør til forside</button>' : "") +
-      '<button class="btn small danger" type="button" data-rm="' + i + '">Slet</button></div></div>';
+      (it.file || canSetVis(it.own) ? '<button class="btn small danger" type="button" data-rm="' + i + '">Slet</button>' : "") + "</div></div>";
   }).join("");
   var core = canEditCore(f.isNew ? null : raw.places.filter(function (x) { return x.id === f.id; })[0]), dis = core ? "" : " disabled";
   if (f.isNew && !f.more) return quickHtml(f);
@@ -2044,9 +2059,12 @@ function formHtml(f) {
     dupHtml(f) + (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
     '<div class="row savebar"><button class="btn primary" type="submit"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + '</button><button class="btn" type="button" id="cancel">Annuller</button></div></form>';
 }
+/* Gæster må kun ændre synlighed på (og slette) deres egne billeder – ejernes billeder kan de kun se */
+function canSetVis(own) { return !!own || !me || me.role === "ejer" || !!me.admin; }
 function visBtn(it, i) {
   var vv = ui.draft && ui.draft.cat === "vores" && it.vis === "alle" ? "lejlighed" : (it.vis || "andel");
   var label = it.file && it.people === undefined ? "Tjekker for personer…" : VIS_NAMES[vv] + (it.file && it.people === null && !it.visSet ? " (kunne ikke tjekke)" : "");
+  if (!it.file && !canSetVis(it.own)) return '<span class="visbtn visro v-' + (it.vis || "andel") + '">' + esc(label) + "</span>";
   return '<button type="button" class="visbtn v-' + (it.vis || "andel") + '" data-vis="' + i + '" title="Hvem kan se billedet? Tryk for at skifte">' + esc(label) + "</button>";
 }
 
@@ -2966,7 +2984,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.reinvite) { ui.inviteText = t.dataset.rrole === "ejer" ? inviteMsg(t.dataset.rname || "", t.dataset.reinvite, myAndelTxt()) : inviteMsg(t.dataset.rname || "", t.dataset.reinvite, "", myLendTxt()); ui.inviteTo = t.dataset.reinvite; ui.inviteName = t.dataset.rname || ""; openInvite(); return; }
   if (t.id === "copy-invite") { var ta = document.getElementById("invite-copy"); ta.select(); try { navigator.clipboard.writeText(ta.value); t.textContent = "Kopieret"; } catch (x) { document.execCommand("copy"); } return; }
   if (t.id === "recheck") { await checkUser(); if (ui.member) { ui.loaded = false; await load(); } else { ui.msg = "Der er stadig ingen invitation til " + ui.user.email + "."; render(); } return; }
-  if (t.dataset.vis != null && ui.draft) { syncDraft(); var vi = ui.draft.items[+t.dataset.vis]; vi.vis = nextVis(vi.vis || "andel", vi.own); vi.visSet = true; render(); return; }
+  if (t.dataset.vis != null && ui.draft) { syncDraft(); var vi = ui.draft.items[+t.dataset.vis]; if (!vi.file && !canSetVis(vi.own)) return; vi.vis = nextVis(vi.vis || "andel", vi.own); vi.visSet = true; render(); return; }
   if (t.dataset.avis != null && ui.areaDraft) { syncArea(); var va = ui.areaDraft.items[+t.dataset.avis]; va.vis = nextVis(va.vis || "andel", va.own); va.visSet = true; render(); return; }
   if (t.dataset.first) { syncDraft(); var it = ui.draft.items.splice(+t.dataset.first, 1)[0]; ui.draft.items.unshift(it); render(); return; }
   if (t.dataset.rm) { syncDraft(); var gone = ui.draft.items.splice(+t.dataset.rm, 1)[0]; if (gone.path) ui.draft.removed.push(gone.path); render(); return; }
@@ -3049,7 +3067,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 155;
+var APP_VERSION = 157;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
