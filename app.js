@@ -1204,15 +1204,14 @@ function andelSwitchHtml() {
 }
 /* Invitationsbesked med en kort log ind-guide */
 function inviteMsg(name, email, andel) {
-  return "Hej" + (name ? " " + name : "") + ".\n\nDu er inviteret til Laderita de Bolnuevo guide – en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer" + (andel ? ". Du er med som ejer af andel " + andel : "") + ".\n\n" +
+  return "Hej" + (name ? " " + name : "") + ".\n\nDu er inviteret til Laderita de Bolnuevo guide – en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer" + (andel ? ". Du er med som ejer af " + (/,| og /.test(andel) ? "andelene " : "andel ") + andel : "") + ".\n\n" +
     "Sådan kommer du i gang:\n" +
     "1. Åbn " + location.origin + location.pathname + "\n" +
     "2. Tryk på \"Første gang: opret adgangskode\".\n" +
     "3. Skriv din mail (" + email + ") og vælg en adgangskode på mindst 8 tegn.\n" +
     "4. Du får en mail. Tryk på linket i mailen.\n" +
     "5. Gå tilbage til guiden og log ind med din mail og adgangskode.\n\n" +
-    "Tip: Læg guiden på telefonens hjemmeskærm, så den åbner som en app. Har du brug for hjælp, så tryk på ? øverst i guiden – den virker også, før du er logget ind." +
-    (andel ? "\n\nBagefter kan du selv invitere familie og venner under \"Vores andel\" nederst på siden." : "");
+    "Tip: Læg guiden på telefonens hjemmeskærm, så den åbner som en app. Har du brug for hjælp, så tryk på ? øverst i guiden – den virker også, før du er logget ind.";
 }
 async function invite() {
   var name = document.getElementById("i-name").value.trim(), email = document.getElementById("i-email").value.trim().toLowerCase(), role = ui.irole === "ejer" ? "ejer" : "gaest";
@@ -1338,7 +1337,8 @@ async function adminInvite(kid) {
     var r = await sb.from("members").insert({ andel_id: aids[i], email: ml, name: first, role: "ejer", invited_by: ui.user.id });
     if (r.error && !/duplicate|unique/i.test(r.error.message)) { d.err = "Invitationen blev ikke gemt: " + r.error.message; render(); return; }
   }
-  var nums = hhNums(d, a).map(function (x) { return x.l + "-" + x.n; });
+  var nums = []; aids.forEach(function (id) { var aa = d.andele.filter(function (x) { return x.id === id && x.aktiv; })[0]; if (aa) hhNums(d, aa).forEach(function (x) { if (x.l !== "999") nums.push(x.l + "-" + x.n); }); });
+  nums.sort(function (p, q) { return p.localeCompare(q, "da", { numeric: true }); });
   ui.inviteText = inviteMsg(first, k.mail, nums.length > 1 ? nums.slice(0, -1).join(", ") + " og " + nums[nums.length - 1] : nums[0]);
   ui.inviteTo = k.mail; ui.inviteName = first; ui.invitePhone = (k.tlf || "").replace(/\D/g, "");
   openInvite(); ui.invitePhone = "";
@@ -2794,7 +2794,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 134;
+var APP_VERSION = 135;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
