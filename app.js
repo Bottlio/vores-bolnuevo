@@ -1715,34 +1715,53 @@ async function poiNear(lat, lon, radius) {
   });
   return best;
 }
-/* Photon (OpenStreetMap-data) – svarer også, når Overpass er optaget, og kender store seværdigheder, man står inde i (fx Alhambra) */
-async function photonNear(lat, lon) {
+/* Photon (OpenStreetMap-data) – svarer også, når Overpass er optaget, og kender store seværdigheder og pladser (fx Alhambra, Plaza de España) */
+var PH_SMALL = ["artwork", "memorial", "information", "board", "bench", "vacant", "hotel", "guest_house", "apartment", "hostel", "house", "residential"];
+async function photonFetch(url) {
   var c = new AbortController(), t = setTimeout(function () { c.abort(); }, 6000);
-  try {
-    var r = await fetch("https://photon.komoot.io/reverse?lat=" + lat + "&lon=" + lon + "&limit=10&radius=0.15&lang=default", { signal: c.signal });
-    if (!r.ok) return null;
-    var fs = (await r.json()).features || [], out = { city: "" };
-    fs.forEach(function (f) { var q = f.properties || {}; if (!out.city && q.city) out.city = q.city; });
-    for (var i = 0; i < fs.length; i++) {
-      var q = fs[i].properties || {};
-      if (!q.name || ["amenity", "shop", "tourism", "historic", "leisure"].indexOf(q.osm_key) < 0 || ["information", "hotel", "guest_house", "apartment", "hostel", "vacant"].indexOf(q.osm_value) >= 0) continue;
-      var tags = { name: q.name }; tags[q.osm_key] = q.osm_value;
-      var cc = catFromTags(tags), ex = q.extent;   // extent = [vest, nord, øst, syd]
-      out.name = q.name; out.cat = cc[0]; out.subcat = cc[1];
-      out.inside = !!(ex && lon >= ex[0] && lon <= ex[2] && lat <= ex[1] && lat >= ex[3]);
-      out.big = out.inside && (q.osm_key === "historic" || q.osm_key === "tourism");
-      break;
-    }
-    return out;
-  } catch (e) { return null; } finally { clearTimeout(t); }
+  try { var r = await fetch(url, { signal: c.signal }); return r.ok ? ((await r.json()).features || []) : []; } catch (e) { return []; } finally { clearTimeout(t); }
+}
+function boxDist(lat, lon, ex) {   // ex = [vest, nord, øst, syd]; 0 = inde i området
+  if (!ex) return null;
+  var la = Math.min(Math.max(lat, ex[3]), ex[1]), lo = Math.min(Math.max(lon, ex[0]), ex[2]);
+  return distM(lat, lon, la, lo);
+}
+async function photonNear(lat, lon) {
+  var base = "https://photon.komoot.io/reverse?lat=" + lat + "&lon=" + lon + "&lang=default&radius=0.15";
+  var res = await Promise.all([photonFetch(base + "&limit=15"),
+    photonFetch(base + "&limit=20&osm_tag=place:square&osm_tag=historic&osm_tag=tourism&osm_tag=amenity:place_of_worship")]);
+  var seen = {}, list = [], city = "";
+  res[0].concat(res[1]).forEach(function (f) {
+    var q = f.properties || {}, g = (f.geometry || {}).coordinates || [];
+    if (!city && q.city) city = q.city;
+    var k = q.osm_type + q.osm_id; if (seen[k] || !q.name || PH_SMALL.indexOf(q.osm_value) >= 0) return; seen[k] = 1;
+    if (["amenity", "shop", "tourism", "historic", "leisure", "place"].indexOf(q.osm_key) < 0 || (q.osm_key === "place" && q.osm_value !== "square")) return;
+    var tags = { name: q.name }; tags[q.osm_key] = q.osm_value;
+    var cc = q.osm_key === "place" ? ["sevaerdigheder", "bymiljo"] : catFromTags(tags), ex = q.extent;
+    list.push({ name: q.name, key: q.osm_key, cat: cc[0], subcat: cc[1], d: g.length ? distM(lat, lon, g[1], g[0]) : 9999, bd: boxDist(lat, lon, ex), area: ex ? Math.abs((ex[2] - ex[0]) * (ex[1] - ex[3])) : 0 });
+  });
+  return { city: city, list: list };
+}
+/* Vælg navn: 1) spisested/butik helt tæt på (15 m), 2) en seværdighed man står inde i (den største, fx Alhambra),
+   3) en plads/seværdighed højst 40 m væk (fx Plaza de España), 4) det nærmeste sted fra Overpass, 5) det nærmeste fra Photon */
+var NEAR_CATS = ["spisesteder", "dagligvarer", "shopping", "opladning"];
+function pickPlaceName(lat, lon, op, ph) {
+  var list = (ph && ph.list) || [];
+  var food = list.filter(function (x) { return NEAR_CATS.indexOf(x.cat) >= 0 && x.d <= 15; }).sort(function (a, b) { return a.d - b.d; })[0];
+  if (op && NEAR_CATS.indexOf(op.cat) >= 0 && op.lat != null && distM(lat, lon, op.lat, op.lon) <= 15) return op;
+  if (food) return food;
+  var inside = list.filter(function (x) { return (x.key === "historic" || x.key === "tourism") && x.bd === 0 && !/^(per[ií]metro|recinto|[aá]rea|zona)\b/i.test(x.name); }).sort(function (a, b) { return b.area - a.area; })[0];
+  if (inside) return inside;
+  var mark = list.filter(function (x) { return (x.key === "historic" || x.key === "tourism" || x.key === "place" || x.cat === "sevaerdigheder") && x.bd != null && x.bd <= 40; }).sort(function (a, b) { return a.bd - b.bd; })[0];
+  if (mark) return mark;
+  if (op) return op;
+  return list.filter(function (x) { return x.d <= 120; }).sort(function (a, b) { return a.d - b.d; })[0] || null;
 }
 async function lookupPlace(lat, lon) {
   var base = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=es&lat=" + lat + "&lon=" + lon;
   var out = { name: "", cat: null, subcat: null, area: "" };
-  var both = await Promise.all([poiNear(lat, lon, 120), photonNear(lat, lon)]), op = both[0], ph = both[1];
-  // Står man inde i en stor seværdighed (fx Alhambra), bruges dens navn frem for et lille sted ved siden af
-  if (ph && ph.big) op = { name: ph.name, cat: ph.cat || "sevaerdigheder", subcat: ph.subcat };
-  else if (!op && ph && ph.name) op = { name: ph.name, cat: ph.cat, subcat: ph.subcat };
+  var both = await Promise.all([poiNear(lat, lon, 120), photonNear(lat, lon)]), ph = both[1];
+  var op = pickPlaceName(lat, lon, both[0], ph);
   if (op) { out.name = op.name; out.cat = op.cat; out.subcat = op.subcat; }
   try {
     var poi = op ? null : await (await fetch(base + "&zoom=18&layer=poi")).json();
@@ -2949,7 +2968,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 143;
+var APP_VERSION = 144;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
