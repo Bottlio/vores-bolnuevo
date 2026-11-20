@@ -1614,10 +1614,11 @@ function townFor(lat, lon, addr) {
   // 1) en by fra guiden meget tæt på, 2) landsbyen/byen fra kortet, 3) en by fra guiden inden for 8 km,
   // 4) først til sidst kommunen. Kommuner som Cartagena dækker hele kyster, så de giver forkerte byer.
   var g = nearestGuideTown(lat, lon, 1.5); if (g) return g.name;
-  var local = addr.village || addr.town || addr.hamlet || addr.neighbourhood || "";
+  var local = addr.village || addr.town || "";
   if (local) return local;
   g = nearestGuideTown(lat, lon, 8); if (g) return g.name;
-  return addr.city || addr.municipality || "";
+  // Langt væk: storbyen frem for bydelen (fx Granada, ikke "Realejo Alto")
+  return addr.city || addr.hamlet || addr.municipality || addr.neighbourhood || "";
 }
 function townCenter(name) {
   var t = towns[name]; if (t && t.lat != null) return [t.lat, t.lon];
@@ -1662,9 +1663,13 @@ var FUN = ["spa","water_park","marina","theme_park","zoo","aquarium","public_bat
 /* ---------- kortopslag via OpenStreetMap (Overpass) ---------- */
 var OVERPASS = "https://overpass-api.de/api/interpreter";
 async function overpass(q) {
+  var r1 = await overpassAt(OVERPASS, q);
+  return r1 || await overpassAt("https://overpass.private.coffee/api/interpreter", q);   // reserve, når hovedserveren er optaget
+}
+async function overpassAt(url, q) {
   var c = new AbortController(), t = setTimeout(function () { c.abort(); }, 7000);
   try {
-    var r = await fetch(OVERPASS, { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" }, signal: c.signal });
+    var r = await fetch(url, { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" }, signal: c.signal });
     if (!r.ok) return null; return (await r.json()).elements || [];
   } catch (e) { return null; } finally { clearTimeout(t); }
 }
@@ -1709,10 +1714,34 @@ async function poiNear(lat, lon, radius) {
   });
   return best;
 }
+/* Photon (OpenStreetMap-data) – svarer også, når Overpass er optaget, og kender store seværdigheder, man står inde i (fx Alhambra) */
+async function photonNear(lat, lon) {
+  var c = new AbortController(), t = setTimeout(function () { c.abort(); }, 6000);
+  try {
+    var r = await fetch("https://photon.komoot.io/reverse?lat=" + lat + "&lon=" + lon + "&limit=10&radius=0.15&lang=default", { signal: c.signal });
+    if (!r.ok) return null;
+    var fs = (await r.json()).features || [], out = { city: "" };
+    fs.forEach(function (f) { var q = f.properties || {}; if (!out.city && q.city) out.city = q.city; });
+    for (var i = 0; i < fs.length; i++) {
+      var q = fs[i].properties || {};
+      if (!q.name || ["amenity", "shop", "tourism", "historic", "leisure"].indexOf(q.osm_key) < 0 || ["information", "hotel", "guest_house", "apartment", "hostel", "vacant"].indexOf(q.osm_value) >= 0) continue;
+      var tags = { name: q.name }; tags[q.osm_key] = q.osm_value;
+      var cc = catFromTags(tags), ex = q.extent;   // extent = [vest, nord, øst, syd]
+      out.name = q.name; out.cat = cc[0]; out.subcat = cc[1];
+      out.inside = !!(ex && lon >= ex[0] && lon <= ex[2] && lat <= ex[1] && lat >= ex[3]);
+      out.big = out.inside && (q.osm_key === "historic" || q.osm_key === "tourism");
+      break;
+    }
+    return out;
+  } catch (e) { return null; } finally { clearTimeout(t); }
+}
 async function lookupPlace(lat, lon) {
   var base = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=es&lat=" + lat + "&lon=" + lon;
   var out = { name: "", cat: null, subcat: null, area: "" };
-  var op = await poiNear(lat, lon, 120);
+  var both = await Promise.all([poiNear(lat, lon, 120), photonNear(lat, lon)]), op = both[0], ph = both[1];
+  // Står man inde i en stor seværdighed (fx Alhambra), bruges dens navn frem for et lille sted ved siden af
+  if (ph && ph.big) op = { name: ph.name, cat: ph.cat || "sevaerdigheder", subcat: ph.subcat };
+  else if (!op && ph && ph.name) op = { name: ph.name, cat: ph.cat, subcat: ph.subcat };
   if (op) { out.name = op.name; out.cat = op.cat; out.subcat = op.subcat; }
   try {
     var poi = op ? null : await (await fetch(base + "&zoom=18&layer=poi")).json();
@@ -1733,7 +1762,7 @@ async function lookupPlace(lat, lon) {
       var pl = await (await fetch(base + "&zoom=14")).json();
       where = pl && pl.address;
     }
-    out.town = townFor(lat, lon, where);
+    out.town = townFor(lat, lon, where || (ph && ph.city ? { city: ph.city } : null));
     out.area = out.town;
   } catch (e) { /* ingen forbindelse til kortopslag */ }
   if (distM(lat, lon, CFG.hotel.lat, CFG.hotel.lon) < 150) { out.cat = "lejligheden"; out.name = "Laderita de Bolnuevo"; out.area = "Bolnuevo"; out.town = "Bolnuevo"; }
@@ -2919,7 +2948,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 141;
+var APP_VERSION = 142;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
