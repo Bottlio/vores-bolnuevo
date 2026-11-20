@@ -2531,7 +2531,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 118;
+var APP_VERSION = 119;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -2592,8 +2592,10 @@ document.addEventListener("click", function (e) {
     if (e.target.closest("#copy-invite")) { copyInvite().then(function (ok) { if (note) note.textContent = ok ? "Beskeden er kopieret – sæt den ind, hvor du vil sende den." : "Kunne ikke kopiere. Tryk på \"Se beskeden\" og kopiér teksten selv."; }); return; }
     if (e.target.closest("[data-sendmsg]")) {
       // Messenger kan ikke få tekst med i et link: brug telefonens del-menu, ellers kopiér teksten og åbn Messenger
-      if (navigator.share) { navigator.share({ text: ui.inviteText }).catch(function () {}); if (note) note.textContent = "Vælg Messenger i menuen, der kommer frem."; }
-      else { copyInvite().then(function () { if (note) note.textContent = "Beskeden er kopieret. Messenger åbner nu – vælg personen og sæt teksten ind."; window.open("https://www.messenger.com/", "_blank", "noopener"); }); }
+      // Telefon: del-menuen (hvor Messenger findes). Computer: kopiér teksten og åbn Messenger i en ny fane
+      var phone = window.matchMedia && matchMedia("(pointer: coarse)").matches;
+      if (phone && navigator.share) { navigator.share({ text: ui.inviteText }).catch(function () {}); if (note) note.textContent = "Vælg Messenger i menuen, der kommer frem."; }
+      else { window.open("https://www.messenger.com/", "_blank", "noopener"); copyInvite().then(function (ok) { if (note) note.textContent = ok ? "Beskeden er kopieret. Messenger er åbnet i en ny fane – vælg personen, og sæt teksten ind (Ctrl+V)." : "Messenger er åbnet i en ny fane. Kopiér beskeden under \"Se beskeden\" og sæt den ind."; }); }
     }
     return;
   }
