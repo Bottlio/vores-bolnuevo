@@ -729,3 +729,18 @@ footer.foot .footlabel:first-child{margin-top:0}
 .logt{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:.82rem;padding-top:1px}
 .logw strong{font-weight:700}
 .visro{cursor:default}
+/* Stedets side: større stjerner og hjerte, så de er lette at ramme (v160) */
+.detailcard .topright .rbtn{min-height:48px;gap:8px;padding:4px 6px}
+.detailcard .topright .rbtn .rnum{font-size:1.2rem}
+.detailcard .topright .rstars span{font-size:1.65rem;letter-spacing:1px}
+.detailcard .topright .rcount{font-size:.9rem}
+.detailcard .topright .rown{font-size:.9rem;padding:8px 4px;min-height:36px}
+.detailcard .topright>.heart{width:52px;height:52px}
+.detailcard .topright>.heart svg{width:32px;height:32px}
+.detailcard .qhelp.nexttop{width:26px;height:26px;font-size:.85rem;right:12px}
+@media (max-width:600px){
+  .detailcard .place-top{flex-direction:column;align-items:stretch;gap:4px}
+  .detailcard .topright{justify-content:space-between;width:100%}
+  .detailcard .topright .rwrap{align-items:flex-start}
+  .detailcard .topright .rown{text-align:left}
+}
