@@ -2207,7 +2207,7 @@ var HELP_TIPS = {
   photovis: ["Hvem kan se billedet?", "<p>Mærket viser, hvem der kan se billedet:</p><p><strong>Alle</strong> – alle andelshavere i guiden.<br><strong>Vores andel</strong> – kun jer i andelen.<br><strong>Kun mig</strong> – kun dig.</p><p>Tryk på mærket for at skifte. Det gemmes med det samme. <strong>Kun mig</strong> kan kun vælges på billeder, du selv har lagt ind.</p>", "billeder"],
   whosee: ["Hvem kan se det?", "<p><strong>Hvem kan se stedet?</strong> Om alle andelshavere kan se stedet, kun jeres andel eller kun dig.</p><p><strong>Hvem kan se vores stjerner og tekst?</strong> Om jeres stjerner og kommentar vises for alle eller kun for jeres andel.</p>", "stjerner"],
   advanced: ["Avanceret redigering", "<p>Her kan man rette stedets navn, by, kategori, links og hvem der kan se det.</p><p>Det er sjældent nødvendigt. Vil du bare skrive en kommentar, skal du kun bruge feltet <strong>Kommentar</strong> øverst og trykke <strong>Gem</strong>.</p>", "avanceret"],
-  invite: ["Invitér en person", "<p>1. Skriv personens fornavn og mail.<br>2. Vælg <strong>Gæst</strong> eller <strong>Ejer</strong>.<br>3. Tryk <strong>Invitér</strong>.<br>4. Send beskeden, der kommer frem, til personen – fx på sms eller mail.</p><p>Gæster kan det samme i guiden som ejere, men kan ikke invitere andre.</p>", "andel"]
+  invite: ["Invitér en person", "<p>1. Skriv personens fornavn og mail.<br>2. Vælg <strong>Gæst</strong> eller <strong>Ejer</strong>.<br>3. Tryk <strong>Invitér</strong>.<br>4. Tryk <strong>Mail</strong>, <strong>SMS</strong> eller <strong>WhatsApp</strong>. Beskeden er skrevet på forhånd – du trykker bare send.</p><p>Gæster kan det samme i guiden som ejere, men kan ikke invitere andre.</p>", "andel"]
 };
 function helpBtn(key, cls) { return '<button type="button" class="qhelp' + (cls ? " " + cls : "") + '" data-help="' + key + '" aria-label="Hjælp: ' + esc(HELP_TIPS[key][0]) + '" title="Hjælp">?</button>'; }
 var helpBox = null;
@@ -2503,7 +2503,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 114;
+var APP_VERSION = 115;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
