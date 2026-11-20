@@ -660,6 +660,22 @@ function sinceItems() {
     if (!(p.photos && p.photos.length) && !hasExp) return;
     out.push({ t: rp.created_at, id: p.id, title: p.name, text: "Nyt sted · " + [CATNAME[p.cat], p.town].filter(Boolean).join(" · ") + (andelLabels[rp.andel_id] ? " · lagt ind af " + andelLabels[rp.andel_id] : "") });
   });
+  // 3) Jeres lejlighed(er): nye billeder og kommentarer fra andre andele med samme lejlighedsnummer (alle husstandens lejligheder)
+  var apts = myApts(), aptIds = {};
+  places.forEach(function (p) { if (isApt(p.cat) && apts.indexOf(String(aptOf(p))) >= 0) aptIds[p.id] = p; });
+  raw.exps.forEach(function (e) {
+    var p = e.kind === "place" && aptIds[e.target]; if (!p || e.andel_id === me.andel || !e.note || !after(e.noted_at)) return;
+    out.push({ t: e.noted_at, id: p.id, title: p.name, text: authorText(e) + " skrev en kommentar", quote: e.note });
+  });
+  var batches = {};
+  raw.photos.forEach(function (r) {
+    var p = r.kind === "place" && aptIds[r.target]; if (!p || !r.andel_id || r.andel_id === me.andel || !after(r.created_at)) return;
+    var k = p.id + "|" + r.andel_id; (batches[k] = batches[k] || { p: p, rows: [] }).rows.push(r);
+  });
+  Object.keys(batches).forEach(function (k) {
+    var b = batches[k], rows = b.rows.sort(function (x, y) { return String(y.created_at).localeCompare(String(x.created_at)); });
+    out.push({ t: rows[0].created_at, id: b.p.id, title: b.p.name, text: (photoCredit(rows[0], rows[0].path) || "En andelshaver") + " lagde " + (rows.length === 1 ? "1 nyt billede" : rows.length + " nye billeder") + " ind" });
+  });
   // Samme sted samles i én linje i listen (fx et nyt sted med en kommentar)
   var g = {}, list = [];
   out.forEach(function (it) {
@@ -2511,7 +2527,7 @@ var HELP_FAQ = [
   ["find", "Find steder", [
     ["Hvordan finder jeg et sted?", "<ol><li>Tryk på et af felterne på forsiden – fx <strong>Spisesteder</strong> eller <strong>Strande</strong>.</li><li>Tryk på et sted for at se billeder, stjerner og kommentarer.</li></ol><p>Leder du efter noget bestemt, så skriv i søgefeltet øverst.</p>"],
     ["Hvad betyder Alle, Vores og Favoritter?", "<p>" + DEMO.pill + "</p><p><strong>Alle</strong> viser alle steder i guiden.</p><p><strong>Vores</strong> viser kun de steder, jeres andel selv har givet stjerner eller skrevet om.</p><p><strong>Favoritter</strong> viser de steder, I har trykket på hjertet " + DEMO.heart + " ved.</p><p>Det valgte står med hvid tekst på mørkeblåt.</p>"],
-    ["Hvad betyder \"nye siden sidst\" på forsiden?", "<p>Står der fx <strong>3 nye siden sidst</strong> øverst på forsiden, er der sket noget, siden du sidst kiggede:</p><ul><li>andre andelshavere har givet stjerner eller skrevet en kommentar til et sted, I selv har vurderet eller kommenteret</li><li>der er kommet et nyt sted i guiden med billeder, en kommentar eller stjerner</li></ul><p>Tryk på linjen for at se listen, og tryk på et sted for at åbne det. Næste gang du åbner guiden, tæller den kun det, der er kommet til siden. Er der intet nyt, står linjen der ikke.</p>"],
+    ["Hvad betyder \"nye siden sidst\" på forsiden?", "<p>Står der fx <strong>3 nye siden sidst</strong> øverst på forsiden, er der sket noget, siden du sidst kiggede:</p><ul><li>andre andelshavere har givet stjerner eller skrevet en kommentar til et sted, I selv har vurderet eller kommenteret</li><li>der er kommet et nyt sted i guiden med billeder, en kommentar eller stjerner</li><li>andre andelshavere i jeres lejlighed har lagt billeder ind eller skrevet en kommentar på lejlighedens side (har I flere lejligheder, gælder det dem alle)</li></ul><p>Tryk på linjen for at se listen, og tryk på et sted for at åbne det. Næste gang du åbner guiden, tæller den kun det, der er kommet til siden. Er der intet nyt, står linjen der ikke.</p>"],
     ["Hvad er forskellen på Byer og Dagsture?", "<p><strong>Byer</strong> er byerne i området med de steder, der ligger i dem.</p><p><strong>Dagsture</strong> er områder mindst en halv time væk i bil. Ture over 2½ time står under <strong>Længere ture</strong>.</p>"],
     ["Hvordan ser jeg stederne på et kort?", "<p>Tryk på kort-knappen " + DEMO.map + " til højre for søgefeltet.</p><p>På kortet bliver knappen til " + DEMO.list + ". Tryk på den for at komme tilbage til listen.</p><p>Inde på et sted viser " + DEMO.map + " stedet på kortet i stedet for billederne.</p>"],
     ["Hvad gør Karakter og Sortering?", "<p><strong>Karakter</strong> viser kun steder med mindst så mange stjerner. <strong>Sortering</strong> bestemmer rækkefølgen, fx senest besøgt eller flest stjerner.</p>"]
@@ -2860,7 +2876,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 137;
+var APP_VERSION = 138;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
