@@ -1084,7 +1084,7 @@ function footerHtml() {
   // Bunden som felter side om side (ikon over tekst), så den ikke ligner linklisten på stederne
   var tile = function (attr, icon, text, sub, cls) { return '<button class="ftile' + (cls ? " " + cls : "") + '" type="button" ' + attr + ">" + icon + '<span class="ftext">' + text + "</span>" + (sub ? '<span class="fsub">' + sub + "</span>" : "") + "</button>"; };
   var h = '<footer class="foot"><p class="footlabel">Indstillinger og hjælp</p><div class="ftiles">';
-  if (me) h += tile('data-page="andel"', ICON_GEAR, "Vores andel", esc(me.label), "fmain");
+  if (me) h += tile('data-page="andel"', ICON_GEAR, me.allLabels && me.allLabels.length > 1 ? "Vores andele" : "Vores andel", esc(me.label), "fmain");
   h += tile('data-page="hjaelp"', ICON_HELP, "Hjælp") + tile('data-page="regler"', ICON_SHIELD, "Regler og privatliv") + "</div>";
   // Kun administratoren
   if (me && me.admin) h += '<p class="footlabel">Kun for administrator</p><div class="ftiles f2">' + tile('data-page="admin"', ICON_ADMIN, "Administration") + tile('id="open-import"', ICON_UPLOAD, "Importér billeder") + "</div>";
@@ -1130,7 +1130,7 @@ async function loadAndel() {
 }
 function andelPageHtml() {
   var d = andelData, owner = me.role === "ejer" || me.admin;
-  var h = '<section class="panel andelpage"><p class="eyebrow">Vores andel</p><h2>' + (me.allLabels && me.allLabels.length > 1 ? "Andele " + esc(me.allLabels.join(" · ")) : "Andel " + esc(me.label)) + "</h2>" + andelSwitchHtml() +
+  var h = '<section class="panel andelpage"><p class="eyebrow">' + (me.allLabels && me.allLabels.length > 1 ? "Vores andele" : "Vores andel") + '</p><h2>' + (me.allLabels && me.allLabels.length > 1 ? "Andele " + esc(me.allLabels.join(" · ")) : "Andel " + esc(me.label)) + "</h2>" + andelSwitchHtml() +
     '<p class="hint">Ejere og gæster ser og kan det samme i guiden. Kun ejere kan give og fjerne adgang.</p>';
   if (!d) { loadAndel(); return h + "<p>Henter…</p></section>"; }
   h += '<ul class="members">' + d.members.map(function (m) {
@@ -2794,7 +2794,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 133;
+var APP_VERSION = 134;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
