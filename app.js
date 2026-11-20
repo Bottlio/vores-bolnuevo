@@ -1265,12 +1265,15 @@ function andelPageHtml() {
   h += foldBox("gaester", "<strong>Gæster</strong>", guests.length ? (guests.length === 1 ? "1 gæst" : guests.length + " gæster") + " · Låner nogen jeres lejlighed?" : "Låner nogen jeres lejlighed?", gBody);
   h += notifyHtml();
   // Billeder med personer, som kun vores andel kan se
-  var ph = raw.photos.filter(function (p) { return p.andel_id === me.andel && (p.faces !== false || p.visibility !== "alle") && canSetVis(p.owner === ui.user.id); });
+  var ph = raw.photos.filter(function (p) { return p.andel_id === me.andel && (p.faces !== false || p.visibility !== "alle"); });
+  var guest = !canSetVis(false);
   if (ph.length) {
-    h += '<section class="panel nbox"><button type="button" class="nhead" data-fold="faces" aria-expanded="' + !!(ui.fold && ui.fold.faces) + '"><span><strong>Billeder med personer</strong> (' + ph.length + ')<span class="hint">Vælg, hvem der kan se dem</span></span><span class="sincego" aria-hidden="true">' + (ui.fold && ui.fold.faces ? "⌃" : "›") + "</span></button>";
+    h += '<section class="panel nbox"><button type="button" class="nhead" data-fold="faces" aria-expanded="' + !!(ui.fold && ui.fold.faces) + '"><span><strong>Billeder med personer</strong> (' + ph.length + ')<span class="hint">' + (guest ? "Se hvem der kan se dem" : "Vælg, hvem der kan se dem") + '</span></span><span class="sincego" aria-hidden="true">' + (ui.fold && ui.fold.faces ? "⌃" : "›") + "</span></button>";
     if (ui.fold && ui.fold.faces) h += '<div class="nbody">' +
       '<p class="hint">Billeder, hvor guiden har fundet personer (eller ikke kunne tjekke). De er som udgangspunkt kun for jeres andel. Tryk "Alle" på et billede, hvis andre andelshavere gerne må se det.</p>' +
       '<div class="pgrid">' + ph.map(function (p) {
+        // Gæster ser ejernes billeder, men kan kun ændre deres egne
+        if (!canSetVis(p.owner === ui.user.id)) return '<div class="pcell"><img src="' + esc(photoUrl(p.path)) + '" alt="" loading="lazy"><p class="hint">Kan ses af: ' + esc(VIS_NAMES[p.visibility] || p.visibility) + "</p></div>";
         return '<div class="pcell"><img src="' + esc(photoUrl(p.path)) + '" alt="" loading="lazy"><div class="seg small" role="group" aria-label="Hvem kan se billedet">' +
           [["alle", "Alle"], ["andel", "Vores andel"], ["mig", "Kun mig"]].filter(function (o) { return o[0] !== "mig" || p.owner === ui.user.id || p.visibility === "mig"; }).map(function (o) { return '<button type="button" data-setvis="' + esc(p.id) + '" data-v="' + o[0] + '" aria-pressed="' + (p.visibility === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div></div>";
       }).join("") + "</div></div>";
@@ -3067,7 +3070,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 157;
+var APP_VERSION = 158;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
