@@ -28,7 +28,8 @@ var places = [];
 var raw = { places: [], towns: [], regions: [], exps: [], photos: [] };
 var me = null;          // { andel, label, role, name, admin } for den indloggede
 var authors = {};       // bruger-id -> { name, label }
-var andelLabels = {};   // andel-id -> "101-043"
+var andelLabels = {};   // andel-id -> "101-043" (eller "102-025 m.fl.")
+var andelNums = {};     // andel-id -> [{ l: lejlighed, n: nummer }, …]
 var ui = { checking: true, view: "liste", scope: "alle", cat: "hjem", status: "tried", editor: false, user: null, draft: null, login: null, msg: "", busy: false, loaded: false };
 // Som app på hjemmeskærmen starter den altid på "Alle" (undtagen lige efter en automatisk opdatering)
 var isApp = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
@@ -237,11 +238,18 @@ function uid() { return "p" + Date.now().toString(36) + Math.random().toString(3
 async function load() {
   if (!ui.member) { ui.loaded = true; render(); return; }
   var res = await Promise.all([sb.from("towns").select("*"), sb.from("regions").select("*"), sb.from("places").select("*"),
-    sb.from("experiences").select("*"), sb.from("photos").select("*").order("sort").order("created_at"), sb.rpc("author_names"), sb.from("andele").select("id,lejlighed,nummer")]);
+    sb.from("experiences").select("*"), sb.from("photos").select("*").order("sort").order("created_at"), sb.rpc("author_names"), sb.from("andele").select("id,lejlighed,nummer"), sb.from("andel_numre").select("andel_id,lejlighed,nummer")]);
   if (res[2].error) { ui.msg = "Kunne ikke hente stederne. Prøv at genindlæse siden."; ui.loaded = true; render(); return; }
   raw.towns = res[0].data || []; raw.regions = res[1].data || []; raw.places = res[2].data || []; raw.exps = res[3].data || []; raw.photos = res[4].data || [];
   authors = {}; (res[5].data || []).forEach(function (a) { authors[a.user_id] = a; });
-  andelLabels = {}; (res[6].data || []).forEach(function (a) { andelLabels[a.id] = a.lejlighed + "-" + a.nummer; });
+  // En husstand kan have flere andelsnumre: label = laveste nummer + " m.fl." (fx "102-025 m.fl.")
+  andelNums = {}; (res[6].data || []).forEach(function (a) { andelNums[a.id] = [{ l: a.lejlighed, n: a.nummer }]; });
+  (res[7].data || []).forEach(function (x) { if (andelNums[x.andel_id] && !andelNums[x.andel_id].some(function (y) { return y.l === x.lejlighed && y.n === x.nummer; })) andelNums[x.andel_id].push({ l: x.lejlighed, n: x.nummer }); });
+  andelLabels = {}; Object.keys(andelNums).forEach(function (id) {
+    var ns = andelNums[id].slice().sort(function (a, b) { return String(a.n).localeCompare(String(b.n), "da", { numeric: true }); }); andelNums[id] = ns;
+    andelLabels[id] = ns[0].l + "-" + ns[0].n + (ns.length > 1 ? " m.fl." : "");
+  });
+  if (me && andelNums[me.andel]) { me.label = andelLabels[me.andel]; me.allLabels = andelNums[me.andel].map(function (x) { return x.l + "-" + x.n; }); me.apts = andelNums[me.andel].map(function (x) { return x.l; }).filter(function (v, i, a) { return a.indexOf(v) === i; }); }
   await signPhotos(raw.photos.map(function (p) { return p.path; }));
   await loadReportCount();
   decorate();
@@ -257,15 +265,19 @@ async function checkUser() {
   if (!ui.user) return;
   await sb.rpc("claim_invites");
   var m = await sb.from("members").select("andel_id,name,role,andele(lejlighed,nummer,aktiv)").eq("user_id", ui.user.id);
-  var row = (m.data || []).filter(function (x) { return x.andele && x.andele.aktiv; })[0];
+  var rows = (m.data || []).filter(function (x) { return x.andele && x.andele.aktiv; });
+  // Med i flere husstande (fx en andel alene og en sammen med en anden): husk det sidste valg på enheden
+  var pick = null; try { pick = localStorage.getItem("bol_andel_" + ui.user.id); } catch (x) {}
+  var row = rows.filter(function (x) { return x.andel_id === pick; })[0] || rows[0];
   if (!row) return;
   var ad = await sb.rpc("am_i_admin");
-  me = { andel: row.andel_id, label: row.andele.lejlighed + "-" + row.andele.nummer, role: row.role, name: row.name, admin: ad.data === true };
+  me = { andel: row.andel_id, label: row.andele.lejlighed + "-" + row.andele.nummer, role: row.role, name: row.name, admin: ad.data === true,
+    others: rows.filter(function (x) { return x !== row; }).map(function (x) { return { id: x.andel_id, label: x.andele.lejlighed + "-" + x.andele.nummer }; }) };
   ui.member = true; ui.editor = true;
 }
 function authorText(e) {
   var a = e && authors[e.updated_by];
-  var label = (a && a.label) || andelLabels[e.andel_id] || "";
+  var label = andelLabels[e.andel_id] || (a && a.label) || "";
   return a && a.name ? a.name + (label ? " (" + label + ")" : "") : (label ? "Andel " + label : "En andelshaver");
 }
 function isMine(e) { return e && me && e.andel_id === me.andel; }
@@ -531,6 +543,7 @@ function placeCard(p, detail, showKat) {
 /* Lejlighedsnummer for et sted om en lejlighed, og for den indloggede andel */
 function aptOf(p) { return p.lejlighed || String(andelLabels[p.andel_id] || "").split("-")[0]; }
 function myApt() { return me ? String(me.label || "").split("-")[0] : ""; }
+function myApts() { return me ? (me.apts && me.apts.length ? me.apts : [myApt()]) : []; }
 /* Faste forsidebilleder pr. kategori (valgt af Christian 19.11.2026): forsidebilledet fra det nævnte sted, by eller område */
 var TILE_COVER = { byer: ["town", "Cartagena"], dagsture: ["region", "Ricote-dalen"], natur: ["place", "pmvrq6eiwy64m"], sevaerdigheder: ["place", "pmvrq3fk10chq"],
   shopping: ["place", "pmvnjtwvomk43"], spisesteder: ["place", "p4"], strande: ["place", "p1"] };
@@ -721,7 +734,7 @@ function render() {
   var rated = function (p) { var v = overall(p); return !ui.minRating || (v ? v.stars : 0) >= ui.minRating; };
   var counts = { alle: byStatus.length };
   CATS.forEach(function (c) { counts[c[0]] = byStatus.filter(function (p) { return p.cat === c[0]; }).length; });
-  APTS.forEach(function (a) { counts[a] = places.filter(function (p) { return p.cat === a && (a !== "vores" || aptOf(p) === myApt()); }).length; });
+  APTS.forEach(function (a) { counts[a] = places.filter(function (p) { return p.cat === a && (a !== "vores" || myApts().indexOf(aptOf(p)) >= 0); }).length; });
   counts.lejligheden += counts.vores;
   // Byer og områder, der hører til den valgte liste (Har prøvet / Vil prøve)
   var townShown = function (n) { var t = towns[n]; return byStatus.some(function (p) { return p.town === n; }) || (ui.scope === "alle" && t && ((t.visits && t.visits.length) || (t.photos && t.photos.length))); };
@@ -882,14 +895,16 @@ function render() {
     if (detail.lat == null) html += '<p class="hint">' + esc(detail.name) + " har ingen placering endnu, så det kan ikke vises på kortet." + (ui.editor ? ' Tryk "Ret" for at tilføje et link fra Google Maps.' : "") + "</p>";
   }
   // Hotellet: Laderita de Bolnuevo og andelens lejlighed side om side som to kort
-  var aptNo = me ? String(me.label || "").split("-")[0] : "", aptAll = [], aptMain = null;
+  var myAp = myApts(), aptAll = [], aptMain = null;
   if (ui.cat === "lejligheden" && me) {
-    aptAll = places.filter(function (p) { return p.cat === "vores" && aptOf(p) === aptNo; });
-    aptMain = aptAll.filter(function (p) { return p.subcat === "lejlighed"; })[0] || null;
-    // Administratoren ser alle lejligheder i samme række, i nummerorden efter sin egen
-    var otherApts = me.admin ? places.filter(function (p) { return p.cat === "vores" && p.subcat === "lejlighed" && aptOf(p) !== aptNo; })
-      .sort(function (a, b) { return String(aptOf(a)).localeCompare(String(aptOf(b)), "da", { numeric: true }); }) : [];
-    if (!detail && !searching) list = list.filter(function (p) { return p.cat !== "vores"; }).concat(aptMain ? [aptMain] : []).concat(otherApts);
+    // Alle husstandens lejligheder (fx 102 og 203), i nummerorden
+    var byNo = function (a, b) { return String(aptOf(a)).localeCompare(String(aptOf(b)), "da", { numeric: true }); };
+    aptAll = places.filter(function (p) { return p.cat === "vores" && myAp.indexOf(aptOf(p)) >= 0; });
+    var mineApts = aptAll.filter(function (p) { return p.subcat === "lejlighed"; }).sort(byNo);
+    aptMain = mineApts[0] || null;
+    // Administratoren ser alle lejligheder i samme række, i nummerorden efter sine egne
+    var otherApts = me.admin ? places.filter(function (p) { return p.cat === "vores" && p.subcat === "lejlighed" && myAp.indexOf(aptOf(p)) < 0; }).sort(byNo) : [];
+    if (!detail && !searching) list = list.filter(function (p) { return p.cat !== "vores"; }).concat(mineApts).concat(otherApts);
   }
   html += '<div class="list' + (detail ? "" : " grid") + '">';
   if (!ui.loaded) html += '<p class="empty-state">Henter steder…</p>';
@@ -1115,7 +1130,7 @@ async function loadAndel() {
 }
 function andelPageHtml() {
   var d = andelData, owner = me.role === "ejer" || me.admin;
-  var h = '<section class="panel andelpage"><p class="eyebrow">Vores andel</p><h2>Andel ' + esc(me.label) + "</h2>" +
+  var h = '<section class="panel andelpage"><p class="eyebrow">Vores andel</p><h2>' + (me.allLabels && me.allLabels.length > 1 ? "Andele " + esc(me.allLabels.join(" · ")) : "Andel " + esc(me.label)) + "</h2>" + andelSwitchHtml() +
     '<p class="hint">Ejere og gæster ser og kan det samme i guiden. Kun ejere kan give og fjerne adgang.</p>';
   if (!d) { loadAndel(); return h + "<p>Henter…</p></section>"; }
   h += '<ul class="members">' + d.members.map(function (m) {
@@ -1180,6 +1195,12 @@ var ICON_MAIL = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke=
 var ICON_SMS = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4c4.97 0 9 3.13 9 7s-4.03 7-9 7c-1 0-1.95-.12-2.84-.35L4 20l1.3-3.6C4.48 15.13 3 13.2 3 11c0-3.87 4.03-7 9-7z"/></svg>';
 var ICON_WA = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="13" rx="4"/><path d="M8 17.5v3l3.5-3"/><circle cx="8.5" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="11.5" r="1" fill="currentColor" stroke="none"/></svg>';
 var ICON_MSG = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-8l-4.5 3.5v-3.5H5A1.5 1.5 0 0 1 3.5 15V6A1.5 1.5 0 0 1 5 4.5z"/><circle cx="8.5" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10.5" r="1" fill="currentColor" stroke="none"/></svg>';
+/* Skift mellem husstande (kun for dem, der er med i mere end én) */
+function andelSwitchHtml() {
+  if (!me || !me.others || !me.others.length) return "";
+  return '<div class="switchbox"><p class="hint">Du er også med i ' + (me.others.length === 1 ? "en anden andel" : "andre andele") + ". Det, du skriver og giver stjerner, hører til den andel, du er inde som nu.</p>" +
+    me.others.map(function (o) { return '<button class="btn small" type="button" data-switchandel="' + esc(o.id) + '">Skift til ' + esc(andelLabels[o.id] || o.label) + "</button>"; }).join(" ") + "</div>";
+}
 /* Invitationsbesked med en kort log ind-guide */
 function inviteMsg(name, email, andel) {
   return "Hej" + (name ? " " + name : "") + ".\n\nDu er inviteret til Laderita de Bolnuevo guide – en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer" + (andel ? ". Du er med som ejer af andel " + andel : "") + ".\n\n" +
@@ -1238,7 +1259,8 @@ async function loadAdmin() {
   var a = await sb.from("andele").select("*").order("lejlighed").order("nummer");
   var m = await sb.from("members").select("andel_id,email,name,role,user_id");
   var rp = await sb.from("reports").select("*").eq("handled", false).order("created_at", { ascending: false });
-  adminData = { andele: a.data || [], members: m.data || [], reports: rp.data || [], err: a.error ? a.error.message : "" };
+  var nn = await sb.from("andel_numre").select("*").order("lejlighed").order("nummer");
+  adminData = { andele: a.data || [], members: m.data || [], reports: rp.data || [], nums: nn.data || [], err: a.error ? a.error.message : "" };
   render();
 }
 function adminPageHtml() {
@@ -1247,14 +1269,34 @@ function adminPageHtml() {
   var h = reportsHtml(d.reports) + '<section class="panel"><p class="eyebrow">Administration</p><h2>Andele</h2>';
   h += '<ul class="members">' + d.andele.map(function (a) {
     var ms = d.members.filter(function (m) { return m.andel_id === a.id; });
-    return "<li><span><strong>" + esc(a.lejlighed + "-" + a.nummer) + "</strong>" + (a.aktiv ? "" : " (solgt)") + '<br><span class="hint">' + esc(ms.map(function (m) { return (m.name || m.email) + (m.role === "ejer" ? " (ejer)" : "") + (m.user_id ? "" : " – inviteret"); }).join(", ") || "Ingen medlemmer") + "</span></span>" +
+    var extra = (d.nums || []).filter(function (x) { return x.andel_id === a.id; });
+    return "<li><span><strong>" + esc(a.lejlighed + "-" + a.nummer) + "</strong>" + extra.map(function (x) { return ' · <strong>' + esc(x.lejlighed + "-" + x.nummer) + '</strong> <button class="linkbtn" type="button" data-rmnum="' + esc(x.lejlighed + "|" + x.nummer) + '" title="Fjern nummeret fra husstanden">' + (ui.confirmRmNum === x.lejlighed + "|" + x.nummer ? "tryk igen for at fjerne" : "fjern") + "</button>"; }).join("") + (a.aktiv ? "" : " (solgt)") + '<br><span class="hint">' + esc(ms.map(function (m) { return (m.name || m.email) + (m.role === "ejer" ? " (ejer)" : "") + (m.user_id ? "" : " – inviteret"); }).join(", ") || "Ingen medlemmer") + "</span></span>" +
       (a.aktiv ? '<button class="btn small" type="button" data-sold="' + esc(a.id) + '">' + (ui.confirmSold === a.id ? "Tryk igen: andelen er solgt" : "Marker som solgt") + "</button>" : "") + "</li>";
   }).join("") + "</ul>";
+  h += '<form id="addnum-form" class="invite"><h3>Tilføj et ekstra andelsnummer til en husstand</h3><p class="hint">Til andelshavere med flere andele (fx Trærup: 203-002, 102-025 og 102-039). Stjerner, kommentarer og favoritter er fælles for husstanden, og de ser alle deres lejligheder under Hotellet.</p>' +
+    '<div class="grid"><label>Husstand<select id="x-andel" required><option value="">Vælg …</option>' + d.andele.filter(function (a) { return a.aktiv; }).map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.lejlighed + "-" + a.nummer) + " · " + esc(d.members.filter(function (m) { return m.andel_id === a.id; }).map(function (m) { return m.name || m.email; }).join(", ")) + "</option>"; }).join("") + "</select></label>" +
+    '<label>Lejlighed<input id="x-lejl" required placeholder="102" inputmode="numeric"></label><label>Andelsnummer<input id="x-num" required placeholder="025" inputmode="numeric"></label></div><button class="btn" type="submit">Tilføj nummer</button></form>';
   h += '<form id="newandel-form" class="invite"><h3>Opret andel og invitér første ejer</h3><div class="grid"><label>Lejlighed<input id="n-lejl" required placeholder="101" inputmode="numeric"></label><label>Andelshavernummer<input id="n-num" required placeholder="043" inputmode="numeric"></label></div>' +
     '<div class="grid"><label>Ejerens fornavn<input id="n-name" required></label><label>Ejerens mail<input id="n-email" type="email" required></label></div><button class="btn primary" type="submit">Opret andel</button></form>';
   if (d.err) h += '<p class="err">' + esc(d.err) + "</p>";
   h += '<p class="hint">"Marker som solgt" lukker andelens adgang. Deres private indhold følger ikke med til køberen, som får en ny andel med samme nummer.</p>';
   return h + "</section>";
+}
+async function addAndelNum() {
+  var g = function (id) { return document.getElementById(id).value.trim(); };
+  var id = g("x-andel"), lejl = g("x-lejl"), num = g("x-num");
+  if (!id || !lejl || !num) { adminData.err = "Vælg husstand og skriv lejlighed og andelsnummer."; render(); return; }
+  if (adminData.andele.some(function (a) { return a.lejlighed === lejl && a.nummer === num && a.aktiv; })) { adminData.err = "Andel " + lejl + "-" + num + " findes allerede som egen andel."; render(); return; }
+  var r = await sb.from("andel_numre").insert({ andel_id: id, lejlighed: lejl, nummer: num });
+  adminData.err = r.error ? (/duplicate|unique/i.test(r.error.message) ? "Nummeret " + lejl + "-" + num + " er allerede tilknyttet en husstand." : "Nummeret blev ikke gemt: " + r.error.message) : "";
+  await loadAdmin(); if (!r.error) await load();
+}
+async function rmAndelNum(key) {
+  if (ui.confirmRmNum !== key) { ui.confirmRmNum = key; render(); return; }
+  ui.confirmRmNum = null; var p = key.split("|");
+  var r = await sb.from("andel_numre").delete().eq("lejlighed", p[0]).eq("nummer", p[1]);
+  adminData.err = r.error ? "Nummeret blev ikke fjernet: " + r.error.message : "";
+  await loadAdmin(); await load();
 }
 async function createAndel() {
   var g = function (id) { return document.getElementById(id).value.trim(); };
@@ -2600,6 +2642,8 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.irole) { ui.irole = t.dataset.irole; render(); return; }
   if (t.dataset.setvis) { setPhotoVis(t.dataset.setvis, t.dataset.v); return; }
   if (t.dataset.sold) { markSold(t.dataset.sold); return; }
+  if (t.dataset.rmnum) { rmAndelNum(t.dataset.rmnum); return; }
+  if (t.dataset.switchandel) { try { localStorage.setItem("bol_andel_" + ui.user.id, t.dataset.switchandel); } catch (x) {} location.reload(); return; }
   if (t.dataset.reinvite) { ui.inviteText = inviteMsg(t.dataset.rname || "", t.dataset.reinvite, ""); ui.inviteTo = t.dataset.reinvite; ui.inviteName = t.dataset.rname || ""; openInvite(); return; }
   if (t.id === "copy-invite") { var ta = document.getElementById("invite-copy"); ta.select(); try { navigator.clipboard.writeText(ta.value); t.textContent = "Kopieret"; } catch (x) { document.execCommand("copy"); } return; }
   if (t.id === "recheck") { await checkUser(); if (ui.member) { ui.loaded = false; await load(); } else { ui.msg = "Der er stadig ingen invitation til " + ui.user.email + "."; render(); } return; }
@@ -2647,6 +2691,7 @@ root.addEventListener("submit", function (e) {
   e.preventDefault();
   if (e.target.id === "editor") saveDraft();
   if (e.target.id === "cmtform") saveComment();
+  if (e.target.id === "addnum-form") addAndelNum();
   if (e.target.id === "login-form") submitLogin();
   if (e.target.id === "area-editor") saveArea();
   if (e.target.id === "invite-form") invite();
@@ -2683,7 +2728,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 129;
+var APP_VERSION = 131;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
