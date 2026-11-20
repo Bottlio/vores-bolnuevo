@@ -1393,16 +1393,17 @@ async function loadAdmin() {
 }
 function adminPageHtml() {
   var d = adminData;
-  if (!d) { loadAdmin(); return '<section class="panel"><p class="eyebrow">Administration</p><p>Henter…</p></section>'; }
-  var h = reportsHtml(d.reports) + andelshaverListHtml(d) + '<section class="panel"><p class="eyebrow">Administration</p><h2>Andele og numre</h2>';
-  h += '<form id="addnum-form" class="invite"><h3>Tilføj et ekstra andelsnummer til en husstand</h3><p class="hint">Til andelshavere med flere andele (fx Trærup: 203-002, 102-025 og 102-039). Stjerner, kommentarer og favoritter er fælles for husstanden, og de ser alle deres lejligheder under Hotellet.</p>' +
+  if (!d) { loadAdmin(); return '<h2 class="pagetitle">Administration</h2><section class="panel"><p>Henter…</p></section>'; }
+  var h = '<h2 class="pagetitle">Administration</h2>' + (d.err ? '<p class="err">' + esc(d.err) + "</p>" : "") + reportsHtml(d.reports) + andelshaverListHtml(d);
+  var addnum = '<form id="addnum-form" class="invite"><h3>Tilføj et ekstra andelsnummer til en husstand</h3><p class="hint">Til andelshavere med flere andele (fx Trærup: 203-002, 102-025 og 102-039). Stjerner, kommentarer og favoritter er fælles for husstanden, og de ser alle deres lejligheder under Hotellet.</p>' +
     '<div class="grid"><label>Husstand<select id="x-andel" required><option value="">Vælg …</option>' + d.andele.filter(function (a) { return a.aktiv; }).map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.lejlighed + "-" + a.nummer) + " · " + esc(d.members.filter(function (m) { return m.andel_id === a.id; }).map(function (m) { return m.name || m.email; }).join(", ")) + "</option>"; }).join("") + "</select></label>" +
     '<label>Lejlighed<input id="x-lejl" required placeholder="102" inputmode="numeric"></label><label>Andelsnummer<input id="x-num" required placeholder="025" inputmode="numeric"></label></div><button class="btn" type="submit">Tilføj nummer</button></form>';
-  h += '<form id="newandel-form" class="invite"><h3>Opret andel og invitér første ejer</h3><div class="grid"><label>Lejlighed<input id="n-lejl" required placeholder="101" inputmode="numeric"></label><label>Andelshavernummer<input id="n-num" required placeholder="043" inputmode="numeric"></label></div>' +
-    '<div class="grid"><label>Ejerens fornavn<input id="n-name" required></label><label>Ejerens mail<input id="n-email" type="email" required></label></div><button class="btn primary" type="submit">Opret andel</button></form>';
-  if (d.err) h += '<p class="err">' + esc(d.err) + "</p>";
-  h += '<p class="hint">"Marker som solgt" lukker andelens adgang. Deres private indhold følger ikke med til køberen, som får en ny andel med samme nummer.</p>';
-  return h + "</section>";
+  h += foldBox("adm-num", "<strong>Ekstra andelsnummer</strong>", "Til husstande med flere andele", addnum);
+  var newandel = '<form id="newandel-form" class="invite"><h3>Opret andel og invitér første ejer</h3><div class="grid"><label>Lejlighed<input id="n-lejl" required placeholder="101" inputmode="numeric"></label><label>Andelshavernummer<input id="n-num" required placeholder="043" inputmode="numeric"></label></div>' +
+    '<div class="grid"><label>Ejerens fornavn<input id="n-name" required></label><label>Ejerens mail<input id="n-email" type="email" required></label></div><button class="btn primary" type="submit">Opret andel</button></form>' +
+    '<p class="hint">"Marker som solgt" (under Andelshavere) lukker andelens adgang. Deres private indhold følger ikke med til køberen, som får en ny andel med samme nummer.</p>';
+  h += foldBox("adm-new", "<strong>Opret ny andel</strong>", "Ny andel og invitation til første ejer – fx ved salg", newandel);
+  return h;
 }
 /* Liste over alle andelshavere med søgning og Invitér-knap */
 function hhNums(d, a) { return [{ l: a.lejlighed, n: a.nummer, r: a.rul }].concat((d.nums || []).filter(function (x) { return x.andel_id === a.id; }).map(function (x) { return { l: x.lejlighed, n: x.nummer, r: x.rul }; })); }
@@ -1440,11 +1441,11 @@ function andelshaverListHtml(d) {
   });
   rows.sort(function (p, q) { return String(p.l).localeCompare(String(q.l), "da", { numeric: true }) || String(p.n).localeCompare(String(q.n), "da", { numeric: true }); });
   var items = rows.map(function (r) { return r.html; }).join("");
-  return '<section class="panel"><p class="eyebrow">Administration</p><h2>Andelshavere</h2>' +
-    '<p class="hint">' + rows.length + " andelsnumre · " + hh.length + " husstande · " + cnt.adgang + " har adgang · " + cnt.inviteret + " inviteret · " + cnt.ikke + " ikke inviteret</p>" +
+  var stats = rows.length + " andelsnumre · " + hh.length + " husstande · " + cnt.adgang + " har adgang · " + cnt.inviteret + " inviteret · " + cnt.ikke + " ikke inviteret";
+  return foldBox("adm-list", "<strong>Andelshavere</strong>", stats,
     '<input type="search" id="adm-q" class="admq" placeholder="Søg: navn, nummer, by eller mail" autocomplete="off">' +
     '<div class="seg small admfilter" role="group" aria-label="Vis">' + [["alle", "Alle"], ["ikke", "Ikke inviteret"], ["inviteret", "Inviteret"], ["adgang", "Har adgang"]].map(function (o) { return '<button type="button" data-admf="' + o[0] + '" aria-pressed="' + ((ui.admF || "alle") === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>" +
-    '<div class="ahhlist" id="ahhlist">' + items + '</div><p class="hint" id="adm-none" hidden>Ingen andelshavere matcher.</p></section>';
+    '<div class="ahhlist" id="ahhlist">' + items + '</div><p class="hint" id="adm-none" hidden>Ingen andelshavere matcher.</p>');
 }
 function filterAdmList() {
   var q = ((document.getElementById("adm-q") || {}).value || "").trim().toLowerCase(), f = ui.admF || "alle", shown = 0;
@@ -2384,8 +2385,8 @@ async function loadReportCount() {
   ui.reportCount = r.count || 0;
 }
 function reportsHtml(list) {
-  if (!list || !list.length) return '<section class="panel"><h2>Anmeldelser</h2><p class="hint">Ingen nye anmeldelser.</p></section>';
-  return '<section class="panel"><h2>Anmeldelser (' + list.length + ")</h2>" + list.map(function (r) {
+  if (!list || !list.length) return foldBox("adm-rep", "<strong>Anmeldelser</strong>", "Ingen nye anmeldelser", '<p class="hint">Ingen nye anmeldelser.</p>');
+  return foldBox("adm-rep", "<strong>Anmeldelser</strong> (" + list.length + ")", list.length === 1 ? "1 ny anmeldelse – tryk for at se den" : list.length + " nye anmeldelser – tryk for at se dem", list.map(function (r) {
     var e = r.kind === "tekst" ? raw.exps.filter(function (x) { return x.id === r.ref; })[0] : null, ph = r.kind === "billede" ? raw.photos.filter(function (x) { return x.id === r.ref; })[0] : null;
     var where = r.place_kind === "place" ? ((raw.places.filter(function (x) { return x.id === r.place_target; })[0] || {}).name || "et sted") : (r.place_target || "");
     var what = r.kind === "tekst" ? (e ? '<blockquote class="otext"><p>' + esc(e.note || "(teksten er allerede fjernet)") + "</p><cite>" + esc(authorText(e)) + "</cite></blockquote>" : '<p class="hint">Teksten findes ikke længere.</p>')
@@ -2396,7 +2397,7 @@ function reportsHtml(list) {
       (r.kind === "tekst" && e && e.note ? '<button class="btn small danger" type="button" data-repdel="' + esc(r.id) + '">Fjern teksten</button>' : "") +
       (r.kind === "billede" && ph ? '<button class="btn small danger" type="button" data-repdel="' + esc(r.id) + '">Slet billedet</button>' : "") +
       '<button class="btn small" type="button" data-repok="' + esc(r.id) + '">Behold – marker som behandlet</button></div></div>';
-  }).join("") + "</section>";
+  }).join(""));
 }
 async function handleReport(id, remove) {
   var r = (adminData && adminData.reports || []).filter(function (x) { return x.id === id; })[0]; if (!r) return;
@@ -2981,7 +2982,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 150;
+var APP_VERSION = 151;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
