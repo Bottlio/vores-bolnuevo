@@ -1066,15 +1066,13 @@ function headerHtml() {
   return '<header><div><p class="eyebrow">Andelshavernes guide · Costa Cálida</p><h1>Laderita de Bolnuevo</h1></div><span class="beta" title="Guiden er stadig under udvikling">Beta</span><div class="hbtns">' + navBtns() + (ui.page === "hjaelp" ? "" : '<button class="iconbtn helpnav" type="button" data-page="hjaelp" aria-label="Hjælp" title="Hjælp">?</button>') + "</div></header>";
 }
 function footerHtml() {
-  // Bunden som en liste med store rækker; "Vores andel" øverst med tandhjul (indstillinger)
-  var row = function (attr, icon, text, sub) { return '<button class="lrow" type="button" ' + attr + ">" + icon + '<span class="ltext">' + text + (sub ? ' <span class="lsub">' + sub + "</span>" : "") + '</span><span class="lchev" aria-hidden="true">›</span></button>'; };
-  var h = '<footer class="foot">';
-  h += '<div class="linklist">';
-  if (me) h += row('data-page="andel"', ICON_GEAR, "<strong>Vores andel</strong>", esc(me.label) + " · indstillinger, invitér, konto");
-  h += row('data-page="hjaelp"', ICON_HELP, "Hjælp") + row('data-page="regler"', ICON_SHIELD, "Regler og privatliv");
-  h += "</div>";
+  // Bunden som felter side om side (ikon over tekst), så den ikke ligner linklisten på stederne
+  var tile = function (attr, icon, text, sub, cls) { return '<button class="ftile' + (cls ? " " + cls : "") + '" type="button" ' + attr + ">" + icon + '<span class="ftext">' + text + "</span>" + (sub ? '<span class="fsub">' + sub + "</span>" : "") + "</button>"; };
+  var h = '<footer class="foot"><p class="footlabel">Indstillinger og hjælp</p><div class="ftiles">';
+  if (me) h += tile('data-page="andel"', ICON_GEAR, "Vores andel", esc(me.label), "fmain");
+  h += tile('data-page="hjaelp"', ICON_HELP, "Hjælp") + tile('data-page="regler"', ICON_SHIELD, "Regler og privatliv") + "</div>";
   // Kun administratoren
-  if (me && me.admin) h += '<p class="footlabel">Kun for administrator</p><div class="linklist">' + row('data-page="admin"', ICON_ADMIN, "Administration") + row('id="open-import"', ICON_UPLOAD, "Importér billeder fra PC") + "</div>";
+  if (me && me.admin) h += '<p class="footlabel">Kun for administrator</p><div class="ftiles f2">' + tile('data-page="admin"', ICON_ADMIN, "Administration") + tile('id="open-import"', ICON_UPLOAD, "Importér billeder") + "</div>";
   if (ui.user) h += '<p class="footuser">Logget ind som ' + esc(ui.user.email) + ' · <button class="linkbtn" type="button" id="logout">Log ud</button></p>';
   return h + "</footer>";
 }
@@ -2685,7 +2683,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 128;
+var APP_VERSION = 129;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

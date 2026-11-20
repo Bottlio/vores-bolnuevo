@@ -646,3 +646,13 @@ footer.foot .lrow{min-height:52px;padding-top:6px;padding-bottom:6px}
 .act3 .btn.act{flex-direction:column;gap:4px;padding:10px 6px;font-size:.88rem;line-height:1.2;text-align:center;min-height:64px}
 @media (max-width:440px){.act3 .btn.act .licon{display:block}}
 .wizdots{padding-right:44px}
+/* Bunden: felter side om side (20.11.2026) */
+footer.foot{margin-top:44px;padding-top:6px}
+.ftiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.ftiles.f2{grid-template-columns:repeat(2,1fr)}
+.ftile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:92px;padding:12px 6px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--fg);font:inherit;font-size:.86rem;line-height:1.2;text-align:center;cursor:pointer}
+.ftile:hover,.ftile:focus-visible{border-color:var(--sea)}
+.ftile .licon{width:26px;height:26px;color:var(--sea)}
+.ftile.fmain .ftext{font-weight:700;color:var(--sea)}
+.ftile .fsub{font-size:.75rem;color:var(--muted)}
+footer.foot .footlabel:first-child{margin-top:0}
