@@ -790,3 +790,9 @@ footer.foot .footlabel:first-child{margin-top:0}
 .subhead .hicon svg{width:22px;height:22px}
 .subhead .hfav{color:#b8433a}
 .subhead .hvisit{color:#2e7d4f}
+/* v169: ikonerne ved overskrifterne som runde mærker – samme som knapperne, når de er valgt */
+.subhead .hicon{width:30px;height:30px;border-radius:50%;align-items:center;justify-content:center;color:#fff;vertical-align:-7px;margin-right:10px}
+.subhead .hicon svg{width:16px;height:16px}
+.subhead .hfav{background:#7b1e2e;color:#fff}
+.subhead .hvisit{background:#2e7d4f;color:#fff}
+@media (prefers-color-scheme:dark){.subhead .hfav{background:#a3283d}.subhead .hvisit{background:#3a9a63}}
