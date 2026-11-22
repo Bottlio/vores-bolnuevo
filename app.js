@@ -764,7 +764,14 @@ function renderHome() {
     '<p class="legend">' + legendItem("lejligheden", "Hotellet", "lhome") + CATS.filter(function (c) { return !isApt(c[0]) && spots.some(function (p) { return p.cat === c[0] && p.lat != null; }); }).map(function (c) { return legendItem(c[0], c[1]); }).join("") + "</p></div>";
   var used = {}; if (hotel) used[hotel.id] = 1;
   Object.keys(TILE_COVER).forEach(function (k) { if (TILE_COVER[k][0] === "place") used[TILE_COVER[k][1]] = 1; });   // de faste billeder bruges ikke igen på andre felter
-  if (!homeMap)
+  // Besøgt / Favoritter: kun de steder – ingen felter og ingen andre rækker
+  var scoped = ui.scope === "vurderet" || ui.scope === "fav";
+  if (scoped && !homeMap) {
+    var sl = spots.slice().sort(ui.scope === "vurderet" ? function (a, b) { return String(b.visitedAt || "").localeCompare(String(a.visitedAt || "")); } : function (a, b) { return scoreOf(b) - scoreOf(a); });
+    html += '<section class="hrow"><h2 class="subhead">' + (ui.scope === "vurderet" ? "Seneste besøg" : "Jeres favoritter") + "</h2>" +
+      (sl.length ? '<div class="list grid">' + sl.map(function (p) { return gridCard(p, true); }).join("") + "</div>" : '<p class="hint">' + (ui.scope === "vurderet" ? "Tryk på besøgt-mærket ved et sted, I har været, så kommer det her." : "Tryk på hjertet ved et sted, så kommer det her.") + "</p>") + "</section>";
+  }
+  if (!homeMap && !scoped)
   html += '<div class="tiles">' + HOME_TILES.map(function (t) {
     var list = t[0] === "alle" || t[0] === "kort" ? spots : t[0] === "dagsture" ? spots.filter(function (p) { return regionDrive(regionOf(p.town)) >= DAYTRIP_MIN; }) : t[0] === "byer" ? spots : t[0] === "lejligheden" ? places.filter(function (p) { return p.cat === "lejligheden" || (p.cat === "vores" && aptOf(p) === myApt()); }) : places.filter(function (p) { return p.cat === t[0]; });
     var n = t[0] === "byer" ? allTownNames().filter(function (x) { return placesIn(x).length; }).length : t[0] === "kort" ? null : list.length;
@@ -774,10 +781,12 @@ function renderHome() {
     var img = forside ? photoUrl(forside) : fixed && photoUrl(fixed) ? photoUrl(fixed) : coverFor(list, used);
     return '<button type="button" class="tile" data-hometile="' + t[0] + '"' + (img ? ' style="--img:url(&quot;' + esc(img) + '&quot;)"' : "") + ">" + (img ? '<span class="tcorner" aria-hidden="true">' + (CAT_ICONS[t[0]] || CAT_ICONS.alle) + "</span>" : '<span class="ticon">' + (CAT_ICONS[t[0]] || CAT_ICONS.alle) + "</span>") + '<span class="tlabel">' + esc(t[1]) + "</span></button>";
   }).join("") + "</div>";
+  if (!scoped) {
   html += homeRow("Jeres favoritter", wishItems(), "Tryk på hjertet ved et sted, så kommer det her.");
   html += homeRow("Seneste besøg", spots.filter(function (p) { return p.visited; }).sort(function (a, b) { return String(b.visitedAt || "").localeCompare(String(a.visitedAt || "")); }).slice(0, 10).map(function (p) { return miniCard(p); }), "Tryk på besøgt-mærket ved et sted, I har været, så kommer det her.");
   html += homeRow("Nyt fra andelshaverne", newsItems(), "Når andelshaverne skriver, giver stjerner eller lægger billeder ind, kommer det her.");
   html += homeRow("Bedst bedømt", spots.filter(function (p) { return overall(p); }).sort(function (a, b) { return scoreOf(b) - scoreOf(a); }).slice(0, 10).map(function (p) { return miniCard(p); }), "Ingen vurderinger endnu.");
+  }
   html += footerHtml();
   if (ui.editor && !ui.draft) {
     if (ui.chooser) html += '<div class="chooser" role="menu"><button class="btn primary" type="button" id="new-photo">Vælg billeder</button><button class="btn" type="button" id="new-manual">Uden billede</button></div>';
@@ -3126,7 +3135,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 166;
+var APP_VERSION = 167;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
