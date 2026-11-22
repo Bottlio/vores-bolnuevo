@@ -2842,7 +2842,7 @@ function helpPageHtml() {
 /* Velkomst første gang (gemmes pr. bruger på enheden) */
 var WELCOME = [
   ["alle", "Find steder", "Tryk på et af felterne på forsiden – fx <strong>Spisesteder</strong> eller <strong>Strande</strong> – for at se steder i området med billeder, stjerner og kommentarer fra andelshaverne. Leder du efter noget bestemt, så skriv i søgefeltet."],
-  ["heart", "Gem jeres favoritter", "Tryk på hjertet ♡ ved et sted, så finder I det under <strong>Favoritter</strong>. Favoritterne deles med alle i jeres andel."],
+  ["heart", "Hjerte og besøgt", "Ved hvert sted er der to knapper:</p><p class=\"wpair\"><span class=\"wb wbv\">" + visitSvg(true) + "</span><span><strong>Besøgt</strong> – tryk, når I har været der. Så finder I det under <strong>Besøgt</strong> og <strong>Seneste besøg</strong>.</span></p><p class=\"wpair\"><span class=\"wb wbh\">" + heartSvg(true) + "</span><span><strong>Favorit</strong> – tryk på hjertet, så finder I det under <strong>Favoritter</strong>.</span></p><p>Begge deles med alle i jeres andel."],
   ["star", "Del jeres oplevelser", "Tryk på stjernerne for at give jeres vurdering, eller på <strong>+ Nyt sted</strong> for at lægge et sted og billeder ind. Har du brug for hjælp, så tryk på <strong>?</strong> øverst."]
 ];
 var welcomeBox = null, welcomeStep = 0;
@@ -2859,7 +2859,7 @@ function openWelcome() {
 }
 function drawWelcome() {
   var w = WELCOME[welcomeStep], last = welcomeStep === WELCOME.length - 1;
-  var icon = w[0] === "heart" ? heartSvg(false) : w[0] === "star" ? CAT_ICONS.oplevelser || "★" : CAT_ICONS.alle;
+  var icon = w[0] === "heart" ? visitSvg(false) + heartSvg(false) : w[0] === "star" ? CAT_ICONS.oplevelser || "★" : CAT_ICONS.alle;
   welcomeBox.innerHTML = '<div class="rback"></div><div class="helpmodal welcome-modal" role="dialog" aria-modal="true" aria-labelledby="wb-h">' +
     '<p class="eyebrow">Velkommen til guiden' + (me && me.name ? ", " + esc(me.name) : "") + '</p><div class="wicon" aria-hidden="true">' + icon + '</div><h2 id="wb-h">' + esc(w[1]) + "</h2><p>" + w[2] + "</p>" +
     '<div class="wdots" aria-hidden="true">' + WELCOME.map(function (x, i) { return '<span class="' + (i === welcomeStep ? "on" : "") + '"></span>'; }).join("") + "</div>" +
@@ -3142,7 +3142,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 177;
+var APP_VERSION = 178;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

@@ -827,3 +827,9 @@ footer.foot .footlabel:first-child{margin-top:0}
 .pcard .trate .rbtn.rone .rstars span{font-size:1.05rem;letter-spacing:0}
 .pcard .trate .rbtn.rone .rnum{font-size:.95rem;font-weight:700}
 .pcard .trate .rbtn.rone .rcount{display:inline;font-size:.78rem;margin-left:0}
+/* Velkomst: hjerte og besøgt (v178) */
+.welcome-modal .wpair{display:flex;align-items:flex-start;gap:12px;text-align:left}
+.welcome-modal .wb{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;margin-top:2px}
+.welcome-modal .wb svg{width:18px;height:18px}
+.welcome-modal .wbv{background:#2e7d4f}.welcome-modal .wbh{background:#7b1e2e}
+.welcome-modal .wicon svg+svg{margin-left:6px}
