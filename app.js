@@ -511,7 +511,7 @@ function placeCard(p, detail, showKat) {
     var vv = (p.visits || []).slice().sort(), lastV = vv.length ? vv[vv.length - 1] : null;
     var hotelCard = p.cat === "lejligheden" && !!(p.facts && p.facts.beskrivelse);
     var visitLine = detail && lastV && !hotelCard ? '<span class="visitline">' + (vv.length > 1 ? "Senest besøgt " : "Vi har besøgt ") + MONTHS[parseInt(lastV.slice(5, 7), 10) - 1] + " " + lastV.slice(0, 4) + "</span>" : "";
-    html += '<div class="place-top"><div class="ptitle"><h3>' + (detail ? esc(p.name) : '<button class="titlebtn" type="button" data-open="' + esc(p.id) + '">' + esc(p.name) + "</button>") + "</h3>" + visitLine + "</div>" + '<span class="topright">' + ratingButton("place", p.id, p.cat, p) + visitBtn(p) + heartBtn(p) + "</span></div>";
+    html += '<div class="place-top"><div class="ptitle"><h3>' + (detail ? esc(p.name) : '<button class="titlebtn" type="button" data-open="' + esc(p.id) + '">' + esc(p.name) + "</button>") + "</h3>" + visitLine + "</div>" + '<span class="topright">' + ratingButton("place", p.id, p.cat, p) + visitBtn(p, !!detail) + heartBtn(p, !!detail) + "</span></div>";
     // Hvad stedet er (underkategori, ellers kategori) og åbningsforhold – som almindelig tekst øverst
     var kind = isApt(p.cat) ? [] : [esc(subName(p.cat, p.subcat) || CATNAME[p.cat] || "")].concat(factList(p, detail).map(function (t) { return t[0] ? '<span class="warn">' + esc(t[1]) + "</span>" : esc(t[1]); })).filter(Boolean);
     if (kind.length) html += '<p class="kindline">' + kind.join(" · ") + "</p>";
@@ -812,14 +812,14 @@ function scopeCounts() {
 function heartSvg(on) { return '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="' + (on ? "currentColor" : "none") + '" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z"/></svg>'; }
 function visitSvg(on) { return '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="' + (on ? "2.3" : "1.9") + '" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.2s-6.8-5.8-6.8-11.4a6.8 6.8 0 0 1 13.6 0c0 5.6-6.8 11.4-6.8 11.4z"/><path d="M9 9.9l2.1 2.1 3.9-4"/></svg>'; }
 /* "Besøgt": fælles for husstanden, sættes kun når man selv trykker */
-function visitBtn(p) {
+function visitBtn(p, withCount) {
   if (!ui.editor || isApt(p.cat)) return "";
-  var n = visitCounts[p.id] || 0;
+  var n = withCount ? visitCounts[p.id] || 0 : 0;
   return '<button type="button" class="visit' + (p.visited ? " on" : "") + (n ? " haspill" : "") + '" data-visit="' + esc(p.id) + '" aria-pressed="' + p.visited + '" aria-label="' + (p.visited ? "Fjern markeringen som besøgt" : "Marker som besøgt") + (n ? ". " + n + (n === 1 ? " andel har besøgt stedet" : " andele har besøgt stedet") : "") + '" title="' + (n ? n + (n === 1 ? " andel har besøgt" : " andele har besøgt") : "Marker som besøgt") + '">' + visitSvg(p.visited) + (n ? '<span class="bc">' + n + "</span>" : "") + "</button>";
 }
-function heartBtn(p) {
+function heartBtn(p, withCount) {
   if (!ui.editor || isApt(p.cat)) return "";
-  var n = favCounts[p.id] || 0;
+  var n = withCount ? favCounts[p.id] || 0 : 0;
   return '<button type="button" class="heart' + (p.fav ? " on" : "") + (n ? " haspill" : "") + '" data-fav="' + esc(p.id) + '" aria-pressed="' + p.fav + '" aria-label="' + (p.fav ? "Fjern fra jeres favoritter" : "Læg på jeres favoritter") + (n ? ". " + n + (n === 1 ? " andel har stedet som favorit" : " andele har stedet som favorit") : "") + '" title="' + (n ? n + (n === 1 ? " andel har stedet som favorit" : " andele har stedet som favorit") : (p.fav ? "Fjern fra favoritter" : "Læg på favoritter")) + '">' + heartSvg(p.fav) + (n ? '<span class="bc">' + n + "</span>" : "") + "</button>";
 }
 function scopeHint() {
@@ -3142,7 +3142,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 179;
+var APP_VERSION = 180;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

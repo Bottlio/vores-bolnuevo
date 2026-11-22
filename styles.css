@@ -842,3 +842,16 @@ footer.foot .footlabel:first-child{margin-top:0}
 .detailcard .topright .bc{font-size:1rem}
 @media (max-width:380px){.pcard .trate .tbtns .visit.haspill,.pcard .trate .tbtns .heart.haspill{padding:0 7px 0 5px;gap:3px}}
 .detailcard .topright .visit.haspill,.detailcard .topright>.heart.haspill{display:inline-flex;align-items:center;justify-content:center;flex-direction:row}
+/* v180: på stedets side har besøgt og hjerte præcis samme form, højde og placering */
+.detailcard .topright .visit,.detailcard .topright>.heart{box-sizing:border-box;height:50px;min-width:50px;width:auto;margin:0;padding:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;gap:6px;align-self:flex-start;flex:none}
+.detailcard .topright .visit.haspill,.detailcard .topright>.heart.haspill{padding:0 16px 0 14px}
+.detailcard .topright .visit svg,.detailcard .topright>.heart svg{width:24px;height:24px;flex:none}
+.detailcard .topright .bc{font-size:1rem;line-height:1}
+@media (max-width:600px){
+  .detailcard .topright{gap:8px}
+  .detailcard .topright .visit.haspill,.detailcard .topright>.heart.haspill{padding:0 12px 0 10px;gap:5px}
+  .detailcard .topright .rstars span{font-size:1.45rem;letter-spacing:0}
+  .detailcard .topright .rbtn{gap:6px;padding:4px 2px}
+  .detailcard .topright .rcount{font-size:.8rem}
+}
+@media (max-width:600px){.detailcard .topright{justify-content:flex-start}.detailcard .topright .visit{margin-left:auto}}
