@@ -822,3 +822,8 @@ footer.foot .footlabel:first-child{margin-top:0}
 @media (max-width:380px){.pcard .trate .tbtns .visit,.pcard .trate .tbtns .heart{width:26px;height:26px}.pcard .trate .tbtns{gap:3px}.pcard .trate .tbtns svg{width:14px;height:14px}.pcard .trate{padding-left:5px;padding-right:2px}}
 .pcard .trate .rcount{font-size:.7rem;margin-left:1px}
 @media (max-width:380px){.pcard .trate .rcount{display:none}}
+/* v177 (forslag C): én stjerne + karakter + antal på kortene i listen */
+.pcard .trate .rbtn.rone{gap:4px}
+.pcard .trate .rbtn.rone .rstars span{font-size:1.05rem;letter-spacing:0}
+.pcard .trate .rbtn.rone .rnum{font-size:.95rem;font-weight:700}
+.pcard .trate .rbtn.rone .rcount{display:inline;font-size:.78rem;margin-left:0}
