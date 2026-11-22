@@ -26,6 +26,7 @@ var MONTHS = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov",
 var places = [];
 /* Rå data fra databasen; "places", "towns" og "regions" bygges ud fra dem (se decorate) */
 var raw = { places: [], towns: [], regions: [], exps: [], photos: [] };
+var visitCounts = {};   // antal husstande, der har markeret et sted som besøgt
 var me = null;          // { andel, label, role, name, admin } for den indloggede
 var authors = {};       // bruger-id -> { name, label }
 var andelLabels = {};   // andel-id -> "101-043" (eller "102-025 m.fl.")
@@ -241,10 +242,11 @@ function uid() { return "p" + Date.now().toString(36) + Math.random().toString(3
 async function load() {
   if (!ui.member) { ui.loaded = true; render(); return; }
   var res = await Promise.all([sb.from("towns").select("*"), sb.from("regions").select("*"), sb.from("places").select("*"),
-    sb.from("experiences").select("*"), sb.from("photos").select("*").order("sort").order("created_at"), sb.rpc("author_names"), sb.from("andele").select("id,lejlighed,nummer,rul"), sb.from("andel_numre").select("andel_id,lejlighed,nummer,rul")]);
+    sb.from("experiences").select("*"), sb.from("photos").select("*").order("sort").order("created_at"), sb.rpc("author_names"), sb.from("andele").select("id,lejlighed,nummer,rul"), sb.from("andel_numre").select("andel_id,lejlighed,nummer,rul"), sb.rpc("visit_counts")]);
   if (res[2].error) { ui.msg = "Kunne ikke hente stederne. Prøv at genindlæse siden."; ui.loaded = true; render(); return; }
   raw.towns = res[0].data || []; raw.regions = res[1].data || []; raw.places = res[2].data || []; raw.exps = res[3].data || []; raw.photos = res[4].data || [];
   authors = {}; (res[5].data || []).forEach(function (a) { authors[a.user_id] = a; });
+  visitCounts = {}; (res[8].data || []).forEach(function (v) { visitCounts[v.target] = v.n; });
   // En husstand kan have flere andelsnumre: label = laveste nummer + " m.fl." (fx "102-025 m.fl.")
   andelNums = {}; (res[6].data || []).forEach(function (a) { andelNums[a.id] = [{ l: a.lejlighed, n: a.nummer, r: a.rul }]; });
   (res[7].data || []).forEach(function (x) { if (andelNums[x.andel_id] && !andelNums[x.andel_id].some(function (y) { return y.l === x.lejlighed && y.n === x.nummer; })) andelNums[x.andel_id].push({ l: x.lejlighed, n: x.nummer, r: x.rul }); });
@@ -302,7 +304,7 @@ function decorate() {
     var lastOthers = others.map(function (e) { return e.last_visit || ""; }).sort().pop() || null;
     return Object.assign({}, base, {
       mine: ours, others: others, texts: others.filter(function (e) { return e.note; }),
-      status: "tried", fav: !!(ours && ours.favorite), reviewed: !!(ours && (ours.rating_score != null || (ours.note || "").trim())),
+      status: "tried", fav: !!(ours && ours.favorite), visited: !!(ours && ours.visited), visitedAt: ours ? ours.visited_at : null, reviewed: !!(ours && (ours.rating_score != null || (ours.note || "").trim())),
       visits: ours ? (ours.visits || []) : [], allVisits: Object.keys(vis).sort(), last_visit: ours ? ours.last_visit : lastOthers,
       ratings: ours ? ours.ratings || {} : {}, rating_score: ours && ours.rating_score != null ? +ours.rating_score : null, rating: null,
       avg_score: avg, n_rated: rated.length, note: ours ? ours.note || "" : "", noteVis: ours ? ours.visibility : "alle",
@@ -310,7 +312,7 @@ function decorate() {
     });
   };
   places = raw.places.map(function (p) { return build("place", p.id, p); })
-    .filter(function (p) { return isApt(p.cat) || p.id === ui.place || (ui.scope === "vurderet" ? p.reviewed : ui.scope === "fav" ? p.fav : true); });
+    .filter(function (p) { return isApt(p.cat) || p.id === ui.place || (ui.scope === "vurderet" ? p.visited : ui.scope === "fav" ? p.fav : true); });
   towns = {}; raw.towns.forEach(function (t) { var o = build("town", t.name, t); o.visits = o.allVisits; towns[t.name] = o; });
   regions = {}; raw.regions.forEach(function (r) { var o = build("region", r.name, r); o.visits = o.allVisits; regions[r.name] = o; });
 }
@@ -471,7 +473,7 @@ function gridCard(p, showKat) {
   return '<div class="town pcard" id="' + esc(p.id) + '"><button class="tlink" type="button" data-open="' + esc(p.id) + '">' +
     (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">' : '<span class="noimg">' + (CAT_ICONS[p.cat] || "") + "</span>") +
     '<span class="tname">' + esc(p.name) + '</span><span class="tmeta">' + esc(meta) + "</span>" + (warn || priv ? '<span class="ptags">' + warn + priv + "</span>" : "") + "</button>" +
-    '<div class="trate">' + ratingButton("place", p.id, p.cat, p, true) + heartBtn(p) + "</div></div>";
+    '<div class="trate">' + ratingButton("place", p.id, p.cat, p, true) + '<span class="tbtns">' + visitBtn(p) + heartBtn(p) + "</span>" + "</div></div>";
 }
 /* Beskrivelse: linjer som "Ankomst: …" vises som en pæn liste; "ABC'en" bliver et link til stedets link */
 function descHtml(p) {
@@ -504,7 +506,7 @@ function placeCard(p, detail, showKat) {
     var vv = (p.visits || []).slice().sort(), lastV = vv.length ? vv[vv.length - 1] : null;
     var hotelCard = p.cat === "lejligheden" && !!(p.facts && p.facts.beskrivelse);
     var visitLine = detail && lastV && !hotelCard ? '<span class="visitline">' + (vv.length > 1 ? "Senest besøgt " : "Vi har besøgt ") + MONTHS[parseInt(lastV.slice(5, 7), 10) - 1] + " " + lastV.slice(0, 4) + "</span>" : "";
-    html += '<div class="place-top"><div class="ptitle"><h3>' + (detail ? esc(p.name) : '<button class="titlebtn" type="button" data-open="' + esc(p.id) + '">' + esc(p.name) + "</button>") + "</h3>" + visitLine + "</div>" + '<span class="topright">' + ratingButton("place", p.id, p.cat, p) + heartBtn(p) + "</span></div>";
+    html += '<div class="place-top"><div class="ptitle"><h3>' + (detail ? esc(p.name) : '<button class="titlebtn" type="button" data-open="' + esc(p.id) + '">' + esc(p.name) + "</button>") + "</h3>" + visitLine + "</div>" + '<span class="topright">' + ratingButton("place", p.id, p.cat, p) + visitBtn(p, !!detail) + heartBtn(p) + "</span></div>";
     // Hvad stedet er (underkategori, ellers kategori) og åbningsforhold – som almindelig tekst øverst
     var kind = isApt(p.cat) ? [] : [esc(subName(p.cat, p.subcat) || CATNAME[p.cat] || "")].concat(factList(p, detail).map(function (t) { return t[0] ? '<span class="warn">' + esc(t[1]) + "</span>" : esc(t[1]); })).filter(Boolean);
     if (kind.length) html += '<p class="kindline">' + kind.join(" · ") + "</p>";
@@ -773,7 +775,7 @@ function renderHome() {
     return '<button type="button" class="tile" data-hometile="' + t[0] + '"' + (img ? ' style="--img:url(&quot;' + esc(img) + '&quot;)"' : "") + ">" + (img ? '<span class="tcorner" aria-hidden="true">' + (CAT_ICONS[t[0]] || CAT_ICONS.alle) + "</span>" : '<span class="ticon">' + (CAT_ICONS[t[0]] || CAT_ICONS.alle) + "</span>") + '<span class="tlabel">' + esc(t[1]) + "</span></button>";
   }).join("") + "</div>";
   html += homeRow("Jeres favoritter", wishItems(), "Tryk på hjertet ved et sted, så kommer det her.");
-  html += homeRow("Jeres seneste vurderinger", spots.filter(function (p) { return p.mine && p.mine.rating_score != null; }).sort(function (a, b) { return String(b.mine.rated_at || "").localeCompare(String(a.mine.rated_at || "")); }).slice(0, 10).map(function (p) { return miniCard(p); }), "Når I giver stjerner til et sted, kommer det her.");
+  html += homeRow("Seneste besøg", spots.filter(function (p) { return p.visited; }).sort(function (a, b) { return String(b.visitedAt || "").localeCompare(String(a.visitedAt || "")); }).slice(0, 10).map(function (p) { return miniCard(p); }), "Tryk på besøgt-mærket ved et sted, I har været, så kommer det her.");
   html += homeRow("Nyt fra andelshaverne", newsItems(), "Når andelshaverne skriver, giver stjerner eller lægger billeder ind, kommer det her.");
   html += homeRow("Bedst bedømt", spots.filter(function (p) { return overall(p); }).sort(function (a, b) { return scoreOf(b) - scoreOf(a); }).slice(0, 10).map(function (p) { return miniCard(p); }), "Ingen vurderinger endnu.");
   html += footerHtml();
@@ -791,15 +793,24 @@ function renderHome() {
 function scopeCounts() {
   var ids = {}; raw.places.forEach(function (p) { if (!isApt(p.cat)) ids[p.id] = 1; });
   var mine = raw.exps.filter(function (e) { return e.kind === "place" && isMine(e) && ids[e.target]; });
-  return { alle: Object.keys(ids).length, vurderet: mine.filter(function (e) { return e.rating_score != null || (e.note || "").trim(); }).length, fav: mine.filter(function (e) { return e.favorite; }).length };
+  return { alle: Object.keys(ids).length, vurderet: mine.filter(function (e) { return e.visited; }).length, fav: mine.filter(function (e) { return e.favorite; }).length };
 }
 function heartSvg(on) { return '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="' + (on ? "currentColor" : "none") + '" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z"/></svg>'; }
+function visitSvg(on) { return '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="' + (on ? "2.3" : "1.9") + '" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.2s-6.8-5.8-6.8-11.4a6.8 6.8 0 0 1 13.6 0c0 5.6-6.8 11.4-6.8 11.4z"/><path d="M9 9.9l2.1 2.1 3.9-4"/></svg>'; }
+/* "Besøgt": fælles for husstanden, sættes kun når man selv trykker */
+function visitBtn(p, big) {
+  if (!ui.editor || isApt(p.cat)) return "";
+  var n = visitCounts[p.id] || 0;
+  var b = '<button type="button" class="visit' + (p.visited ? " on" : "") + '" data-visit="' + esc(p.id) + '" aria-pressed="' + p.visited + '" aria-label="' + (p.visited ? "Fjern markeringen som besøgt" : "Marker som besøgt") + '" title="' + (p.visited ? "I har besøgt stedet – tryk for at fjerne" : "Marker som besøgt") + '">' + visitSvg(p.visited) + "</button>";
+  if (!big) return b;
+  return '<span class="vwrap">' + b + '<span class="vcount">' + (n ? (n === 1 ? "1 har besøgt" : n + " har besøgt") : "Besøgt?") + "</span></span>";
+}
 function heartBtn(p) {
   if (!ui.editor || isApt(p.cat)) return "";
   return '<button type="button" class="heart' + (p.fav ? " on" : "") + '" data-fav="' + esc(p.id) + '" aria-pressed="' + p.fav + '" aria-label="' + (p.fav ? "Fjern fra jeres favoritter" : "Læg på jeres favoritter") + '" title="' + (p.fav ? "Fjern fra favoritter" : "Læg på favoritter") + '">' + heartSvg(p.fav) + "</button>";
 }
 function scopeHint() {
-  if (ui.scope === "vurderet") return '<p class="scopehint">Steder, jeres andel selv har givet stjerner eller kommenteret.</p>';
+  if (ui.scope === "vurderet") return '<p class="scopehint">Steder, jeres andel har markeret som besøgt. Tryk på ' + visitSvg(false) + ' ved et sted for at markere det.</p>';
   if (ui.scope === "fav") return '<p class="scopehint">Jeres andels favoritter. Tryk på hjertet ved et sted for at tilføje eller fjerne det.</p>';
   return "";
 }
@@ -821,7 +832,7 @@ function toolbar(show, noScope) {
   var seg = function (val, label, short, n, title) { return '<button type="button" data-scope="' + val + '" aria-pressed="' + (ui.scope === val) + '" title="' + title + '"><span class="pl">' + label + '</span><span class="ps">' + short + "</span>" + (n == null ? "" : '<span class="pn">' + n + "</span>") + "</button>"; };
   tbCtrl.innerHTML = (noScope ? "" : '<div class="pill" role="group" aria-label="Vis">' +
       seg("alle", "Alle", "Alle", null, "Alle steder i guiden") +
-      seg("vurderet", "★ Vores", "★ Vores", c.vurderet, "Kun steder jeres andel har givet stjerner eller kommenteret") +
+      seg("vurderet", visitSvg(ui.scope === "vurderet") + " Besøgt", visitSvg(ui.scope === "vurderet"), c.vurderet, "Steder jeres andel har besøgt") +
       seg("fav", heartSvg(ui.scope === "fav") + " Favoritter", heartSvg(ui.scope === "fav"), c.fav, "Jeres favoritter") + "</div>") +
     '<button class="tview" type="button" data-view="' + (toMap ? "kort" : "liste") + '" aria-label="' + (toMap ? "Vis på kort" : "Vis som gitter") + '" title="' + (toMap ? "Vis på kort" : "Vis som gitter") + '">' + (toMap ? ICON_MAP : ICON_LIST) + "</button>";
 }
@@ -966,7 +977,7 @@ function render() {
   function catBtn(id, label, n) {
     return '<button type="button" class="cat" data-cat="' + id + '" aria-pressed="' + (ui.cat === id) + '">' + (CAT_ICONS[id] || "") + '<span class="cl">' + esc(label) + "</span>" + "</button>";
   }
-  var summary = searching ? 'Søgning: "' + ui.q.trim() + '"' : [inApt ? "" : (ui.scope === "vurderet" ? "Vores" : ui.scope === "fav" ? "Favoritter" : ""), ui.cat === "alle" ? "Alle" : ui.cat === "byer" ? "Byer" : ui.cat === "dagsture" ? "Dagsture" : CATNAME[ui.cat], ui.subcat && ui.subcat !== "__ingen" ? subName(ui.cat, ui.subcat) : "", ui.fOpen ? "uden sæsonlukkede" : "", ui.fSun ? "søndagsåbent" : "", ui.fEarly ? "åbent før kl. 20" : "", ui.region || "", ui.town || ui.ftown || "", ui.sub ? CATNAME[ui.sub] : "",
+  var summary = searching ? 'Søgning: "' + ui.q.trim() + '"' : [inApt ? "" : (ui.scope === "vurderet" ? "Besøgt" : ui.scope === "fav" ? "Favoritter" : ""), ui.cat === "alle" ? "Alle" : ui.cat === "byer" ? "Byer" : ui.cat === "dagsture" ? "Dagsture" : CATNAME[ui.cat], ui.subcat && ui.subcat !== "__ingen" ? subName(ui.cat, ui.subcat) : "", ui.fOpen ? "uden sæsonlukkede" : "", ui.fSun ? "søndagsåbent" : "", ui.fEarly ? "åbent før kl. 20" : "", ui.region || "", ui.town || ui.ftown || "", ui.sub ? CATNAME[ui.sub] : "",
     ui.minRating ? ui.minRating + "+ ★" : "", ui.sort && ui.sort !== "senest" ? { nyeste: "senest tilføjet", naermeste: "nærmeste først", stjerner: "flest stjerner", navn: "A–Å" }[ui.sort] : ""].filter(Boolean).join(" · ");
   if (detail) {
     html += '<div class="bar detailbar" id="fullbar"></div>';
@@ -1437,7 +1448,7 @@ function adminPageHtml() {
   return h;
 }
 /* ---------- Ændringer: alt der oprettes, rettes og slettes (logges af databasen) ---------- */
-var LOG_FIELDS = { name: "navn", town: "by", area: "område", cat: "kategori", subcat: "type", lat: "placering", lon: "placering", visibility: "synlighed", facts: "fakta", website: "hjemmeside", link: "link", maps_url: "Google Maps-link", lejlighed: "lejlighed", guess: "navn ikke bekræftet", region: "område", note: "kommentar", visits: "besøg", last_visit: "besøg", ratings: "stjerner", rating_score: "stjerner", favorite: "hjerte", role: "rolle", user_id: "login", aktiv: "aktiv", rul: "rul", handled: "behandlet", reason: "begrundelse", path: "fil", credit: "kilde" };
+var LOG_FIELDS = { name: "navn", town: "by", area: "område", cat: "kategori", subcat: "type", lat: "placering", lon: "placering", visibility: "synlighed", facts: "fakta", website: "hjemmeside", link: "link", maps_url: "Google Maps-link", lejlighed: "lejlighed", guess: "navn ikke bekræftet", region: "område", note: "kommentar", visits: "besøg", last_visit: "besøg", ratings: "stjerner", rating_score: "stjerner", favorite: "hjerte", visited: "besøgt", role: "rolle", user_id: "login", aktiv: "aktiv", rul: "rul", handled: "behandlet", reason: "begrundelse", path: "fil", credit: "kilde" };
 var VIS_TXT = { alle: "Alle", andel: "Vores andel", mig: "Kun mig", lejlighed: "Lejligheden" };
 function logWho(r) {
   var a = r.user_id && authors[r.user_id], lab = r.andel_id && andelLabels[r.andel_id];
@@ -1474,6 +1485,7 @@ function logWhat(r) {
       var bits = [];
       if ("rating_score" in c) bits.push(val("rating_score") == null ? "fjernede stjernerne" : "gav " + dec(+val("rating_score")) + " ★");
       if ("note" in c) bits.push(!val("note") ? "fjernede kommentaren" : was("note") ? "rettede kommentaren" : "skrev en kommentar");
+      if ("visited" in c && (op === "UPDATE" || val("visited"))) bits.push(val("visited") ? "markerede som besøgt" : "fjernede besøgt");
       if ("favorite" in c && (op === "UPDATE" || val("favorite"))) bits.push(val("favorite") ? "satte hjerte" : "fjernede hjertet");
       if ("visibility" in c && op === "UPDATE") bits.push("synlighed → " + (VIS_TXT[val("visibility")] || val("visibility")));
       if (("visits" in c || "last_visit" in c) && !bits.length) bits.push("rettede besøg");
@@ -2707,7 +2719,7 @@ async function addPhotosToArea(kind, name, files, opts) {
 /* ---------- Hjælp: FAQ-side, ?-forklaringer og velkomst første gang ---------- */
 var HELP_MAIL = "c@sorgenfrey.net";
 var HELP_TIPS = {
-  scope: ["Alle, Vores og Favoritter", "<p><strong>Alle</strong> viser alle steder i guiden.</p><p><strong>Vores</strong> viser kun de steder, jeres andel selv har givet stjerner eller skrevet om.</p><p><strong>Favoritter</strong> viser de steder, I har trykket på hjertet ♡ ved.</p>", "find"],
+  scope: ["Alle, Besøgt og Favoritter", "<p><strong>Alle</strong> viser alle steder i guiden.</p><p><strong>Besøgt</strong> viser de steder, jeres andel har markeret som besøgt med flueben-mærket ved hjertet.</p><p><strong>Favoritter</strong> viser de steder, I har trykket på hjertet ♡ ved.</p>", "find"],
   stars: ["Stjernerne", "<p>De store stjerner er <strong>gennemsnittet</strong> af alle andeles vurderinger. Tallet i parentes er, hvor mange der har vurderet.</p><p><strong>Din vurdering</strong> nedenunder er jeres egen.</p><p>Tryk på stjernerne for at give eller ændre jeres vurdering.</p>", "stjerner"],
   photovis: ["Hvem kan se billedet?", "<p>Mærket viser, hvem der kan se billedet:</p><p><strong>Alle</strong> – alle andelshavere i guiden.<br><strong>Vores andel</strong> – kun jer i andelen.<br><strong>Kun mig</strong> – kun dig.</p><p>Tryk på mærket for at skifte. Det gemmes med det samme. <strong>Kun mig</strong> kan kun vælges på billeder, du selv har lagt ind.</p>", "billeder"],
   photovisapt: ["Hvem kan se billedet?", "<p>Mærket viser, hvem der kan se billedet:</p><p><strong>Lejligheden</strong> – alle andele i samme lejlighed (fx alle, der har en andel i lejlighed 101).<br><strong>Vores andel</strong> – kun jer i andelen.<br><strong>Kun mig</strong> – kun dig.</p><p>Tryk på mærket for at skifte. Det gemmes med det samme. <strong>Kun mig</strong> kan kun vælges på billeder, du selv har lagt ind.</p>", "billeder"],
@@ -2735,7 +2747,7 @@ var DEMO = {
   list: '<span class="tview demo" aria-hidden="true">' + ICON_LIST + "</span>",
   help: '<span class="iconbtn helpnav demo" aria-hidden="true">?</span>',
   heart: '<span class="demoicon" aria-hidden="true">' + heartSvg(false) + "</span>",
-  pill: '<span class="pill demo" aria-hidden="true"><button type="button" tabindex="-1" aria-pressed="true">Alle</button><button type="button" tabindex="-1" aria-pressed="false">★ Vores</button><button type="button" tabindex="-1" aria-pressed="false">' + heartSvg(false) + " Favoritter</button></span>",
+  pill: '<span class="pill demo" aria-hidden="true"><button type="button" tabindex="-1" aria-pressed="true">Alle</button><button type="button" tabindex="-1" aria-pressed="false">' + visitSvg(false) + ' Besøgt</button><button type="button" tabindex="-1" aria-pressed="false">' + heartSvg(false) + " Favoritter</button></span>",
   stars: '<span class="demostars" aria-hidden="true"><span class="rstars">' + starRow(0) + "</span></span>",
   rating: '<span class="demorating" aria-hidden="true"><span class="rbtn"><span class="rnum">4,0</span><span class="rstars">' + starRow(4) + '</span><span class="rcount">(2)</span></span><span class="rown">Din vurdering 4,5 ★</span></span>',
   share: '<span class="osicon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#0a7aff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9H6.5A1.5 1.5 0 0 0 5 10.5v9A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 17.5 9H16"/><path d="M12 14V3M8.5 6.5 12 3l3.5 3.5"/></svg></span>',
@@ -2755,7 +2767,7 @@ var HELP_FAQ = [
   ]],
   ["find", "Find steder", [
     ["Hvordan finder jeg et sted?", "<ol><li>Tryk på et af felterne på forsiden – fx <strong>Spisesteder</strong> eller <strong>Strande</strong>.</li><li>Tryk på et sted for at se billeder, stjerner og kommentarer.</li></ol><p>Leder du efter noget bestemt, så skriv i søgefeltet øverst.</p>"],
-    ["Hvad betyder Alle, Vores og Favoritter?", "<p>" + DEMO.pill + "</p><p><strong>Alle</strong> viser alle steder i guiden.</p><p><strong>Vores</strong> viser kun de steder, jeres andel selv har givet stjerner eller skrevet om.</p><p><strong>Favoritter</strong> viser de steder, I har trykket på hjertet " + DEMO.heart + " ved.</p><p>Det valgte står med hvid tekst på mørkeblåt.</p>"],
+    ["Hvad betyder Alle, Besøgt og Favoritter?", "<p>" + DEMO.pill + "</p><p><strong>Alle</strong> viser alle steder i guiden.</p><p><strong>Besøgt</strong> viser de steder, jeres andel har markeret som besøgt med flueben-mærket ved hjertet.</p><p><strong>Favoritter</strong> viser de steder, I har trykket på hjertet " + DEMO.heart + " ved.</p><p>Det valgte står med hvid tekst på mørkeblåt.</p>"],
     ["Hvad betyder \"nye siden sidst\" på forsiden?", "<p>Står der fx <strong>3 nye siden sidst</strong> øverst på forsiden, er der sket noget, siden du sidst kiggede:</p><ul><li>andre andelshavere har givet stjerner eller skrevet en kommentar til et sted, I selv har vurderet eller kommenteret</li><li>der er kommet et nyt sted i guiden med billeder, en kommentar eller stjerner</li><li>andre andelshavere i jeres lejlighed har lagt billeder ind eller skrevet en kommentar på lejlighedens side (har I flere lejligheder, gælder det dem alle)</li><li>andre har lagt nye billeder ind på steder, I selv har vurderet eller kommenteret</li></ul><p>Tryk på linjen for at se listen, og tryk på et sted for at åbne det. Næste gang du åbner guiden, tæller den kun det, der er kommet til siden. Er der intet nyt, står linjen der ikke.</p><p>Under <strong>Vores andel</strong> nederst på siden kan du slå \"Nyt siden sidst\" helt fra eller vælge, hvad der skal med. Det gælder kun dig.</p>"],
     ["Hvad er forskellen på Byer og Dagsture?", "<p><strong>Byer</strong> er byerne i området med de steder, der ligger i dem.</p><p><strong>Dagsture</strong> er områder mindst en halv time væk i bil. Ture over 2½ time står under <strong>Længere ture</strong>.</p>"],
     ["Hvordan ser jeg stederne på et kort?", "<p>Tryk på kort-knappen " + DEMO.map + " til højre for søgefeltet.</p><p>På kortet bliver knappen til " + DEMO.list + ". Tryk på den for at komme tilbage til listen.</p><p>Inde på et sted viser " + DEMO.map + " stedet på kortet i stedet for billederne.</p>"],
@@ -2944,6 +2956,12 @@ document.addEventListener("click", async function (e) {
   var t = e.target.closest("button"); if (!t) return;
   if (t.dataset.open) { openPlace(t.dataset.open); return; }
   if (t.hasAttribute("data-closeplace")) { closePlace(); return; }
+  if (t.dataset.visit) {
+    var vp = places.filter(function (x) { return x.id === t.dataset.visit; })[0]; if (!vp) return;
+    var was = vp.visited, vr = await saveExp("place", vp.id, { visited: !was });
+    if (!vr.error) visitCounts[vp.id] = Math.max(0, (visitCounts[vp.id] || 0) + (was ? -1 : 1));
+    ui.msg = vr.error ? "Det blev ikke gemt. Prøv igen." : ""; decorate(); render(); return;
+  }
   if (t.dataset.fav) {
     var fp = places.filter(function (x) { return x.id === t.dataset.fav; })[0]; if (!fp) return;
     var fr = await saveExp("place", fp.id, { favorite: !fp.fav });
@@ -3108,7 +3126,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 165;
+var APP_VERSION = 166;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

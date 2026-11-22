@@ -766,3 +766,22 @@ footer.foot .footlabel:first-child{margin-top:0}
 .legend .legbtn.dim{opacity:.45}
 .legend{gap:2px 4px}
 .legend .lhome{border-radius:4px}
+/* Besøgt-mærket (v166) */
+.visit{flex:none;width:36px;height:36px;display:inline-grid;place-items:center;border:0;background:transparent;border-radius:50%;color:var(--muted);cursor:pointer;padding:0}
+.visit svg{width:22px;height:22px}
+.visit:hover,.visit.on{color:#2e7d4f}
+.tbtns{display:inline-flex;align-items:center;flex:none}
+.pcard .trate .tbtns .visit,.pcard .trate .tbtns .heart{width:32px}
+.detailcard .topright .vwrap{display:inline-flex;flex-direction:column;align-items:center;gap:3px;align-self:flex-start;margin-top:4px}
+.detailcard .topright .visit{width:52px;height:52px;background:#efedea;color:var(--fg)}
+.detailcard .topright .visit svg{width:26px;height:26px}
+.detailcard .topright .visit:hover{background:#e6e3de}
+.detailcard .topright .visit.on{background:#2e7d4f;color:#fff}
+.detailcard .topright .vcount{font-size:.75rem;color:var(--muted);white-space:nowrap}
+.detailcard .topright{gap:10px}
+@media (prefers-color-scheme:dark){.detailcard .topright .visit{background:#2a3538;color:var(--fg)}.detailcard .topright .visit.on{background:#3a9a63;color:#fff}}
+.pill svg{vertical-align:-4px}
+.scopehint svg{width:16px;height:16px;vertical-align:-3px}
+.detailcard .topright .vwrap{position:relative;padding-bottom:0}
+.detailcard .topright .vcount{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:3px}
+@media (max-width:400px){.pcard .trate .rstars span{font-size:.78rem}.pcard .trate .rnum{font-size:.8rem}.pcard .trate .tbtns .visit,.pcard .trate .tbtns .heart{width:28px}.pcard .trate .tbtns svg{width:20px;height:20px}}
