@@ -2756,6 +2756,7 @@ var DEMO = {
   list: '<span class="tview demo" aria-hidden="true">' + ICON_LIST + "</span>",
   help: '<span class="iconbtn helpnav demo" aria-hidden="true">?</span>',
   heart: '<span class="demoicon" aria-hidden="true">' + heartSvg(false) + "</span>",
+  visit: '<span class="demoicon" aria-hidden="true">' + visitSvg(false) + "</span>",
   pill: '<span class="pill demo" aria-hidden="true"><button type="button" tabindex="-1" aria-pressed="true">Alle</button><button type="button" tabindex="-1" aria-pressed="false">' + visitSvg(false) + ' Besøgt</button><button type="button" tabindex="-1" aria-pressed="false">' + heartSvg(false) + " Favoritter</button></span>",
   stars: '<span class="demostars" aria-hidden="true"><span class="rstars">' + starRow(0) + "</span></span>",
   rating: '<span class="demorating" aria-hidden="true"><span class="rbtn"><span class="rnum">4,0</span><span class="rstars">' + starRow(4) + '</span><span class="rcount">(2)</span></span><span class="rown">Din vurdering 4,5 ★</span></span>',
@@ -2787,7 +2788,8 @@ var HELP_FAQ = [
     ["Hvad betyder de store og de små stjerner?", "<p>" + DEMO.rating + "</p><p>De <strong>store stjerner</strong> er gennemsnittet af alle andeles vurderinger. Tallet foran er gennemsnittet, og tallet i parentes er, hvor mange andele der har vurderet.</p><p><strong>Din vurdering</strong> nedenunder er jeres egen.</p><p>Tryk på stjernerne for at give eller ændre jeres vurdering.</p>"],
     ["Hvordan skriver jeg en kommentar?", "<ol><li>Åbn stedet.</li><li>Tryk <strong>Tilføj kommentar</strong>. Der kommer et vindue med kun et tekstfelt.</li><li>Skriv fx hvad I spiste, priser eller gode råd.</li><li>Tryk <strong>Gem</strong>.</li></ol><p>Har I allerede skrevet noget, kan I rette det samme sted. Sletter I teksten og trykker Gem, fjernes kommentaren.</p>"],
     ["Hvem kan se det, jeg skriver?", "<p>Som udgangspunkt kan alle andelshavere se jeres stjerner og kommentarer. Vil I holde dem for jer selv, så tryk <strong>Rediger</strong> på stedet og vælg <strong>Vores andel</strong> under <strong>Hvem kan se vores stjerner og tekst?</strong></p>"],
-    ["Hvad er hjertet?", "<p>Tryk på hjertet " + DEMO.heart + " ved et sted for at gøre det til en favorit. Tryk igen for at fjerne det. Favoritter deles med alle i jeres andel, men andre andele kan ikke se dem.</p>"]
+    ["Hvad er hjertet?", "<p>Tryk på hjertet " + DEMO.heart + " ved et sted for at gøre det til en favorit. Tryk igen for at fjerne det. Favoritter deles med alle i jeres andel, men andre andele kan ikke se dem.</p><p>Jeres favoritter står under <strong>Jeres favoritter</strong> på forsiden og under <strong>Favoritter</strong> øverst.</p>", "fav"],
+    ["Hvad er besøgt-mærket?", "<p>Tryk på besøgt-mærket " + DEMO.visit + " ved et sted, når I har været der. Mærket bliver grønt. Tryk igen for at fjerne det. Det er fælles for alle i jeres andel.</p><p>Jeres besøgte steder står under <strong>Seneste besøg</strong> på forsiden og under <strong>Besøgt</strong> øverst.</p><p>Under mærket på stedets side står, hvor mange andele der har besøgt stedet, fx \"3 har besøgt\". Andre andele kan se antallet, men ikke hvem.</p>", "visit"]
   ]],
   ["billeder", "Billeder og nye steder", [
     ["Hvordan lægger jeg billeder ind?", "<ol><li>Åbn stedet.</li><li>Tryk <strong>Tilføj billeder</strong>.</li><li>Vælg billederne på telefonen eller computeren.</li><li>Tryk <strong>Gem</strong>.</li></ol>"],
@@ -2826,7 +2828,7 @@ function helpPageHtml() {
     '<p class="hint">Tryk på et spørgsmål for at se svaret. Du kan også trykke på <span class="qhelp inline" aria-hidden="true">?</span> rundt omkring i guiden.</p>';
   HELP_FAQ.forEach(function (sec) {
     h += '<h3 id="hjaelp-' + sec[0] + '">' + esc(sec[1]) + "</h3>";
-    sec[2].forEach(function (q) { h += '<details class="faq"><summary>' + esc(q[0]) + '</summary><div class="faqa">' + q[1] + "</div></details>"; });
+    sec[2].forEach(function (q) { h += '<details class="faq"><summary><span class="fq">' + (q[2] ? rowIcon(q[2]) : "") + esc(q[0]) + '</span></summary><div class="faqa">' + q[1] + "</div></details>"; });
   });
   h += '<div class="helpcontact"><h3>Kan du ikke finde svaret?</h3><p>Skriv til Christian på <a href="mailto:' + HELP_MAIL + '">' + HELP_MAIL + "</a>. Skriv gerne, hvad du prøvede at gøre, og hvad der skete.</p></div></section>";
   return h;
@@ -3135,7 +3137,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 171;
+var APP_VERSION = 172;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

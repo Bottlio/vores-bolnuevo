@@ -796,3 +796,8 @@ footer.foot .footlabel:first-child{margin-top:0}
 .subhead .hfav{background:#7b1e2e;color:#fff}
 .subhead .hvisit{background:#2e7d4f;color:#fff}
 @media (prefers-color-scheme:dark){.subhead .hfav{background:#a3283d}.subhead .hvisit{background:#3a9a63}}
+/* Ikon i FAQ-overskrifter (v172) */
+.faq summary .hicon{display:inline-flex;width:26px;height:26px;border-radius:50%;align-items:center;justify-content:center;color:#fff;vertical-align:-7px;margin-right:8px}
+.faq summary .hicon svg{width:14px;height:14px}
+.faq summary .hfav{background:#7b1e2e}.faq summary .hvisit{background:#2e7d4f}
+.faq summary .fq{flex:1;min-width:0}
