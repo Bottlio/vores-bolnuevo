@@ -833,3 +833,12 @@ footer.foot .footlabel:first-child{margin-top:0}
 .welcome-modal .wb svg{width:18px;height:18px}
 .welcome-modal .wbv{background:#2e7d4f}.welcome-modal .wbh{background:#7b1e2e}
 .welcome-modal .wicon svg+svg{margin-left:6px}
+/* v179: knapper med tal (som en "pille"), uden tal når ingen har trykket */
+.visit .bc,.heart .bc{font-size:.85rem;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.visit.haspill,.heart.haspill{display:inline-flex;align-items:center;justify-content:center;gap:4px;border-radius:999px}
+.pcard .trate .tbtns .visit.haspill,.pcard .trate .tbtns .heart.haspill{width:auto;min-width:30px;padding:0 9px 0 7px}
+.pcard .trate .tbtns .bc{font-size:.78rem}
+.detailcard .topright .visit.haspill,.detailcard .topright>.heart.haspill{width:auto;min-width:52px;padding:0 16px 0 13px;gap:6px}
+.detailcard .topright .bc{font-size:1rem}
+@media (max-width:380px){.pcard .trate .tbtns .visit.haspill,.pcard .trate .tbtns .heart.haspill{padding:0 7px 0 5px;gap:3px}}
+.detailcard .topright .visit.haspill,.detailcard .topright>.heart.haspill{display:inline-flex;align-items:center;justify-content:center;flex-direction:row}

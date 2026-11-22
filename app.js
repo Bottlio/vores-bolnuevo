@@ -26,7 +26,7 @@ var MONTHS = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov",
 var places = [];
 /* Rå data fra databasen; "places", "towns" og "regions" bygges ud fra dem (se decorate) */
 var raw = { places: [], towns: [], regions: [], exps: [], photos: [] };
-var visitCounts = {};   // antal husstande, der har markeret et sted som besøgt
+var visitCounts = {}, favCounts = {};   // antal husstande, der har markeret et sted som besøgt / favorit (ikke hvem)
 var me = null;          // { andel, label, role, name, admin } for den indloggede
 var authors = {};       // bruger-id -> { name, label }
 var andelLabels = {};   // andel-id -> "101-043" (eller "102-025 m.fl.")
@@ -247,11 +247,11 @@ function uid() { return "p" + Date.now().toString(36) + Math.random().toString(3
 async function load() {
   if (!ui.member) { ui.loaded = true; render(); return; }
   var res = await Promise.all([sb.from("towns").select("*"), sb.from("regions").select("*"), sb.from("places").select("*"),
-    sb.from("experiences").select("*"), sb.from("photos").select("*").order("sort").order("created_at"), sb.rpc("author_names"), sb.from("andele").select("id,lejlighed,nummer,rul"), sb.from("andel_numre").select("andel_id,lejlighed,nummer,rul"), sb.rpc("visit_counts")]);
+    sb.from("experiences").select("*"), sb.from("photos").select("*").order("sort").order("created_at"), sb.rpc("author_names"), sb.from("andele").select("id,lejlighed,nummer,rul"), sb.from("andel_numre").select("andel_id,lejlighed,nummer,rul"), sb.rpc("place_counts")]);
   if (res[2].error) { ui.msg = "Kunne ikke hente stederne. Prøv at genindlæse siden."; ui.loaded = true; render(); return; }
   raw.towns = res[0].data || []; raw.regions = res[1].data || []; raw.places = res[2].data || []; raw.exps = res[3].data || []; raw.photos = res[4].data || [];
   authors = {}; (res[5].data || []).forEach(function (a) { authors[a.user_id] = a; });
-  visitCounts = {}; (res[8].data || []).forEach(function (v) { visitCounts[v.target] = v.n; });
+  visitCounts = {}; favCounts = {}; (res[8].data || []).forEach(function (v) { visitCounts[v.target] = v.visits; favCounts[v.target] = v.favs; });
   // En husstand kan have flere andelsnumre: label = laveste nummer + " m.fl." (fx "102-025 m.fl.")
   andelNums = {}; (res[6].data || []).forEach(function (a) { andelNums[a.id] = [{ l: a.lejlighed, n: a.nummer, r: a.rul }]; });
   (res[7].data || []).forEach(function (x) { if (andelNums[x.andel_id] && !andelNums[x.andel_id].some(function (y) { return y.l === x.lejlighed && y.n === x.nummer; })) andelNums[x.andel_id].push({ l: x.lejlighed, n: x.nummer, r: x.rul }); });
@@ -511,7 +511,7 @@ function placeCard(p, detail, showKat) {
     var vv = (p.visits || []).slice().sort(), lastV = vv.length ? vv[vv.length - 1] : null;
     var hotelCard = p.cat === "lejligheden" && !!(p.facts && p.facts.beskrivelse);
     var visitLine = detail && lastV && !hotelCard ? '<span class="visitline">' + (vv.length > 1 ? "Senest besøgt " : "Vi har besøgt ") + MONTHS[parseInt(lastV.slice(5, 7), 10) - 1] + " " + lastV.slice(0, 4) + "</span>" : "";
-    html += '<div class="place-top"><div class="ptitle"><h3>' + (detail ? esc(p.name) : '<button class="titlebtn" type="button" data-open="' + esc(p.id) + '">' + esc(p.name) + "</button>") + "</h3>" + visitLine + "</div>" + '<span class="topright">' + ratingButton("place", p.id, p.cat, p) + visitBtn(p, !!detail) + heartBtn(p) + "</span></div>";
+    html += '<div class="place-top"><div class="ptitle"><h3>' + (detail ? esc(p.name) : '<button class="titlebtn" type="button" data-open="' + esc(p.id) + '">' + esc(p.name) + "</button>") + "</h3>" + visitLine + "</div>" + '<span class="topright">' + ratingButton("place", p.id, p.cat, p) + visitBtn(p) + heartBtn(p) + "</span></div>";
     // Hvad stedet er (underkategori, ellers kategori) og åbningsforhold – som almindelig tekst øverst
     var kind = isApt(p.cat) ? [] : [esc(subName(p.cat, p.subcat) || CATNAME[p.cat] || "")].concat(factList(p, detail).map(function (t) { return t[0] ? '<span class="warn">' + esc(t[1]) + "</span>" : esc(t[1]); })).filter(Boolean);
     if (kind.length) html += '<p class="kindline">' + kind.join(" · ") + "</p>";
@@ -812,16 +812,15 @@ function scopeCounts() {
 function heartSvg(on) { return '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="' + (on ? "currentColor" : "none") + '" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z"/></svg>'; }
 function visitSvg(on) { return '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="' + (on ? "2.3" : "1.9") + '" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.2s-6.8-5.8-6.8-11.4a6.8 6.8 0 0 1 13.6 0c0 5.6-6.8 11.4-6.8 11.4z"/><path d="M9 9.9l2.1 2.1 3.9-4"/></svg>'; }
 /* "Besøgt": fælles for husstanden, sættes kun når man selv trykker */
-function visitBtn(p, big) {
+function visitBtn(p) {
   if (!ui.editor || isApt(p.cat)) return "";
   var n = visitCounts[p.id] || 0;
-  var b = '<button type="button" class="visit' + (p.visited ? " on" : "") + '" data-visit="' + esc(p.id) + '" aria-pressed="' + p.visited + '" aria-label="' + (p.visited ? "Fjern markeringen som besøgt" : "Marker som besøgt") + '" title="' + (p.visited ? "I har besøgt stedet – tryk for at fjerne" : "Marker som besøgt") + '">' + visitSvg(p.visited) + "</button>";
-  if (!big) return b;
-  return '<span class="vwrap">' + b + '<span class="vcount">' + (n ? (n === 1 ? "1 har besøgt" : n + " har besøgt") : "Besøgt?") + "</span></span>";
+  return '<button type="button" class="visit' + (p.visited ? " on" : "") + (n ? " haspill" : "") + '" data-visit="' + esc(p.id) + '" aria-pressed="' + p.visited + '" aria-label="' + (p.visited ? "Fjern markeringen som besøgt" : "Marker som besøgt") + (n ? ". " + n + (n === 1 ? " andel har besøgt stedet" : " andele har besøgt stedet") : "") + '" title="' + (n ? n + (n === 1 ? " andel har besøgt" : " andele har besøgt") : "Marker som besøgt") + '">' + visitSvg(p.visited) + (n ? '<span class="bc">' + n + "</span>" : "") + "</button>";
 }
 function heartBtn(p) {
   if (!ui.editor || isApt(p.cat)) return "";
-  return '<button type="button" class="heart' + (p.fav ? " on" : "") + '" data-fav="' + esc(p.id) + '" aria-pressed="' + p.fav + '" aria-label="' + (p.fav ? "Fjern fra jeres favoritter" : "Læg på jeres favoritter") + '" title="' + (p.fav ? "Fjern fra favoritter" : "Læg på favoritter") + '">' + heartSvg(p.fav) + "</button>";
+  var n = favCounts[p.id] || 0;
+  return '<button type="button" class="heart' + (p.fav ? " on" : "") + (n ? " haspill" : "") + '" data-fav="' + esc(p.id) + '" aria-pressed="' + p.fav + '" aria-label="' + (p.fav ? "Fjern fra jeres favoritter" : "Læg på jeres favoritter") + (n ? ". " + n + (n === 1 ? " andel har stedet som favorit" : " andele har stedet som favorit") : "") + '" title="' + (n ? n + (n === 1 ? " andel har stedet som favorit" : " andele har stedet som favorit") : (p.fav ? "Fjern fra favoritter" : "Læg på favoritter")) + '">' + heartSvg(p.fav) + (n ? '<span class="bc">' + n + "</span>" : "") + "</button>";
 }
 function scopeHint() {
   if (ui.scope === "vurderet") return '<p class="scopehint">Steder, jeres andel har markeret som besøgt. Tryk på ' + visitSvg(false) + ' ved et sted for at markere det.</p>';
@@ -2793,8 +2792,8 @@ var HELP_FAQ = [
     ["Hvad betyder de store og de små stjerner?", "<p>" + DEMO.rating + "</p><p>De <strong>store stjerner</strong> er gennemsnittet af alle andeles vurderinger. Tallet foran er gennemsnittet, og tallet i parentes er, hvor mange andele der har vurderet.</p><p><strong>Din vurdering</strong> nedenunder er jeres egen.</p><p>Tryk på stjernerne for at give eller ændre jeres vurdering.</p>"],
     ["Hvordan skriver jeg en kommentar?", "<ol><li>Åbn stedet.</li><li>Tryk <strong>Tilføj kommentar</strong>. Der kommer et vindue med kun et tekstfelt.</li><li>Skriv fx hvad I spiste, priser eller gode råd.</li><li>Tryk <strong>Gem</strong>.</li></ol><p>Har I allerede skrevet noget, kan I rette det samme sted. Sletter I teksten og trykker Gem, fjernes kommentaren.</p>"],
     ["Hvem kan se det, jeg skriver?", "<p>Som udgangspunkt kan alle andelshavere se jeres stjerner og kommentarer. Vil I holde dem for jer selv, så tryk <strong>Rediger</strong> på stedet og vælg <strong>Vores andel</strong> under <strong>Hvem kan se vores stjerner og tekst?</strong></p>"],
-    ["Hvad er hjertet?", "<p>Tryk på hjertet " + DEMO.heart + " ved et sted for at gøre det til en favorit. Tryk igen for at fjerne det. Favoritter deles med alle i jeres andel, men andre andele kan ikke se dem.</p><p>Jeres favoritter står under <strong>Jeres favoritter</strong> på forsiden og under <strong>Favoritter</strong> øverst.</p>", "fav"],
-    ["Hvad er besøgt-mærket?", "<p>Tryk på besøgt-mærket " + DEMO.visit + " ved et sted, når I har været der. Mærket bliver grønt. Tryk igen for at fjerne det. Det er fælles for alle i jeres andel.</p><p>Jeres besøgte steder står under <strong>Seneste besøg</strong> på forsiden og under <strong>Besøgt</strong> øverst.</p><p>Under mærket på stedets side står, hvor mange andele der har besøgt stedet, fx \"3 har besøgt\". Andre andele kan se antallet, men ikke hvem.</p>", "visit"]
+    ["Hvad er hjertet?", "<p>Tryk på hjertet " + DEMO.heart + " ved et sted for at gøre det til en favorit. Tryk igen for at fjerne det. Favoritter deles med alle i jeres andel. Tallet ved hjertet viser, hvor mange andele der har stedet som favorit – andre kan se antallet, men ikke hvem.</p><p>Jeres favoritter står under <strong>Jeres favoritter</strong> på forsiden og under <strong>Favoritter</strong> øverst.</p>", "fav"],
+    ["Hvad er besøgt-mærket?", "<p>Tryk på besøgt-mærket " + DEMO.visit + " ved et sted, når I har været der. Mærket bliver grønt. Tryk igen for at fjerne det. Det er fælles for alle i jeres andel.</p><p>Jeres besøgte steder står under <strong>Seneste besøg</strong> på forsiden og under <strong>Besøgt</strong> øverst.</p><p>Tallet ved mærket viser, hvor mange andele der har besøgt stedet. Andre andele kan se antallet, men ikke hvem.</p>", "visit"]
   ]],
   ["billeder", "Billeder og nye steder", [
     ["Hvordan lægger jeg billeder ind?", "<ol><li>Åbn stedet.</li><li>Tryk <strong>Tilføj billeder</strong>.</li><li>Vælg billederne på telefonen eller computeren.</li><li>Tryk <strong>Gem</strong>.</li></ol>"],
@@ -2980,7 +2979,8 @@ document.addEventListener("click", async function (e) {
   }
   if (t.dataset.fav) {
     var fp = places.filter(function (x) { return x.id === t.dataset.fav; })[0]; if (!fp) return;
-    var fr = await saveExp("place", fp.id, { favorite: !fp.fav });
+    var wasF = fp.fav, fr = await saveExp("place", fp.id, { favorite: !wasF });
+    if (!fr.error) favCounts[fp.id] = Math.max(0, (favCounts[fp.id] || 0) + (wasF ? -1 : 1));
     ui.msg = fr.error ? "Det blev ikke gemt. Prøv igen." : ""; decorate(); render(); return;
   }
   if (t.dataset.town != null) { var tw = t.dataset.town; nav(function () { ui.place = null; ui.town = tw || null; ui.region = null; ui.sub = null; if (ui.town) ui.cat = "byer"; }); return; }
@@ -3142,7 +3142,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 178;
+var APP_VERSION = 179;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
