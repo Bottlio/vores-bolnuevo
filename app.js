@@ -786,7 +786,6 @@ function renderHome() {
   html += homeRow("Jeres favoritter", wishItems(), "Tryk på hjertet ved et sted, så kommer det her.", "fav");
   html += homeRow("Seneste besøg", spots.filter(function (p) { return p.visited; }).sort(function (a, b) { return String(b.visitedAt || "").localeCompare(String(a.visitedAt || "")); }).slice(0, 10).map(function (p) { return miniCard(p); }), "Tryk på besøgt-mærket ved et sted, I har været, så kommer det her.", "visit");
   html += homeRow("Nyt fra andelshaverne", newsItems(), "Når andelshaverne skriver, giver stjerner eller lægger billeder ind, kommer det her.");
-  html += homeRow("Bedst bedømt", spots.filter(function (p) { return overall(p); }).sort(function (a, b) { return scoreOf(b) - scoreOf(a); }).slice(0, 10).map(function (p) { return miniCard(p); }), "Ingen vurderinger endnu.");
   }
   html += footerHtml();
   if (ui.editor && !ui.draft) {
@@ -3136,7 +3135,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 169;
+var APP_VERSION = 170;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
