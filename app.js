@@ -587,8 +587,9 @@ function miniCard(p, extra) {
     '<span class="hname">' + esc(p.name) + '</span><span class="hmeta">' + (v ? '<span class="hstars">' + starRow(v.stars) + "</span> " : "") + esc([p.town, CATNAME[p.cat]].filter(Boolean).join(" · ")) + "</span>" +
     (extra ? '<span class="hextra">' + extra + "</span>" : "") + "</button>";
 }
-function homeRow(title, items, empty) {
-  return '<section class="hrow"><h2 class="subhead">' + esc(title) + "</h2>" + (items.length ? '<div class="hscroll">' + items.join("") + "</div>" : '<p class="hint">' + esc(empty) + "</p>") + "</section>";
+function rowIcon(kind) { return kind === "fav" ? '<span class="hicon hfav">' + heartSvg(true) + "</span>" : kind === "visit" ? '<span class="hicon hvisit">' + visitSvg(true) + "</span>" : ""; }
+function homeRow(title, items, empty, icon) {
+  return '<section class="hrow"><h2 class="subhead">' + rowIcon(icon) + esc(title) + "</h2>" + (items.length ? '<div class="hscroll">' + items.join("") + "</div>" : '<p class="hint">' + esc(empty) + "</p>") + "</section>";
 }
 function newsItems() {
   // Nyeste fra alle andele (også jeres egen) på steder, byer og områder: stjerner, kommentarer og nye billeder.
@@ -768,7 +769,7 @@ function renderHome() {
   var scoped = ui.scope === "vurderet" || ui.scope === "fav";
   if (scoped && !homeMap) {
     var sl = spots.slice().sort(ui.scope === "vurderet" ? function (a, b) { return String(b.visitedAt || "").localeCompare(String(a.visitedAt || "")); } : function (a, b) { return scoreOf(b) - scoreOf(a); });
-    html += '<section class="hrow"><h2 class="subhead">' + (ui.scope === "vurderet" ? "Seneste besøg" : "Jeres favoritter") + "</h2>" +
+    html += '<section class="hrow"><h2 class="subhead">' + rowIcon(ui.scope === "vurderet" ? "visit" : "fav") + (ui.scope === "vurderet" ? "Seneste besøg" : "Jeres favoritter") + "</h2>" +
       (sl.length ? '<div class="list grid">' + sl.map(function (p) { return gridCard(p, true); }).join("") + "</div>" : '<p class="hint">' + (ui.scope === "vurderet" ? "Tryk på besøgt-mærket ved et sted, I har været, så kommer det her." : "Tryk på hjertet ved et sted, så kommer det her.") + "</p>") + "</section>";
   }
   if (!homeMap && !scoped)
@@ -782,8 +783,8 @@ function renderHome() {
     return '<button type="button" class="tile" data-hometile="' + t[0] + '"' + (img ? ' style="--img:url(&quot;' + esc(img) + '&quot;)"' : "") + ">" + (img ? '<span class="tcorner" aria-hidden="true">' + (CAT_ICONS[t[0]] || CAT_ICONS.alle) + "</span>" : '<span class="ticon">' + (CAT_ICONS[t[0]] || CAT_ICONS.alle) + "</span>") + '<span class="tlabel">' + esc(t[1]) + "</span></button>";
   }).join("") + "</div>";
   if (!scoped) {
-  html += homeRow("Jeres favoritter", wishItems(), "Tryk på hjertet ved et sted, så kommer det her.");
-  html += homeRow("Seneste besøg", spots.filter(function (p) { return p.visited; }).sort(function (a, b) { return String(b.visitedAt || "").localeCompare(String(a.visitedAt || "")); }).slice(0, 10).map(function (p) { return miniCard(p); }), "Tryk på besøgt-mærket ved et sted, I har været, så kommer det her.");
+  html += homeRow("Jeres favoritter", wishItems(), "Tryk på hjertet ved et sted, så kommer det her.", "fav");
+  html += homeRow("Seneste besøg", spots.filter(function (p) { return p.visited; }).sort(function (a, b) { return String(b.visitedAt || "").localeCompare(String(a.visitedAt || "")); }).slice(0, 10).map(function (p) { return miniCard(p); }), "Tryk på besøgt-mærket ved et sted, I har været, så kommer det her.", "visit");
   html += homeRow("Nyt fra andelshaverne", newsItems(), "Når andelshaverne skriver, giver stjerner eller lægger billeder ind, kommer det her.");
   html += homeRow("Bedst bedømt", spots.filter(function (p) { return overall(p); }).sort(function (a, b) { return scoreOf(b) - scoreOf(a); }).slice(0, 10).map(function (p) { return miniCard(p); }), "Ingen vurderinger endnu.");
   }
@@ -3135,7 +3136,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 167;
+var APP_VERSION = 168;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

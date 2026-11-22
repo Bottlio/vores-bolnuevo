@@ -785,3 +785,8 @@ footer.foot .footlabel:first-child{margin-top:0}
 .detailcard .topright .vwrap{position:relative;padding-bottom:0}
 .detailcard .topright .vcount{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:3px}
 @media (max-width:400px){.pcard .trate .rstars span{font-size:.78rem}.pcard .trate .rnum{font-size:.8rem}.pcard .trate .tbtns .visit,.pcard .trate .tbtns .heart{width:28px}.pcard .trate .tbtns svg{width:20px;height:20px}}
+/* Ikon foran overskrifterne Jeres favoritter / Seneste besøg (v168) */
+.subhead .hicon{display:inline-flex;vertical-align:-3px;margin-right:8px}
+.subhead .hicon svg{width:22px;height:22px}
+.subhead .hfav{color:#b8433a}
+.subhead .hvisit{color:#2e7d4f}
