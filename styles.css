@@ -801,3 +801,15 @@ footer.foot .footlabel:first-child{margin-top:0}
 .faq summary .hicon svg{width:14px;height:14px}
 .faq summary .hfav{background:#7b1e2e}.faq summary .hvisit{background:#2e7d4f}
 .faq summary .fq{flex:1;min-width:0}
+/* v173: hjerte og besøgt-mærke på kortene i listen som runde knapper – som på stedets side */
+.pcard .trate .tbtns{gap:6px}
+.pcard .trate .tbtns .visit,.pcard .trate .tbtns .heart{width:32px;height:32px;border-radius:50%;background:#efedea;color:var(--fg)}
+.pcard .trate .tbtns svg{width:17px;height:17px}
+.pcard .trate .tbtns .visit.on{background:#2e7d4f;color:#fff}
+.pcard .trate .tbtns .heart.on{background:#7b1e2e;color:#fff}
+.pcard .trate .tbtns .visit:hover:not(.on),.pcard .trate .tbtns .heart:hover:not(.on){background:#e6e3de;color:var(--fg)}
+@media (prefers-color-scheme:dark){.pcard .trate .tbtns .visit,.pcard .trate .tbtns .heart{background:#2a3538}.pcard .trate .tbtns .visit.on{background:#3a9a63}.pcard .trate .tbtns .heart.on{background:#a3283d}}
+@media (max-width:400px){.pcard .trate .tbtns{gap:4px}.pcard .trate .tbtns .visit,.pcard .trate .tbtns .heart{width:28px;height:28px}.pcard .trate .tbtns svg{width:15px;height:15px}}
+.pcard .trate .tbtns{gap:4px}
+.pcard .trate .tbtns .visit,.pcard .trate .tbtns .heart{width:30px;height:30px}
+@media (max-width:400px){.pcard .trate .rnum{display:none}}
