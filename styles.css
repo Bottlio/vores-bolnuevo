@@ -759,3 +759,10 @@ footer.foot .footlabel:first-child{margin-top:0}
 .detailcard .topright>.heart.on{background:#7b1e2e;color:#fff}
 .detailcard .topright>.heart.on:hover{background:#6a1826;color:#fff}
 @media (prefers-color-scheme:dark){.detailcard .topright>.heart{background:#2a3538;color:var(--fg)}.detailcard .topright>.heart.on{background:#a3283d;color:#fff}}
+/* Klikbar farveforklaring (v165) */
+.legend .legbtn{display:inline-flex;align-items:center;gap:0;background:none;border:1px solid transparent;border-radius:999px;padding:4px 10px 4px 8px;font:inherit;font-size:.82rem;color:var(--muted);cursor:pointer;min-height:32px}
+.legend .legbtn:hover{border-color:var(--line)}
+.legend .legbtn.on{border-color:var(--line);background:var(--surface);color:var(--fg);font-weight:700}
+.legend .legbtn.dim{opacity:.45}
+.legend{gap:2px 4px}
+.legend .lhome{border-radius:4px}

@@ -759,7 +759,7 @@ function renderHome() {
   spots = spots.filter(function (p) { return p.status === ui.status; });
   var homeMap = ui.view === "kort";
   if (homeMap) html += '<div class="mapwrap"><div id="map" role="region" aria-label="Kort over stederne"></div><p class="hint">' + spots.filter(function (p) { return p.lat != null; }).length + " af " + spots.length + " steder har en placering og vises på kortet.</p>" +
-    '<p class="legend"><span><i class="lhome" style="background:' + CAT_COLORS.lejligheden + '"></i>Hotellet</span>' + CATS.filter(function (c) { return !isApt(c[0]) && spots.some(function (p) { return p.cat === c[0] && p.lat != null; }); }).map(function (c) { return '<span><i style="background:' + CAT_COLORS[c[0]] + '"></i>' + esc(c[1]) + "</span>"; }).join("") + "</p></div>";
+    '<p class="legend">' + legendItem("lejligheden", "Hotellet", "lhome") + CATS.filter(function (c) { return !isApt(c[0]) && spots.some(function (p) { return p.cat === c[0] && p.lat != null; }); }).map(function (c) { return legendItem(c[0], c[1]); }).join("") + "</p></div>";
   var used = {}; if (hotel) used[hotel.id] = 1;
   Object.keys(TILE_COVER).forEach(function (k) { if (TILE_COVER[k][0] === "place") used[TILE_COVER[k][1]] = 1; });   // de faste billeder bruges ikke igen på andre felter
   if (!homeMap)
@@ -783,7 +783,7 @@ function renderHome() {
   }
   root.innerHTML = html;
   setTimeout(maybeWelcome, 400);
-  if (homeMap) drawMap(spots, []);
+  if (homeMap) { drawMap(spots, []); refocusMap(); }
   slim.innerHTML = ""; slim.classList.remove("show"); panel.hidden = true;
 }
 
@@ -991,7 +991,7 @@ function render() {
     });
     if (!searching && !listView && !list.length && (inTowns || inTrips) && (ui.town || ui.region)) mapList = list;
     html += '<div class="mapwrap"><div id="map" role="region" aria-label="Kort over stederne"></div><p class="hint">' + mapList.filter(function (p) { return p.lat != null; }).length + " af " + mapList.length + " steder har en placering og vises på kortet.</p>" +
-      '<p class="legend">' + CATS.filter(function (c) { return mapList.some(function (p) { return p.cat === c[0] && p.lat != null; }); }).map(function (c) { return '<span><i style="background:' + CAT_COLORS[c[0]] + '"></i>' + esc(c[1]) + "</span>"; }).join("") + "</p></div>";
+      '<p class="legend">' + CATS.filter(function (c) { return mapList.some(function (p) { return p.cat === c[0] && p.lat != null; }); }).map(function (c) { return legendItem(c[0], c[1]); }).join("") + "</p></div>";
     list = [];
     if (areaDetail) html += head + grid;
   }
@@ -1016,7 +1016,7 @@ function render() {
   if (!ui.loaded) html += '<p class="empty-state">Henter steder…</p>';
   else if (!list.length && inApt) html += '<p class="empty-state">' + (ui.cat === "vores" ? "Intet om jeres lejlighed endnu. Tryk \"+ Nyt sted\" for at lægge billeder og noter om jeres lejlighed ind – det kan kun jeres andel se." : "Ingen billeder af hotellet endnu.") + "</p>";
   else if (!list.length && searching && !detail) html += '<p class="empty-state">Ingen steder matcher søgningen.</p>';
-  else if (!list.length && listView && !((inTowns || inTrips) && (ui.town || ui.region))) html += '<p class="empty-state">' + (ui.status === "wish" ? "Ingen ønsker her endnu." : "Intet her endnu.") + (ui.editor ? ' Tryk "+ Nyt sted" for at tilføje et.' : "") + "</p>";
+  else if (!list.length && listView && ui.view !== "kort" && !((inTowns || inTrips) && (ui.town || ui.region))) html += '<p class="empty-state">' + (ui.status === "wish" ? "Ingen ønsker her endnu." : "Intet her endnu.") + (ui.editor ? ' Tryk "+ Nyt sted" for at tilføje et.' : "") + "</p>";
   // Mens stedet rettes, vises kun redigeringen – ikke selve stedet nedenunder
   var editingDetail = detail && ui.draft && !ui.draft.isNew && !ui.draft.wiz && ui.draft.id === detail.id;
   if (editingDetail) list = [];
@@ -1045,6 +1045,7 @@ function render() {
       return { kind: "region", name: r, pts: pts };
     });
     if (detail) drawMap(mapList, [], true); else drawMap(mapList, areas, areaDetail);
+    refocusMap();
   }
   wireCarousels();
   watchBar();
@@ -1070,6 +1071,27 @@ function goArea(kind, name) {
     ui.sub = null;
   });
 }
+/* Farveforklaringen kan trykkes på: den valgte kategori fremhæves, resten bliver grå og halvt gennemsigtige */
+var mapMarkers = [], hotelMarker = null;
+function legendItem(cat, label, cls) {
+  var on = ui.mapFocus === cat, dim = ui.mapFocus && !on;
+  return '<button type="button" class="legbtn' + (on ? " on" : "") + (dim ? " dim" : "") + '" data-legend="' + cat + '" aria-pressed="' + on + '"><i' + (cls ? ' class="' + cls + '"' : "") + ' style="background:' + CAT_COLORS[cat] + '"></i>' + esc(label) + "</button>";
+}
+function refocusMap() {
+  // Fremhævningen huskes, så længe kategorien findes på kortet; ellers nulstilles den
+  if (ui.mapFocus && ui.mapFocus !== "lejligheden" && !mapMarkers.some(function (mk) { return mk._bolCat === ui.mapFocus; })) ui.mapFocus = null;
+  if (ui.mapFocus) setTimeout(applyMapFocus, 0);
+}
+function applyMapFocus() {
+  var f = ui.mapFocus;
+  mapMarkers.forEach(function (mk) {
+    var hit = !f || mk._bolCat === f || (f === "lejligheden" && mk._bolCat === "vores");
+    mk.setStyle(hit ? { fillColor: CAT_COLORS[mk._bolCat] || "#333", fillOpacity: 0.95, opacity: 1 } : { fillColor: "#9aa3a5", fillOpacity: 0.35, opacity: 0.4 });
+    if (hit && f) mk.bringToFront();
+  });
+  if (hotelMarker && hotelMarker.getElement()) hotelMarker.getElement().style.opacity = !f || f === "lejligheden" ? "1" : "0.35";
+  document.querySelectorAll("[data-legend]").forEach(function (b) { var on = b.dataset.legend === f; b.classList.toggle("on", on); b.classList.toggle("dim", !!f && !on); b.setAttribute("aria-pressed", String(on)); });
+}
 function drawMap(list, areas, focus) {
   var el = document.getElementById("map"); if (!el || !window.L) return;
   if (mapObj) { mapView = { c: mapObj.getCenter(), z: mapObj.getZoom(), key: mapObj._bolKey }; mapObj.remove(); mapObj = null; }
@@ -1077,6 +1099,7 @@ function drawMap(list, areas, focus) {
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(m);
   var pts = [];
   var labels = [], circles = [];
+  mapMarkers = [];
   var sizeCircles = function () {
     var z = m.getZoom();
     circles.forEach(function (ci) { var lat = ci.getLatLng().lat, mpp = 40075016.686 * Math.cos(lat * Math.PI / 180) / Math.pow(2, z + 8); ci.setRadius(Math.max(22, ci._bolR / mpp)); });
@@ -1103,7 +1126,8 @@ function drawMap(list, areas, focus) {
   };
   m.on("zoomend", sizeCircles);
   m.on("zoomend moveend", declutter);
-  L.marker([CFG.hotel.lat, CFG.hotel.lon], { title: "Laderita de Bolnuevo", icon: L.divIcon({ className: "hotelpin", html: "⌂", iconSize: [26, 26] }) }).addTo(m).bindPopup("<strong>Laderita de Bolnuevo</strong><br>Hotellet");
+  hotelMarker = L.marker([CFG.hotel.lat, CFG.hotel.lon], { title: "Laderita de Bolnuevo", icon: L.divIcon({ className: "hotelpin", html: "⌂", iconSize: [26, 26] }) }).addTo(m);
+  hotelMarker.bindPopup("<strong>Laderita de Bolnuevo</strong><br>Hotellet");
   list.forEach(function (p) {
     if (p.lat == null) return;
     pts.push([p.lat, p.lon]);
@@ -1111,7 +1135,8 @@ function drawMap(list, areas, focus) {
     var pop = (img ? '<img class="popimg" src="' + esc(photoUrl(img)) + '" alt="">' : "") + "<strong>" + esc(p.name) + "</strong><br>" +
       '<span class="muted">' + esc([CATNAME[p.cat], p.town].filter(Boolean).join(" · ")) + "</span>" + (v ? '<br><span class="popstars">' + starRow(v.stars) + "</span>" : "") +
       '<br><button class="btn small" type="button" data-open="' + esc(p.id) + '">Åbn</button>';
-    L.circleMarker([p.lat, p.lon], { radius: 8, weight: 2, color: "#fff", fillColor: CAT_COLORS[p.cat] || "#333", fillOpacity: 0.95 }).addTo(m).bindPopup(pop, { maxWidth: 240 }).bindTooltip(esc(p.name));
+    var mk = L.circleMarker([p.lat, p.lon], { radius: 8, weight: 2, color: "#fff", fillColor: CAT_COLORS[p.cat] || "#333", fillOpacity: 0.95 }).addTo(m).bindPopup(pop, { maxWidth: 240 }).bindTooltip(esc(p.name));
+    mk._bolCat = p.cat; mapMarkers.push(mk);
   });
   var key = list.map(function (p) { return p.id; }).join(",");
   m._bolKey = key;
@@ -2992,6 +3017,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.sold) { markSold(t.dataset.sold); return; }
   if (t.dataset.rmnum) { rmAndelNum(t.dataset.rmnum); return; }
   if (t.dataset.adminvite) { adminInvite(t.dataset.adminvite); return; }
+  if (t.dataset.legend) { ui.mapFocus = ui.mapFocus === t.dataset.legend ? null : t.dataset.legend; applyMapFocus(); return; }
   if (t.dataset.fold) { ui.fold = ui.fold || {}; ui.fold[t.dataset.fold] = !ui.fold[t.dataset.fold]; render(); return; }
   if (t.dataset.since) { if (t.dataset.since === "open") openSince(); else { ui.sinceOpen = false; ui.since = []; render(); } return; }
   if (t.dataset.admf) { ui.admF = t.dataset.admf; document.querySelectorAll("[data-admf]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.admf === ui.admF)); }); filterAdmList(); return; }
@@ -3082,7 +3108,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 164;
+var APP_VERSION = 165;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
