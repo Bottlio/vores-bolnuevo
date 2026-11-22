@@ -758,7 +758,8 @@ function renderHome() {
   if (ui.areaDraft) html += areaFormHtml(ui.areaDraft);
   spots = spots.filter(function (p) { return p.status === ui.status; });
   var homeMap = ui.view === "kort";
-  if (homeMap) html += '<div class="mapwrap"><div id="map" role="region" aria-label="Kort over stederne"></div><p class="hint">' + spots.filter(function (p) { return p.lat != null; }).length + " af " + spots.length + " steder har en placering og vises på kortet.</p></div>";
+  if (homeMap) html += '<div class="mapwrap"><div id="map" role="region" aria-label="Kort over stederne"></div><p class="hint">' + spots.filter(function (p) { return p.lat != null; }).length + " af " + spots.length + " steder har en placering og vises på kortet.</p>" +
+    '<p class="legend"><span><i class="lhome" style="background:' + CAT_COLORS.lejligheden + '"></i>Hotellet</span>' + CATS.filter(function (c) { return !isApt(c[0]) && spots.some(function (p) { return p.cat === c[0] && p.lat != null; }); }).map(function (c) { return '<span><i style="background:' + CAT_COLORS[c[0]] + '"></i>' + esc(c[1]) + "</span>"; }).join("") + "</p></div>";
   var used = {}; if (hotel) used[hotel.id] = 1;
   Object.keys(TILE_COVER).forEach(function (k) { if (TILE_COVER[k][0] === "place") used[TILE_COVER[k][1]] = 1; });   // de faste billeder bruges ikke igen på andre felter
   if (!homeMap)
@@ -3081,7 +3082,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 163;
+var APP_VERSION = 164;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
