@@ -121,7 +121,7 @@ function ratingButton(kind, key, cat, o, compact) {
   var label = v ? "Alle andele: " + dec(v.score) + " ud af 5, " + SCALE[v.stars][0] + ", " + n + (n === 1 ? " vurdering" : " vurderinger") + (own != null ? ". Din vurdering: " + dec(own) : "") + ". Tryk for at se eller give din vurdering" : "Giv din vurdering";
   var attrs = ' data-rateopen="' + kind + '" data-key="' + esc(key) + '"';
   var big = '<button type="button" class="rbtn' + (v ? "" : " empty") + '"' + attrs + ' aria-label="' + esc(label) + '">' +
-    (v ? '<span class="rnum">' + dec(v.score) + "</span>" : "") + '<span class="rstars" aria-hidden="true">' + (compact && v ? onStars(v.stars) : starRow(v ? v.stars : 0)) + "</span>" + (v ? '<span class="rcount">(' + n + ")</span>" : "") + "</button>";
+    (v ? '<span class="rnum">' + dec(v.score) + "</span>" : "") + '<span class="rstars" aria-hidden="true">' + starRow(v ? v.stars : 0) + "</span>" + (v ? '<span class="rcount">(' + n + ")</span>" : "") + "</button>";
   var mine = "";
   if (!compact && ui.editor && (v || own != null)) mine = '<button type="button" class="rown"' + attrs + ' tabindex="-1" aria-hidden="true">' + (own != null ? '<span class="rmini" aria-hidden="true">' + starRow(Math.round(own)) + '</span><span class="rmtxt">Din vurdering ' + dec(own) + "</span>" : '<span class="rmini" aria-hidden="true">' + starRow(0) + '</span><span class="rmtxt">Giv din vurdering</span>') + "</button>";
   return '<span class="rwrap">' + big + mine + "</span>";
@@ -3139,7 +3139,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 174;
+var APP_VERSION = 175;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
