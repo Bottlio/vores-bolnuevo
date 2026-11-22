@@ -717,7 +717,7 @@ footer.foot .footlabel:first-child{margin-top:0}
 .pcard .trate .rstars span{font-size:1.02rem;letter-spacing:0}
 .pcard .trate .rbtn{gap:4px}
 @media (max-width:520px){
-  .pcard .trate .rcount{display:none}
+  .pcard .trate .rcount{font-size:.68rem;margin-left:1px}
   .pcard .trate .rbtn{gap:4px}
   .pcard .trate .rstars span{font-size:1rem;letter-spacing:0}
 }
@@ -820,3 +820,5 @@ footer.foot .footlabel:first-child{margin-top:0}
 .pcard .trate .rstars span{font-size:.92rem;letter-spacing:-1.5px}
 @media (max-width:440px){.pcard .trate .rstars span{font-size:.8rem;letter-spacing:-2px}.pcard .trate .rnum{font-size:.85rem}}
 @media (max-width:380px){.pcard .trate .tbtns .visit,.pcard .trate .tbtns .heart{width:26px;height:26px}.pcard .trate .tbtns{gap:3px}.pcard .trate .tbtns svg{width:14px;height:14px}.pcard .trate{padding-left:5px;padding-right:2px}}
+.pcard .trate .rcount{font-size:.7rem;margin-left:1px}
+@media (max-width:380px){.pcard .trate .rcount{display:none}}
