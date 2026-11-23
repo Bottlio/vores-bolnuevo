@@ -207,7 +207,14 @@ function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ""); } c
 function stars(r) { var s = ""; for (var i = 1; i <= 5; i++) s += i <= r ? "★" : "☆"; return s; }
 /* Billederne ligger i en lukket mappe. Hvert billede hentes via en midlertidig adresse (7 dage), som huskes i browseren. */
 var signed = (function () { try { return JSON.parse(localStorage.getItem("bol-signed") || "{}"); } catch (e) { return {}; } })();
-function photoUrl(path) { var s = signed[path]; return s ? s.u : ""; }
+/* Små udgaver (højst 600 punkter) til felter, kort og rækker – de store bruges kun i billedfremviseren og øverst på forsiden.
+   Sparer hukommelse på telefoner (indbyggede browsere i fx Messenger gik ned på de store billeder). */
+var THUMBS = {};
+function thumbPath(p) { return String(p).replace(/\.[A-Za-z0-9]+$/, "") + ".t.jpg"; }
+function photoUrl(path, small) {
+  if (small && THUMBS[path]) { var t = signed[thumbPath(path)]; if (t) return t.u; }
+  var s = signed[path]; return s ? s.u : "";
+}
 async function signPhotos(paths) {
   var now = Date.now(), need = paths.filter(function (p) { var s = signed[p]; return !s || s.exp - now < 24 * 3600 * 1000; });
   for (var i = 0; i < need.length; i += 100) {
@@ -260,7 +267,8 @@ async function load() {
     andelLabels[id] = ns[0].l + "-" + ns[0].n + (ns.length > 1 ? " m.fl." : "");
   });
   if (me && andelNums[me.andel]) { me.label = andelLabels[me.andel]; me.allLabels = andelNums[me.andel].map(function (x) { return x.l + "-" + x.n; }); me.apts = andelNums[me.andel].map(function (x) { return x.l; }).filter(function (v, i, a) { return a.indexOf(v) === i; }); }
-  await signPhotos(raw.photos.map(function (p) { return p.path; }));
+  THUMBS = {}; raw.photos.forEach(function (p) { if (p.thumb) THUMBS[p.path] = 1; });
+  await signPhotos(raw.photos.map(function (p) { return p.path; }).concat(raw.photos.filter(function (p) { return p.thumb; }).map(function (p) { return thumbPath(p.path); })));
   await loadReportCount();
   await loadSeen();
   decorate();
@@ -434,7 +442,7 @@ function areaCard(kind, name, status) {
   var sub = kind === "town" ? (n ? [n + (n === 1 ? " sted" : " steder"), cats.join(", ")].filter(Boolean).join(" · ") : visitsText(a.visits)) :
     [townsInRegion(name).join(", "), a.drive < 9999 ? "ca. " + timeText(a.drive) : ""].filter(Boolean).join(" · ");
   var only = kind === "region" && townsInRegion(name).length === 1 ? townsInRegion(name)[0] : null;
-  return '<div class="town"><button class="tlink" type="button" data-' + (kind === "town" || only ? "town" : "region") + '="' + esc(only || name) + '">' + (a.cover ? '<img src="' + esc(photoUrl(a.cover)) + '" alt="" loading="lazy">' : '<span class="noimg"></span>') +
+  return '<div class="town"><button class="tlink" type="button" data-' + (kind === "town" || only ? "town" : "region") + '="' + esc(only || name) + '">' + (a.cover ? '<img src="' + esc(photoUrl(a.cover, true)) + '" alt="" loading="lazy">' : '<span class="noimg"></span>') +
     '<span class="tname">' + esc(name) + '</span><span class="tmeta">' + esc(sub) + "</span></button>" +
     (kind === "town" ? '<div class="trate">' + ratingButton("town", name, "byer", towns[name], true) + "</div>" : "") + "</div>";
 }
@@ -471,7 +479,7 @@ function areaHeader(kind, name) {
 
 /* Lille kort i gitteret (som byerne): billede, navn, by og kategori, stjerner. Tryk åbner stedet. */
 function gridCard(p, showKat) {
-  var img = p.photos && p.photos[0] ? photoUrl(p.photos[0]) : "";
+  var img = p.photos && p.photos[0] ? photoUrl(p.photos[0], true) : "";
   var meta = [p.town || p.area, showKat ? (subName(p.cat, p.subcat) || CATNAME[p.cat]) : subName(p.cat, p.subcat), p.drive_min != null && p.drive_min >= 15 ? "ca. " + timeText(p.drive_min) : ""].filter(Boolean).join(" · ");
   var warn = (p.facts || {}).saeson === "ja" ? '<span class="tag warn">Sæsonlukket</span>' : "";
   var priv = p.visibility === "andel" ? '<span class="tag priv">Kun vores andel</span>' : p.visibility === "mig" ? '<span class="tag priv">Kun mig</span>' : "";
@@ -584,10 +592,10 @@ function coverFor(list, used) {
   used = used || {};
   var w = list.filter(function (p) { return p.photos && p.photos.length && !used[p.id]; }).sort(function (a, b) { return (b.status === "tried") - (a.status === "tried") || scoreOf(b) - scoreOf(a); })[0];
   if (!w) return "";
-  used[w.id] = 1; return photoUrl(w.photos[0]);
+  used[w.id] = 1; return photoUrl(w.photos[0], true);
 }
 function miniCard(p, extra) {
-  var v = overall(p), img = p.photos && p.photos[0] ? photoUrl(p.photos[0]) : "";
+  var v = overall(p), img = p.photos && p.photos[0] ? photoUrl(p.photos[0], true) : "";
   return '<button type="button" class="hcard" data-open="' + esc(p.id) + '">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">' : '<span class="hnoimg">' + (CAT_ICONS[p.cat] || "") + "</span>") +
     '<span class="hname">' + esc(p.name) + '</span><span class="hmeta">' + (v ? '<span class="hstars">' + starRow(v.stars) + "</span> " : "") + esc([p.town, CATNAME[p.cat]].filter(Boolean).join(" · ")) + "</span>" +
     (extra ? '<span class="hextra">' + extra + "</span>" : "") + "</button>";
@@ -741,7 +749,7 @@ async function openSince() {
 }
 /* Lille kort til forsiden for en by eller et område */
 function areaMini(kind, name, extraHtml) {
-  var a = areaObj(kind, name), img = a.cover ? photoUrl(a.cover) : "", o = kind === "town" ? towns[name] : regions[name], v = overall(o);
+  var a = areaObj(kind, name), img = a.cover ? photoUrl(a.cover, true) : "", o = kind === "town" ? towns[name] : regions[name], v = overall(o);
   return '<button type="button" class="hcard" data-' + (kind === "town" ? "town" : "region") + '="' + esc(name) + '">' + (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">' : '<span class="hnoimg">' + (CAT_ICONS.byer || "") + "</span>") +
     '<span class="hname">' + esc(name) + '</span><span class="hmeta">' + (v ? '<span class="hstars">' + starRow(v.stars) + "</span> " : "") + (kind === "town" ? "By" : "Område") + "</span>" +
     (extraHtml ? '<span class="hextra">' + extraHtml + "</span>" : "") + "</button>";
@@ -784,7 +792,7 @@ function renderHome() {
     if (ui.scope !== "alle" && (t[0] === "lejligheden" || n === 0)) return "";
     var forside = t[0] === "lejligheden" && hotel ? hotel.photos.filter(function (x) { return /\/web-forside\./.test(x); })[0] : null;
     var fixed = fixedCover(t[0]);
-    var img = forside ? photoUrl(forside) : fixed && photoUrl(fixed) ? photoUrl(fixed) : coverFor(list, used);
+    var img = forside ? photoUrl(forside, true) : fixed && photoUrl(fixed, true) ? photoUrl(fixed, true) : coverFor(list, used);
     return '<button type="button" class="tile" data-hometile="' + t[0] + '"' + (img ? ' style="--img:url(&quot;' + esc(img) + '&quot;)"' : "") + ">" + (img ? '<span class="tcorner" aria-hidden="true">' + (CAT_ICONS[t[0]] || CAT_ICONS.alle) + "</span>" : '<span class="ticon">' + (CAT_ICONS[t[0]] || CAT_ICONS.alle) + "</span>") + '<span class="tlabel">' + esc(t[1]) + "</span></button>";
   }).join("") + "</div>";
   if (!scoped) {
@@ -1156,7 +1164,7 @@ function drawMap(list, areas, focus) {
     if (p.lat == null) return;
     pts.push([p.lat, p.lon]);
     var v = overall(p), img = (p.photos || [])[0];
-    var pop = (img ? '<img class="popimg" src="' + esc(photoUrl(img)) + '" alt="">' : "") + "<strong>" + esc(p.name) + "</strong><br>" +
+    var pop = (img ? '<img class="popimg" src="' + esc(photoUrl(img, true)) + '" alt="">' : "") + "<strong>" + esc(p.name) + "</strong><br>" +
       '<span class="muted">' + esc([CATNAME[p.cat], p.town].filter(Boolean).join(" · ")) + "</span>" + (v ? '<br><span class="popstars">' + starRow(v.stars) + "</span>" : "") +
       '<br><button class="btn small" type="button" data-open="' + esc(p.id) + '">Åbn</button>';
     var mk = L.circleMarker([p.lat, p.lon], { radius: 8, weight: 2, color: "#fff", fillColor: CAT_COLORS[p.cat] || "#333", fillOpacity: 0.95 }).addTo(m).bindPopup(pop, { maxWidth: 240 }).bindTooltip(esc(p.name));
@@ -1323,8 +1331,8 @@ function andelPageHtml() {
       '<p class="hint">Billeder, hvor guiden har fundet personer (eller ikke kunne tjekke). De er som udgangspunkt kun for jeres andel. Tryk "Alle" på et billede, hvis andre andelshavere gerne må se det.</p>' +
       '<div class="pgrid">' + ph.map(function (p) {
         // Gæster ser ejernes billeder, men kan kun ændre deres egne
-        if (!canSetVis(p.owner === ui.user.id)) return '<div class="pcell"><img src="' + esc(photoUrl(p.path)) + '" alt="" loading="lazy"><p class="hint">Kan ses af: ' + esc(VIS_NAMES[p.visibility] || p.visibility) + "</p></div>";
-        return '<div class="pcell"><img src="' + esc(photoUrl(p.path)) + '" alt="" loading="lazy"><div class="seg small" role="group" aria-label="Hvem kan se billedet">' +
+        if (!canSetVis(p.owner === ui.user.id)) return '<div class="pcell"><img src="' + esc(photoUrl(p.path, true)) + '" alt="" loading="lazy"><p class="hint">Kan ses af: ' + esc(VIS_NAMES[p.visibility] || p.visibility) + "</p></div>";
+        return '<div class="pcell"><img src="' + esc(photoUrl(p.path, true)) + '" alt="" loading="lazy"><div class="seg small" role="group" aria-label="Hvem kan se billedet">' +
           [["alle", "Alle"], ["andel", "Vores andel"], ["mig", "Kun mig"]].filter(function (o) { return o[0] !== "mig" || p.owner === ui.user.id || p.visibility === "mig"; }).map(function (o) { return '<button type="button" data-setvis="' + esc(p.id) + '" data-v="' + o[0] + '" aria-pressed="' + (p.visibility === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div></div>";
       }).join("") + "</div></div>";
     h += "</section>";
@@ -2088,7 +2096,7 @@ function formHtml(f) {
   var r = [["", "Ingen"], ["1", "1"], ["2", "2"], ["3", "3"], ["4", "4"], ["5", "5"]].map(function (o) { return '<option value="' + o[0] + '"' + (String(f.rating || "") === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("");
   var pr = ["", "€", "€€", "€€€"].map(function (o) { return '<option value="' + o + '"' + (f.price === o ? " selected" : "") + ">" + (o || "Ikke relevant") + "</option>"; }).join("");
   var ph = f.items.map(function (it, i) {
-    return '<div class="ph"><img src="' + esc(it.url || photoUrl(it.path)) + '" alt="">' + (i === 0 ? '<span class="first">Forsidebillede</span>' : "") + visBtn(it, i) +
+    return '<div class="ph"><img src="' + esc(it.url || photoUrl(it.path, true)) + '" alt="">' + (i === 0 ? '<span class="first">Forsidebillede</span>' : "") + visBtn(it, i) +
       '<div class="row">' + (i > 0 ? '<button class="btn small" type="button" data-first="' + i + '">Gør til forside</button>' : "") +
       (it.file || canSetVis(it.own) ? '<button class="btn small danger" type="button" data-rm="' + i + '">Slet</button>' : "") + "</div></div>";
   }).join("");
@@ -2171,7 +2179,7 @@ function subChooser(f) {
   return '<div class="chips subchoose" role="group" aria-label="Underkategori (valgfri)"><span class="hint">Underkategori:</span>' + SUBCATS[f.cat].map(function (x) { return '<button class="chip" type="button" data-setsub="' + x[0] + '" aria-pressed="' + (f.subcat === x[0]) + '">' + esc(x[1]) + "</button>"; }).join("") + "</div>";
 }
 function quickHtml(f) {
-  var thumbs = f.items.map(function (it, i) { return '<div class="qthumb"><img src="' + esc(it.url || photoUrl(it.path)) + '" alt="">' + visBtn(it, i) + "</div>"; }).join("");
+  var thumbs = f.items.map(function (it, i) { return '<div class="qthumb"><img src="' + esc(it.url || photoUrl(it.path, true)) + '" alt="">' + visBtn(it, i) + "</div>"; }).join("");
   var dist = f.lat != null ? distText(f) : "";
   var chips = CATS.map(function (c) { return '<button class="chip" type="button" data-setcat="' + c[0] + '" aria-pressed="' + (f.cat === c[0]) + '">' + c[1] + "</button>"; }).join("");
   if (f.manual) return '<form class="panel" id="editor"><h2>Nyt sted</h2>' +
@@ -2290,6 +2298,21 @@ function isAptPlace(target) { var p = raw.places.filter(function (x) { return x.
 function visFor(target, v) { return v === "alle" && isAptPlace(target) ? "lejlighed" : v; }
 
 /* Upload til andelens mappe; billederne gemmes mindre og uden GPS (canvas fjerner placeringen) */
+var NEW_THUMBS = {};
+function withThumbs(paths) { return paths.concat(paths.map(thumbPath)); }
+function smallCopy(blob) {
+  return new Promise(function (res) {
+    var url = URL.createObjectURL(blob), im = new Image();
+    im.onload = function () {
+      var s = Math.min(1, 600 / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement("canvas");
+      c.width = Math.round(im.naturalWidth * s); c.height = Math.round(im.naturalHeight * s);
+      c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      c.toBlob(function (b) { res(b); }, "image/jpeg", 0.72);
+    };
+    im.onerror = function () { URL.revokeObjectURL(url); res(null); };
+    im.src = url;
+  });
+}
 async function uploadFiles(target, files, onProgress) {
   var paths = [];
   for (var i = 0; i < files.length; i++) {
@@ -2298,13 +2321,15 @@ async function uploadFiles(target, files, onProgress) {
     var path = me.andel + "/" + target + "/" + Date.now().toString(36) + i + ".jpg";
     var up = await sb.storage.from("photos").upload(path, blob, { contentType: "image/jpeg", upsert: false });
     if (up.error) throw new Error("Et billede blev ikke uploadet: " + up.error.message);
+    // Lille udgave til kort og felter – går det galt, bruges bare det store billede
+    try { var sm = await smallCopy(blob); if (sm) { var ut = await sb.storage.from("photos").upload(thumbPath(path), sm, { contentType: "image/jpeg", upsert: false }); if (!ut.error) NEW_THUMBS[path] = 1; } } catch (x) {}
     paths.push(path);
   }
   return paths;
 }
 async function addPhotoRows(kind, target, rows) {
   if (!rows.length) return;
-  var r = await sb.from("photos").insert(rows.map(function (x, i) { return { kind: kind, target: target, path: x.path, andel_id: me.andel, owner: ui.user.id, visibility: kind === "place" ? visFor(target, x.vis || "andel") : (x.vis || "andel"), faces: x.people === true, sort: x.sort != null ? x.sort : 100 + i }; }));
+  var r = await sb.from("photos").insert(rows.map(function (x, i) { return { kind: kind, target: target, path: x.path, thumb: !!NEW_THUMBS[x.path], andel_id: me.andel, owner: ui.user.id, visibility: kind === "place" ? visFor(target, x.vis || "andel") : (x.vis || "andel"), faces: x.people === true, sort: x.sort != null ? x.sort : 100 + i }; }));
   if (r.error) throw new Error("Billederne blev ikke gemt: " + r.error.message);
 }
 /* Upload af filer + synlighed ud fra personer (bruges af "+ Billeder" og importen) */
@@ -2393,7 +2418,7 @@ async function saveDraft() {
     }
     if (d.removed.length) {
       await sb.from("photos").delete().in("path", d.removed);
-      await sb.storage.from("photos").remove(d.removed);
+      await sb.storage.from("photos").remove(withThumbs(d.removed));
     }
     var townMsg = core && row.town !== undefined ? await ensureTown(row.town, row.lat !== undefined ? row.lat : d.lat, row.lon !== undefined ? row.lon : d.lon) : "";
     ui.status = d.status || "tried"; ui.cat = isApt(d.cat) ? "lejligheden" : CATNAME[d.cat] ? d.cat : ui.cat; ui.draft = null; ui.msg = "Gemt." + townMsg;
@@ -2416,7 +2441,7 @@ async function deletePlace() {
   var r = await sb.from("places").delete().eq("id", d.id);
   if (r.error) { d.err = "Stedet blev ikke slettet: " + r.error.message; ui.busy = false; render(); return; }
   var files = d.items.map(function (x) { return x.path; }).concat(d.removed).filter(Boolean);
-  if (files.length) await sb.storage.from("photos").remove(files);
+  if (files.length) await sb.storage.from("photos").remove(withThumbs(files));
   ui.draft = null; ui.busy = false; ui.msg = "Stedet er slettet."; await load();
 }
 
@@ -2540,7 +2565,7 @@ function reportsHtml(list) {
     var e = r.kind === "tekst" ? raw.exps.filter(function (x) { return x.id === r.ref; })[0] : null, ph = r.kind === "billede" ? raw.photos.filter(function (x) { return x.id === r.ref; })[0] : null;
     var where = r.place_kind === "place" ? ((raw.places.filter(function (x) { return x.id === r.place_target; })[0] || {}).name || "et sted") : (r.place_target || "");
     var what = r.kind === "tekst" ? (e ? '<blockquote class="otext"><p>' + esc(e.note || "(teksten er allerede fjernet)") + "</p><cite>" + esc(authorText(e)) + "</cite></blockquote>" : '<p class="hint">Teksten findes ikke længere.</p>')
-      : (ph ? '<img class="repimg" src="' + esc(photoUrl(ph.path)) + '" alt="">' : '<p class="hint">Billedet findes ikke længere (eller du kan ikke se det).</p>');
+      : (ph ? '<img class="repimg" src="' + esc(photoUrl(ph.path, true)) + '" alt="">' : '<p class="hint">Billedet findes ikke længere (eller du kan ikke se det).</p>');
     return '<div class="repitem"><p><strong>' + (r.kind === "tekst" ? "Tekst" : "Billede") + "</strong> ved " + esc(where) + ' <span class="hint">· ' + esc(String(r.created_at).slice(0, 10)) + "</span></p>" + what +
       (r.reason ? '<p class="hint">Begrundelse: ' + esc(r.reason) + "</p>" : "") +
       '<div class="row">' + (r.place_kind === "place" && r.place_target ? '<button class="btn small" type="button" data-open="' + esc(r.place_target) + '">Åbn stedet</button>' : "") +
@@ -2555,7 +2580,7 @@ async function handleReport(id, remove) {
   if (remove && r.kind === "billede") {
     var ph = raw.photos.filter(function (x) { return x.id === r.ref; })[0];
     await sb.from("photos").delete().eq("id", r.ref);
-    if (ph) await sb.storage.from("photos").remove([ph.path]);
+    if (ph) await sb.storage.from("photos").remove(withThumbs([ph.path]));
   }
   await sb.from("reports").update({ handled: true }).eq("id", id);
   ui.msg = remove ? "Fjernet og markeret som behandlet." : "Markeret som behandlet.";
@@ -2654,7 +2679,7 @@ function startAreaEdit(kind, name) {
 }
 function areaFormHtml(f) {
   var ph = f.items.map(function (it, i) {
-    return '<div class="ph"><img src="' + esc(it.url || photoUrl(it.path)) + '" alt="">' + (i === 0 ? '<span class="first">Forsidebillede</span>' : "") + visBtn(it, i).replace("data-vis=", "data-avis=") +
+    return '<div class="ph"><img src="' + esc(it.url || photoUrl(it.path, true)) + '" alt="">' + (i === 0 ? '<span class="first">Forsidebillede</span>' : "") + visBtn(it, i).replace("data-vis=", "data-avis=") +
       '<div class="row">' + (i > 0 ? '<button class="btn small" type="button" data-afirst="' + i + '">Gør til forside</button>' : "") + '<button class="btn small danger" type="button" data-arm="' + i + '">Slet</button></div></div>';
   }).join("");
   var regs = regionNames().filter(function (r) { return r !== NO_REGION; });
@@ -2702,7 +2727,7 @@ async function saveArea() {
       await addPhotoRows(f.kind, f.name, newOnes);
     }
     for (var i = 0; i < f.items.length; i++) { var it = f.items[i]; if (it.id) await sb.from("photos").update({ sort: i, visibility: it.vis }).eq("id", it.id); }
-    if (f.removed.length) { await sb.from("photos").delete().in("path", f.removed); await sb.storage.from("photos").remove(f.removed); }
+    if (f.removed.length) { await sb.from("photos").delete().in("path", f.removed); await sb.storage.from("photos").remove(withThumbs(f.removed)); }
     ui.areaDraft = null; ui.msg = "Gemt."; await load();
   } catch (err) { f.err = err.message || "Noget gik galt. Prøv igen."; }
   ui.busy = false; render();
@@ -2888,7 +2913,7 @@ function wizardHtml(f) {
   var step = f.wiz, body = "", foot = "";
   var choices = f.choices ? '<div class="choices">' + f.choices.map(function (x, i) { return '<button class="btn" type="button" data-choose="' + i + '"><strong>' + esc(x.name) + "</strong> " + esc([x.addr, x.km != null ? Math.round(x.km) + " km fra hotellet" : ""].filter(Boolean).join(" · ")) + "</button>"; }).join("") + "</div>" : "";
   if (step === 2) {
-    var thumbs = f.items.length ? '<div class="qthumbs">' + f.items.map(function (it, i) { return '<div class="qthumb"><img src="' + esc(it.url || photoUrl(it.path)) + '" alt="">' + visBtn(it, i) + "</div>"; }).join("") + "</div>" : "";
+    var thumbs = f.items.length ? '<div class="qthumbs">' + f.items.map(function (it, i) { return '<div class="qthumb"><img src="' + esc(it.url || photoUrl(it.path, true)) + '" alt="">' + visBtn(it, i) + "</div>"; }).join("") + "</div>" : "";
     body = thumbs + (f.finding ? '<p class="finding" role="status"><span class="spin" aria-hidden="true"></span>Finder stedet ud fra billederne …</p>' : "") +
       (f.match && !f.finding ? '<div class="match"><p>Billederne er taget ' + (f.match.m < 15 ? "ved" : f.match.m + " m fra") + " <strong>" + esc(f.match.name) + "</strong>, som allerede er i guiden. Er det det sted?</p>" +
         '<button class="btn primary" type="button" id="add-to-match"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Ja – læg billederne dér") + '</button><p class="hint">Er det et andet sted, så fortsæt herunder.</p></div>' : "") +
@@ -3142,7 +3167,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 180;
+var APP_VERSION = 181;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
