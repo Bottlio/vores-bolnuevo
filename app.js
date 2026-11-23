@@ -1752,6 +1752,7 @@ function loginHtml() {
     (l.mode === "signup" ? '<p class="hint">Brug den mail, du er inviteret med, og vælg en adgangskode. Du får en mail, hvor du bekræfter, og så kan du logge ind.</p>' : "") +
     '<label>Mail<input type="email" id="l-email" autocomplete="email" required value="' + esc(l.email || "") + '"></label>' +
     '<label>Adgangskode<input type="password" id="l-pass" autocomplete="' + (l.mode === "signup" ? "new-password" : "current-password") + '" required minlength="8"></label>' +
+    (l.mode === "signup" ? '<label>Skriv adgangskoden igen<input type="password" id="l-pass2" autocomplete="new-password" required minlength="8"></label>' : "") +
     (l.mode !== "signup" ? '<p class="forgot"><button type="button" class="linkbtn" id="to-reset">Glemt adgangskode?</button></p>' : "") + msg +
     '<div class="row"><button class="btn primary" type="submit">' + (l.mode === "signup" ? "Opret adgangskode" : "Log ind") + "</button>" + (ui.user ? '<button class="btn" type="button" id="close-login">Annuller</button>' : "") + "</div></form>";
 }
@@ -1783,6 +1784,7 @@ async function submitLogin() {
   ui.login.email = email; ui.login.err = ""; ui.login.info = "";
   if (pass.length < 8) { ui.login.err = "Adgangskoden skal være mindst 8 tegn."; render(); return; }
   if (ui.login.mode === "signup") {
+    if (pass !== document.getElementById("l-pass2").value) { ui.login.err = "De to adgangskoder er ikke ens. Skriv dem igen."; render(); return; }
     var s = await sb.auth.signUp({ email: email, password: pass, options: { emailRedirectTo: location.origin + location.pathname } });
     if (s.error) { ui.login.err = /rate|seconds|many/i.test(s.error.message) ? "Der er sendt for mange mails fra guiden lige nu. Vent en halv time, og prøv igen – din adgangskode er ikke gemt endnu." : "Det lykkedes ikke: " + s.error.message; render(); return; }
     if (s.data.user && s.data.user.identities && s.data.user.identities.length === 0) {   // mailen har allerede en adgangskode
@@ -3233,7 +3235,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 186;
+var APP_VERSION = 187;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
