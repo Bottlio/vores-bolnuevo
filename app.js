@@ -1784,7 +1784,10 @@ async function submitLogin() {
   if (pass.length < 8) { ui.login.err = "Adgangskoden skal være mindst 8 tegn."; render(); return; }
   if (ui.login.mode === "signup") {
     var s = await sb.auth.signUp({ email: email, password: pass, options: { emailRedirectTo: location.origin + location.pathname } });
-    if (s.error) { ui.login.err = "Det lykkedes ikke: " + s.error.message; render(); return; }
+    if (s.error) { ui.login.err = /rate|seconds|many/i.test(s.error.message) ? "Der er sendt for mange mails fra guiden lige nu. Vent en halv time, og prøv igen – din adgangskode er ikke gemt endnu." : "Det lykkedes ikke: " + s.error.message; render(); return; }
+    if (s.data.user && s.data.user.identities && s.data.user.identities.length === 0) {   // mailen har allerede en adgangskode
+      ui.login.mode = "login"; ui.login.info = "Du har allerede oprettet en adgangskode med " + email + ". Log ind her. Har du glemt den, så tryk \"Glemt adgangskode\"."; render(); return;
+    }
     if (s.data.session) { ui.login = null; await afterLogin(); return; }
     ui.login.mode = "login"; ui.login.info = "Tjek din mail og tryk på linket for at bekræfte. Kom så tilbage og log ind her."; render(); return;
   }
@@ -3230,7 +3233,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 185;
+var APP_VERSION = 186;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
