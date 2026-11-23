@@ -855,3 +855,8 @@ footer.foot .footlabel:first-child{margin-top:0}
   .detailcard .topright .rcount{font-size:.8rem}
 }
 @media (max-width:600px){.detailcard .topright{justify-content:flex-start}.detailcard .topright .visit{margin-left:auto}}
+/* Ret kontakt i Administration (v182) */
+.aperson.aedit{display:block}
+.kform{display:grid;gap:8px;width:100%}
+.kform label{font-size:.85rem}
+.kform .row{display:flex;gap:8px}
