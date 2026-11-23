@@ -1579,9 +1579,9 @@ function andelshaverListHtml(d) {
         var st = sts[i];
         // Ret navn, mail og telefon direkte i listen (fx når en mail mangler)
         if (ui.editK === k.id) return '<div class="aperson aedit"><form class="kform" data-kform="' + esc(k.id) + '"><label>Navn<input name="navn" value="' + esc(k.navn || "") + '"></label><label>Mail<input name="mail" type="email" value="' + esc(k.mail || "") + '" placeholder="navn@mail.dk"></label><label>Telefon<input name="tlf" inputmode="tel" value="' + esc(k.tlf || "") + '" placeholder="12345678"></label>' +
-          '<div class="row"><button class="btn small primary" type="submit">Gem</button><button class="btn small" type="button" data-editk="">Annuller</button></div></form></div>';
+          '<div class="row"><button class="btn small primary" type="submit">' + (ui.editKInv ? "Gem og invitér" : "Gem") + '</button><button class="btn small" type="button" data-editk="">Annuller</button></div></form></div>';
         return '<div class="aperson"><div><strong>' + esc(k.navn || "–") + '</strong><span class="hint">' + esc([k.mail, k.tlf].filter(Boolean).join(" · ")) + '</span><span class="ast st-' + st + '">' + STATUS_TXT[st] + '</span> <button class="linkbtn" type="button" data-editk="' + esc(k.id) + '">Ret</button></div>' +
-          (st === "ikke" ? '<button class="btn small primary" type="button" data-adminvite="' + esc(k.id) + '">Invitér</button>' : st === "inviteret" ? '<button class="btn small" type="button" data-adminvite="' + esc(k.id) + '">Send igen</button>' : "") + "</div>";
+          (st === "nomail" ? '<button class="btn small primary" type="button" data-editk="' + esc(k.id) + '" data-andinv="1">Invitér</button>' : st === "ikke" ? '<button class="btn small primary" type="button" data-adminvite="' + esc(k.id) + '">Invitér</button>' : st === "inviteret" ? '<button class="btn small" type="button" data-adminvite="' + esc(k.id) + '">Send igen</button>' : "") + "</div>";
       }).join("") +
       (extraMembers.length ? '<p class="hint">Også med: ' + esc(extraMembers.map(function (m) { return (m.name || m.email) + (m.role === "ejer" ? " (ejer)" : " (gæst)") + (m.user_id ? "" : " – inviteret"); }).join(", ")) + "</p>" : "") +
       '<div class="ahh-foot"><button class="linkbtn" type="button" data-sold="' + esc(a.id) + '">' + (ui.confirmSold === a.id ? "Tryk igen: andelen er solgt" : "Marker som solgt") + "</button></div></div>";
@@ -1615,9 +1615,10 @@ async function saveContact(f) {
   if (mail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) { adminData.err = "Mailen ser ikke rigtig ud."; render(); return; }
   var r = await sb.from("andel_kontakter").update({ navn: g("navn"), mail: mail || null, tlf: tlf || null }).eq("id", id);
   if (r.error) { adminData.err = "Det blev ikke gemt: " + r.error.message; render(); return; }
-  ui.editK = null; adminData.err = "";
+  var inv = ui.editKInv && mail; ui.editK = null; ui.editKInv = false; adminData.err = "";
   var q = (document.getElementById("adm-q") || {}).value || "";
   await loadAdmin(); var qi = document.getElementById("adm-q"); if (qi) { qi.value = q; filterAdmList(); }
+  if (inv) await adminInvite(id);   // mail udfyldt fra "Invitér": send invitationen med det samme
 }
 async function adminInvite(kid) {
   var d = adminData, k = (d.contacts || []).filter(function (x) { return x.id === kid; })[0]; if (!k || !k.mail) return;
@@ -3089,7 +3090,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.sold) { markSold(t.dataset.sold); return; }
   if (t.dataset.rmnum) { rmAndelNum(t.dataset.rmnum); return; }
   if (t.dataset.adminvite) { adminInvite(t.dataset.adminvite); return; }
-  if (t.dataset.editk != null) { ui.editK = t.dataset.editk || null; var q0 = (document.getElementById("adm-q") || {}).value || ""; render(); var qi0 = document.getElementById("adm-q"); if (qi0) { qi0.value = q0; filterAdmList(); } return; }
+  if (t.dataset.editk != null) { ui.editK = t.dataset.editk || null; ui.editKInv = !!t.dataset.andinv; var q0 = (document.getElementById("adm-q") || {}).value || ""; render(); var qi0 = document.getElementById("adm-q"); if (qi0) { qi0.value = q0; filterAdmList(); } return; }
   if (t.dataset.legend) { ui.mapFocus = ui.mapFocus === t.dataset.legend ? null : t.dataset.legend; applyMapFocus(); return; }
   if (t.dataset.fold) { ui.fold = ui.fold || {}; ui.fold[t.dataset.fold] = !ui.fold[t.dataset.fold]; render(); return; }
   if (t.dataset.since) { if (t.dataset.since === "open") openSince(); else { ui.sinceOpen = false; ui.since = []; render(); } return; }
@@ -3182,7 +3183,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 182;
+var APP_VERSION = 183;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
