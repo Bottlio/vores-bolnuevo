@@ -1623,19 +1623,30 @@ async function adminResetPw(id) {
   ui.resetMsg = r.error ? "Linket blev ikke sendt: " + r.error.message : "Linket er sendt til " + k.mail + ". Det kan tage et par minutter, og det kan ende i spam.";
   rerenderAdmin();
 }
+var adminBusy = false;
+async function fnErr(r) {   // læs fejlteksten fra funktionen (ellers kun "non-2xx status code")
+  if (!r.error) return r.data && r.data.error;
+  try { var j = await r.error.context.json(); if (j && j.error) return j.error; } catch (e) {}
+  return r.error.message;
+}
 async function adminChangeMail(f) {
+  if (adminBusy) return;
   var k = contactById(f.dataset.kmail), nm = (f.elements.nm.value || "").trim().toLowerCase(); if (!k) return;
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(nm)) { ui.resetMsg = "Skriv en gyldig mail."; rerenderAdmin(); return; }
+  adminBusy = true;
   var r = await sb.functions.invoke("admin-user", { body: { action: "email", email: k.mail, newEmail: nm } });
-  var err = r.error ? (r.data && r.data.error) || r.error.message : r.data && r.data.error;
+  adminBusy = false;
+  var err = await fnErr(r);
   if (err) { ui.resetMsg = "Mailen blev ikke skiftet: " + err; rerenderAdmin(); return; }
   ui.resetMsg = "Mailen er skiftet til " + nm + "." + (r.data && r.data.hadLogin ? " Personen logger ind med den nye mail og samme adgangskode." : " Send evt. invitationen igen.");
   await loadAdmin(); rerenderAdmin();
 }
 async function adminStartOver(id) {
-  var k = contactById(id); if (!k || !k.mail) return;
+  var k = contactById(id); if (!k || !k.mail || adminBusy) return;
+  adminBusy = true;
   var r = await sb.functions.invoke("admin-user", { body: { action: "reset", email: k.mail } });
-  var err = r.error ? (r.data && r.data.error) || r.error.message : r.data && r.data.error;
+  adminBusy = false;
+  var err = await fnErr(r);
   ui.confirmStart = null;
   if (err) { ui.resetMsg = "Det gik ikke: " + err; rerenderAdmin(); return; }
   ui.resetMsg = "Login er slettet. " + (k.navn || "Personen").split(" ")[0] + " skal vælge \"Første gang: opret adgangskode\" med " + k.mail + ". Tryk \"Send igen\" for at sende invitationen igen.";
@@ -3219,7 +3230,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 184;
+var APP_VERSION = 185;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
