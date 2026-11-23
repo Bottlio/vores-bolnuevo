@@ -1580,7 +1580,12 @@ function andelshaverListHtml(d) {
         // Ret navn, mail og telefon direkte i listen (fx når en mail mangler)
         if (ui.editK === k.id) return '<div class="aperson aedit"><form class="kform" data-kform="' + esc(k.id) + '"><label>Navn<input name="navn" value="' + esc(k.navn || "") + '"></label><label>Mail<input name="mail" type="email" value="' + esc(k.mail || "") + '" placeholder="navn@mail.dk"></label><label>Telefon<input name="tlf" inputmode="tel" value="' + esc(k.tlf || "") + '" placeholder="12345678"></label>' +
           '<div class="row"><button class="btn small primary" type="submit">' + (ui.editKInv ? "Gem og invitér" : "Gem") + '</button><button class="btn small" type="button" data-editk="">Annuller</button></div></form></div>';
-        return '<div class="aperson"><div><strong>' + esc(k.navn || "–") + '</strong><span class="hint">' + esc([k.mail, k.tlf].filter(Boolean).join(" · ")) + '</span><span class="ast st-' + st + '">' + STATUS_TXT[st] + '</span> <button class="linkbtn" type="button" data-editk="' + esc(k.id) + '">Ret</button></div>' +
+        var resetBox = ui.resetK === k.id ? '<div class="resetbox"><p class="hint">Hjælp ' + esc((k.navn || "").split(" ")[0]) + ' med at komme ind:</p>' +
+          (st === "adgang" ? '<button class="btn small" type="button" data-rpw="' + esc(k.id) + '">Send link til ny adgangskode</button><p class="hint">Personen får en mail (på engelsk) med et link og vælger selv en ny adgangskode.</p>' : "") +
+          '<form class="kform" data-kmail="' + esc(k.id) + '"><label>Ny mail<input name="nm" type="email" placeholder="ny@mail.dk"></label><div class="row"><button class="btn small" type="submit">Skift mail</button></div></form><p class="hint">Mailen skiftes på login, invitation og kontaktoplysninger. Personen logger ind med den nye mail og samme adgangskode.</p>' +
+          '<button class="btn small danger" type="button" data-rstart="' + esc(k.id) + '">' + (ui.confirmStart === k.id ? "Tryk igen: slet login og start forfra" : "Start forfra") + '</button><p class="hint">Sletter personens login og adgangskode. Invitationen og alt det, personen har lagt ind, bliver. Personen vælger så "Første gang: opret adgangskode" igen – send evt. invitationen igen bagefter.</p>' +
+          (ui.resetMsg ? '<p class="notice" role="status">' + esc(ui.resetMsg) + "</p>" : "") + '<button class="linkbtn" type="button" data-resetk="">Luk</button></div>' : "";
+        return '<div class="aperson' + (resetBox ? " aedit" : "") + '"><div><strong>' + esc(k.navn || "–") + '</strong><span class="hint">' + esc([k.mail, k.tlf].filter(Boolean).join(" · ")) + '</span><span class="ast st-' + st + '">' + STATUS_TXT[st] + '</span> <button class="linkbtn" type="button" data-editk="' + esc(k.id) + '">Ret</button>' + (st === "adgang" || st === "inviteret" ? ' · <button class="linkbtn" type="button" data-resetk="' + esc(k.id) + '">Nulstil</button>' : "") + "</div>" + resetBox +
           (st === "nomail" ? '<button class="btn small primary" type="button" data-editk="' + esc(k.id) + '" data-andinv="1">Invitér</button>' : st === "ikke" ? '<button class="btn small primary" type="button" data-adminvite="' + esc(k.id) + '">Invitér</button>' : st === "inviteret" ? '<button class="btn small" type="button" data-adminvite="' + esc(k.id) + '">Send igen</button>' : "") + "</div>";
       }).join("") +
       (extraMembers.length ? '<p class="hint">Også med: ' + esc(extraMembers.map(function (m) { return (m.name || m.email) + (m.role === "ejer" ? " (ejer)" : " (gæst)") + (m.user_id ? "" : " – inviteret"); }).join(", ")) + "</p>" : "") +
@@ -1608,6 +1613,33 @@ function filterAdmList() {
     el.hidden = !ok; if (ok) shown++;
   });
   var n = document.getElementById("adm-none"); if (n) n.hidden = shown > 0;
+}
+/* Nulstil en andelshaver (kun administratoren): nyt adgangskode-link, skift mail eller start forfra */
+function rerenderAdmin() { var q = (document.getElementById("adm-q") || {}).value || ""; render(); var qi = document.getElementById("adm-q"); if (qi) { qi.value = q; filterAdmList(); } }
+function contactById(id) { return ((adminData && adminData.contacts) || []).filter(function (x) { return x.id === id; })[0]; }
+async function adminResetPw(id) {
+  var k = contactById(id); if (!k || !k.mail) return;
+  var r = await sb.auth.resetPasswordForEmail(k.mail, { redirectTo: location.origin + location.pathname });
+  ui.resetMsg = r.error ? "Linket blev ikke sendt: " + r.error.message : "Linket er sendt til " + k.mail + ". Det kan tage et par minutter, og det kan ende i spam.";
+  rerenderAdmin();
+}
+async function adminChangeMail(f) {
+  var k = contactById(f.dataset.kmail), nm = (f.elements.nm.value || "").trim().toLowerCase(); if (!k) return;
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(nm)) { ui.resetMsg = "Skriv en gyldig mail."; rerenderAdmin(); return; }
+  var r = await sb.functions.invoke("admin-user", { body: { action: "email", email: k.mail, newEmail: nm } });
+  var err = r.error ? (r.data && r.data.error) || r.error.message : r.data && r.data.error;
+  if (err) { ui.resetMsg = "Mailen blev ikke skiftet: " + err; rerenderAdmin(); return; }
+  ui.resetMsg = "Mailen er skiftet til " + nm + "." + (r.data && r.data.hadLogin ? " Personen logger ind med den nye mail og samme adgangskode." : " Send evt. invitationen igen.");
+  await loadAdmin(); rerenderAdmin();
+}
+async function adminStartOver(id) {
+  var k = contactById(id); if (!k || !k.mail) return;
+  var r = await sb.functions.invoke("admin-user", { body: { action: "reset", email: k.mail } });
+  var err = r.error ? (r.data && r.data.error) || r.error.message : r.data && r.data.error;
+  ui.confirmStart = null;
+  if (err) { ui.resetMsg = "Det gik ikke: " + err; rerenderAdmin(); return; }
+  ui.resetMsg = "Login er slettet. " + (k.navn || "Personen").split(" ")[0] + " skal vælge \"Første gang: opret adgangskode\" med " + k.mail + ". Tryk \"Send igen\" for at sende invitationen igen.";
+  await loadAdmin(); rerenderAdmin();
 }
 async function saveContact(f) {
   var id = f.dataset.kform, g = function (n) { return (f.elements[n].value || "").trim(); };
@@ -3090,6 +3122,9 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.sold) { markSold(t.dataset.sold); return; }
   if (t.dataset.rmnum) { rmAndelNum(t.dataset.rmnum); return; }
   if (t.dataset.adminvite) { adminInvite(t.dataset.adminvite); return; }
+  if (t.dataset.resetk != null) { ui.resetK = t.dataset.resetk || null; ui.resetMsg = ""; ui.confirmStart = null; rerenderAdmin(); return; }
+  if (t.dataset.rpw) { adminResetPw(t.dataset.rpw); return; }
+  if (t.dataset.rstart) { if (ui.confirmStart !== t.dataset.rstart) { ui.confirmStart = t.dataset.rstart; rerenderAdmin(); return; } adminStartOver(t.dataset.rstart); return; }
   if (t.dataset.editk != null) { ui.editK = t.dataset.editk || null; ui.editKInv = !!t.dataset.andinv; var q0 = (document.getElementById("adm-q") || {}).value || ""; render(); var qi0 = document.getElementById("adm-q"); if (qi0) { qi0.value = q0; filterAdmList(); } return; }
   if (t.dataset.legend) { ui.mapFocus = ui.mapFocus === t.dataset.legend ? null : t.dataset.legend; applyMapFocus(); return; }
   if (t.dataset.fold) { ui.fold = ui.fold || {}; ui.fold[t.dataset.fold] = !ui.fold[t.dataset.fold]; render(); return; }
@@ -3143,6 +3178,7 @@ root.addEventListener("input", function (e) { if (e.target.id === "adm-q") filte
 root.addEventListener("change", function (e) { if (e.target.dataset && e.target.dataset.notify) saveNotify(e.target); });
 root.addEventListener("submit", function (e) {
   if (e.target.dataset && e.target.dataset.kform) { e.preventDefault(); saveContact(e.target); return; }
+  if (e.target.dataset && e.target.dataset.kmail) { e.preventDefault(); adminChangeMail(e.target); return; }
   e.preventDefault();
   if (e.target.id === "editor") saveDraft();
   if (e.target.id === "cmtform") saveComment();
@@ -3183,7 +3219,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 183;
+var APP_VERSION = 184;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

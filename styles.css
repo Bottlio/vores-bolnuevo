@@ -860,3 +860,6 @@ footer.foot .footlabel:first-child{margin-top:0}
 .kform{display:grid;gap:8px;width:100%}
 .kform label{font-size:.85rem}
 .kform .row{display:flex;gap:8px}
+/* Nulstil andelshaver (v184) */
+.resetbox{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);display:grid;gap:6px;width:100%}
+.resetbox .btn{justify-self:start}
