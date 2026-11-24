@@ -1051,3 +1051,23 @@ footer.foot .footlabel:first-child{margin-top:0}
   .helpmodal.pop .wizfoot .btn{min-height:42px;min-width:0;padding:0 16px}
   .helpmodal.pop .hclose{top:8px;right:8px}
 }
+.akrow2{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end}
+@media (max-width:520px){
+  .helpmodal.pop{padding:12px 14px 12px}
+  .helpmodal.pop h2{font-size:1.1rem;margin:0 0 2px}
+  .helpmodal.pop label{margin:3px 0;gap:2px;font-size:.85rem}
+  .helpmodal.pop input,.helpmodal.pop select{padding:6px 8px;min-height:38px}
+  .helpmodal.pop textarea{min-height:46px;padding:6px 8px}
+  .helpmodal.pop .akrow{grid-template-columns:1.35fr 1fr 1fr;gap:6px}
+  .helpmodal.pop .akrow label:first-child{grid-column:auto}
+  .helpmodal.pop .akrow input{padding:6px 4px;font-size:15px}
+  .helpmodal.pop .akrow2 .akcheck{margin-bottom:10px}
+  .helpmodal.pop .wizfoot{margin-top:8px}
+}
+@media (max-width:520px){
+  .helpmodal.pop .akrow label,.helpmodal.pop .akrow2 label{min-width:0}
+  .helpmodal.pop .akrow input,.helpmodal.pop .akrow2 input{width:100%;min-width:0;box-sizing:border-box}
+  .helpmodal.pop .akrow label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
+@media (max-width:520px){ .helpmodal.pop .akrow2 input[type=checkbox]{width:20px;height:20px;min-height:0;flex:none} .helpmodal.pop .akrow2 .akcheck{white-space:nowrap} }
+@media (max-width:520px){ .helpmodal.pop .akrow2 label{text-align:left;align-items:flex-start} }

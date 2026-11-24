@@ -1447,11 +1447,11 @@ function aktFormHtml() {
     '<label>Hvad skal der ske?<input name="title" required maxlength="80" placeholder="Fx padel, cykeltur til Puerto, kortspil" value="' + v(e && e.title) + '"></label>' +
     '<div class="akrow"><label>Dato<input type="date" name="date" required value="' + (st ? dayKey(st) : "") + '"></label>' +
     '<label>Fra kl.<input type="time" name="from" required value="' + (st ? p2(st.getHours()) + ":" + p2(st.getMinutes()) : "") + '"></label>' +
-    '<label>Til kl. (valgfri)<input type="time" name="to" value="' + (en ? p2(en.getHours()) + ":" + p2(en.getMinutes()) : "") + '"></label></div>' +
+    '<label>Til kl.<input type="time" name="to" value="' + (en ? p2(en.getHours()) + ":" + p2(en.getMinutes()) : "") + '"></label></div>' +
     '<label>Hvor?<input name="place" maxlength="80" placeholder="Fx terrassen, receptionen, Mazarrón Padel Club" value="' + v(e && e.place) + '"></label>' +
-    '<label>Beskrivelse (valgfri)<textarea name="desc" rows="3" maxlength="600">' + v(e && e.description) + "</textarea></label>" +
-    '<label class="akcheck"><input type="checkbox" name="signup"' + (!e || e.signup ? " checked" : "") + "> Man skal tilmelde sig</label>" +
-    '<label>Højst antal deltagere (valgfri)<input type="number" name="max" min="1" max="200" inputmode="numeric" placeholder="Ingen grænse" value="' + v(e && e.max_people) + '"></label>' +
+    '<label>Beskrivelse (valgfri)<textarea name="desc" rows="2" maxlength="600">' + v(e && e.description) + "</textarea></label>" +
+    '<div class="akrow2"><label class="akcheck"><input type="checkbox" name="signup"' + (!e || e.signup ? " checked" : "") + "> Man skal tilmelde sig</label>" +
+    '<label>Højst antal (valgfri)<input type="number" name="max" min="1" max="200" inputmode="numeric" placeholder="Ingen grænse" value="' + v(e && e.max_people) + '"></label></div>' +
     (ui.aktErr ? '<p class="error">' + esc(ui.aktErr) + "</p>" : "") +
     '<div class="row wizfoot"><button class="btn" type="button" data-akclose="1">Annuller</button><button class="btn primary" type="submit">' + (e ? "Gem" : "Opret aktivitet") + "</button></div></form></div>";
 }
@@ -3957,7 +3957,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 228;
+var APP_VERSION = 229;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
