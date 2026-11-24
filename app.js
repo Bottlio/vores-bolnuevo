@@ -1461,7 +1461,7 @@ function aktPageHtml() {
   if (aktData.err) h += '<p class="error">' + esc(aktData.err) + "</p>";
   if (ui.akForm) h += aktFormHtml();
   h += weekBlockHtml(aktData.list, aktCard, "Intet planlagt");
-  return h + '<div class="row akback"><button class="btn" type="button" data-menu="menu">Tilbage til menuen</button></div>';
+  return h;
 }
 // Ugevisning (fælles for aktiviteter og udstyr): dagene fra venstre mod højre, pile eller swipe mellem ugerne
 function weekBlockHtml(list, card, emptyTxt, grid) {   // grid: tegn dagene som tidsskema i stedet for kort
@@ -1597,7 +1597,7 @@ function udstyrPageHtml() {
     }
   }
   h += weekBlockHtml(bkData.list, bkCard, "Intet booket", bkGrid);
-  return h + '<div class="row akback"><button class="btn" type="button" data-menu="menu">Tilbage til menuen</button></div>';
+  return h;
 }
 async function bkBook() {
   var rg = bkRange(); if (rg[1] < new Date()) { ui.bkErr = "Tidsrummet er allerede passeret."; render(); return; }
@@ -1622,7 +1622,7 @@ function soonHtml(k) {
   return '<section class="panel"><h2>' + (udst ? "Booking af udstyr" : "Den sorte bog") + '</h2><p class="notice">Test – kommer snart.</p><p>' +
     (udst ? "Her kommer man til at kunne booke cykler, golfsæt og andet udstyr – også fra Danmark, fx to cykler i næste uge. Bookinger herfra og fra skærmen i receptionen er de samme."
       : "Her kommer man til at kunne skrive, hvis noget er gået i stykker eller mangler i en lejlighed – fx et knust spejl eller manglende gryder. Den ansvarlige får besked og kan markere, når det er ordnet.") +
-    '</p><div class="row"><button class="btn primary" type="button" data-menu="menu">Tilbage til menuen</button></div></section>';
+    '</p></section>';
 }
 
 /* ---------- Vores andel: medlemmer, invitationer, billeder med personer ---------- */
@@ -3673,7 +3673,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 214;
+var APP_VERSION = 215;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
