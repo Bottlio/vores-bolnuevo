@@ -1338,7 +1338,7 @@ function renderMenu() {
     sortbog: ""
   };
   html += '<nav class="menugrid" aria-label="Startmenu">' + MENU.map(function (m) {
-    var inner = '<span class="micon">' + m[1] + '</span><span class="mtext"><span class="mtitle">' + m[2] + (m[0] === "ahbooking" ? ' <span class="mext" aria-hidden="true">↗</span>' : "") + '</span><span class="msub">' + m[3] + "</span></span>" + (deco[m[0]] ? '<span class="mdeco">' + deco[m[0]] + "</span>" : "");
+    var inner = (deco[m[0]] ? "" : '<span class="micon">' + m[1] + "</span>") + '<span class="mtext"><span class="mtitle">' + m[2] + (m[0] === "ahbooking" ? ' <span class="mext" aria-hidden="true">↗</span>' : "") + '</span><span class="msub">' + m[3] + "</span></span>" + (deco[m[0]] ? '<span class="mdeco">' + deco[m[0]] + "</span>" : "");
     return m[0] === "ahbooking"
       ? '<a class="mtile m-ah" href="https://ahbooking.dk/" target="_blank" rel="noopener">' + inner + "</a>"
       : '<button class="mtile m-' + m[0] + '" type="button" data-menu="' + m[0] + '">' + inner + "</button>";
@@ -3333,7 +3333,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 194;
+var APP_VERSION = 195;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
