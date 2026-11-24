@@ -1719,7 +1719,7 @@ function sbCard(d) {
     "<h3>" + esc(sbWhere(d)) + (d.item ? " · " + esc(d.item) : "") + "</h3>" +
     '<p class="sbdesc">' + esc(d.description) + "</p>" +
     (pics.length ? '<div class="qthumbs sbpics">' + pics.map(function (x) { return '<a href="' + esc(photoUrl(x.path)) + '" target="_blank" rel="noopener"><img src="' + esc(photoUrl(x.path, true)) + '" alt="Billede af problemet"></a>'; }).join("") + "</div>" : "") +
-    '<p class="sbwho">Skrevet af ' + esc(d.reporter_name || "?") + (d.andel_id && andelLabels[d.andel_id] ? " (" + esc(String(andelLabels[d.andel_id]).replace(/ m\.fl\.$/, "")) + ")" : "") + "</p>" +
+    '<p class="sbwho">Skrevet af ' + esc(d.reporter_name || "?") + (d.andel_id && andelLabels[d.andel_id] ? " (" + esc(String(andelLabels[d.andel_id]).replace(/ m\.fl\.$/, "")) + ")" : "") + (d.source === "regneark" ? " · fra det gamle regneark" : "") + "</p>" +
     (d.handling || d.sent_limaser ? '<p class="sbhandl"><b>Opfølgning:</b> ' + esc([d.handling, d.sent_limaser ? "sendt til Limaser" : ""].filter(Boolean).join(" · ")) + "</p>" : "");
   if (adm) {
     h += '<div class="sbadm" data-sbid="' + esc(d.id) + '"><label>Status<select data-sbset="status">' + Object.keys(SB_STATUS).map(function (k) { return '<option value="' + k + '"' + (k === d.status ? " selected" : "") + ">" + SB_STATUS[k] + "</option>"; }).join("") + "</select></label>" +
@@ -3912,7 +3912,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 220;
+var APP_VERSION = 221;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
