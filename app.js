@@ -1428,7 +1428,10 @@ function akGoWeek(dir) {
 function akGoDay(dir) {
   var k0 = ui.akShown || ui.akDay, cur = k0 ? new Date(k0 + "T12:00") : new Date(); cur.setDate(cur.getDate() + dir); cur.setHours(0, 0, 0, 0);
   var w = Math.floor((cur - weekStart(0)) / (7 * 86400000));
-  if (w < 0 || w > AK_WEEKS - 1) return;
+  var t0 = new Date(); t0.setHours(0, 0, 0, 0);
+  if (cur < t0 || w > AK_WEEKS - 1) return;
+  // Dagene fra i dag og 5 frem hører til "denne uge"
+  if ((cur - t0) / 86400000 <= 5 && t0.getDay() !== 1 && (ui.akWeek || 0) === 0) w = 0; else w = Math.max(0, w);
   ui.akWeek = w; ui.akDay = dayKey(cur); render();
 }
 // Swipe til venstre/højre på ugevisningen skifter uge
@@ -1499,7 +1502,11 @@ function weekBlockHtml(list, card, emptyTxt, grid) {   // grid: tegn dagene som 
   var h = "";
   var wk = ui.akWeek || 0, ws = weekStart(wk), we = new Date(ws); we.setDate(ws.getDate() + 6);
   var days = [], todayK = dayKey(new Date());
-  for (var i = 0; i < 7; i++) { var d = new Date(ws); d.setDate(ws.getDate() + i); days.push({ d: d, k: dayKey(d), items: [] }); }
+  // Denne uge: fra i dag og 5 dage frem (i dag fylder to pladser) – på en mandag hele ugen. Bladrer man frem, vises hele uger.
+  var t0 = new Date(); t0.setHours(0, 0, 0, 0); var roll = wk === 0 && t0.getDay() !== 1;
+  var first = roll ? t0 : ws, nd = roll ? 6 : 7;
+  for (var i = 0; i < nd; i++) { var d = new Date(first); d.setDate(first.getDate() + i); days.push({ d: d, k: dayKey(d), items: [] }); }
+  days.roll = roll; if (roll) { ws = first; we = new Date(first); we.setDate(first.getDate() + nd - 1); }
   list.forEach(function (a) { var k = dayKey(new Date(a.starts_at)); days.forEach(function (x) { if (x.k === k) x.items.push(a); }); });
   // Valgt dag: den man har trykket på – ellers første dag fra i dag med noget på programmet
   var sel = days.filter(function (x) { return x.k === ui.akDay; })[0] || days.filter(function (x) { return x.k >= todayK && x.items.length; })[0] || days.filter(function (x) { return x.k === todayK; })[0] || days[0];
@@ -1611,7 +1618,7 @@ function tgGrid(days, todayK, h0, h1, rowsFor, kind) {
   // Timestreger som rigtige streger (en baggrundsgradient tabte nogle af dem ved afrunding)
   var hourLines = "";
   for (var h = h0 + 1; h < h1; h++) hourLines += '<i class="tgl" style="top:' + ((h - h0) / span * 100) + '%"></i>';
-  return '<div class="tgwrap" style="--n:' + days.length + '">' + ax + days.map(function (x) {
+  return '<div class="tgwrap" style="--n:' + days.length + (days.roll && days.length > 1 ? ";grid-template-columns:2.4em minmax(0,2fr) repeat(" + (days.length - 1) + ",minmax(0,1fr))" : "") + '">' + ax + days.map(function (x) {
     var d0 = new Date(x.d), d1 = new Date(x.d); d1.setDate(d1.getDate() + 1);
     var rows = rowsFor(x, d0, d1).map(function (r) { r.a = Math.max(h0, r.a); r.z = Math.min(h1, r.z); return r; }).filter(function (r) { return r.z > r.a; });
     lanes(rows);
@@ -3990,7 +3997,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 233;
+var APP_VERSION = 234;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
