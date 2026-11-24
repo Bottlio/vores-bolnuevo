@@ -1737,9 +1737,11 @@ function sortbogPageHtml() {
   if (sbData.err) h += '<p class="error">' + esc(sbData.err) + "</p>";
   var f = ui.sbFilter || "open", open = sbData.list.filter(function (d) { return d.status !== "loest"; }), done = sbData.list.filter(function (d) { return d.status === "loest"; });
   var ord = { rod: 0, gul: 1, gron: 2 };
-  if (f === "open") open.sort(function (a, b) { return (ord[a.priority] - ord[b.priority]) || String(b.created_at).localeCompare(String(a.created_at)); });
-  h += '<div class="sbtabs"><button type="button" class="chip' + (f === "open" ? " on" : "") + '" data-sbf="open">Åbne sager (' + open.length + ')</button><button type="button" class="chip' + (f === "done" ? " on" : "") + '" data-sbf="done">Løste (' + done.length + ")</button></div>";
-  var list = f === "open" ? open : done;
+  var srt = ui.sbSort || (f === "open" ? "prio" : "date");
+  var byDate = function (a, b) { return String(b.created_at).localeCompare(String(a.created_at)); };
+  var list = (f === "open" ? open : done).slice().sort(srt === "prio" ? function (a, b) { return (ord[a.priority] - ord[b.priority]) || byDate(a, b); } : srt === "old" ? function (a, b) { return byDate(b, a); } : byDate);
+  h += '<div class="sbtabs"><button type="button" class="chip' + (f === "open" ? " on" : "") + '" data-sbf="open">Åbne sager (' + open.length + ')</button><button type="button" class="chip' + (f === "done" ? " on" : "") + '" data-sbf="done">Løste (' + done.length + ")</button>" +
+    '<label class="sbsort">Sortér<select data-sbsort="1">' + [["prio", "Prioritet"], ["date", "Nyeste først"], ["old", "Ældste først"]].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === srt ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label></div>";
   h += list.length ? '<div class="sblist">' + list.map(sbCard).join("") + "</div>" : '<p class="hint">' + (f === "open" ? "Ingen åbne sager." : "Ingen løste sager endnu.") + "</p>";
   if (ui.sb) h += sbWizHtml();
   return h;
@@ -1850,6 +1852,7 @@ document.body.appendChild(sbCam); document.body.appendChild(sbPick);
 });
 document.addEventListener("input", function (e) { var k = e.target.dataset && e.target.dataset.sbf2; if (k && ui.sb) ui.sb[k] = e.target.value; });
 document.addEventListener("change", function (e) {
+  if (e.target.dataset && e.target.dataset.sbsort) { ui.sbSort = e.target.value; render(); return; }
   var k = e.target.dataset && e.target.dataset.sbset; if (!k) return; var box = e.target.closest("[data-sbid]"); if (!box) return;
   sbSet(box.dataset.sbid, k, e.target.type === "checkbox" ? e.target.checked : k === "handling" ? (e.target.value.trim() || null) : e.target.value);
 });
@@ -3912,7 +3915,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 221;
+var APP_VERSION = 222;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
