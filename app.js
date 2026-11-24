@@ -36,6 +36,8 @@ var ui = { checking: true, view: "liste", scope: "alle", cat: "hjem", status: "t
 var isApp = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
 var h = (location.hash || "").slice(1); if ((CATNAME[h] || h === "byer" || h === "dagsture" || h === "alle") && (!isApp || /[?&]v=/.test(location.search))) ui.cat = h;
 if (/^sted\//.test(h)) ui.place = decodeURIComponent(h.slice(5));
+// Startmenuen er forsiden – undtagen når et link peger direkte ind i guiden
+ui.menu = ui.cat === "hjem" && !ui.place;
 var root = document.getElementById("root");
 var newInput = document.getElementById("new-photos");
 
@@ -764,7 +766,7 @@ var IS_ANDROID = /Android/i.test(navigator.userAgent || "");
 var FROM_SCREEN = /[?&]fra=skaerm/.test(location.search);
 function screenNote() {
   if (!FROM_SCREEN || ui.screenHide) return "";
-  return '<div class="notice"><p><strong>Test:</strong> Du kom hertil fra skærmen i receptionen. Her kommer man snart til at kunne tilmelde sig fælles aktiviteter, booke cykler og golfsæt og skrive i den sorte bog.</p>' +
+  return '<div class="notice"><p><strong>Test:</strong> Du kom hertil fra skærmen i receptionen. Fælles aktiviteter og Den sorte bog er ved at blive bygget.</p>' +
     '<button class="linkbtn" type="button" id="screen-hide">Skjul</button></div>';
 }
 function inAppNote() {
@@ -883,6 +885,7 @@ function render() {
   // Ikke logget ind / ingen andel: kun velkomst og login. Egne sider: Vores andel, Regler og privatliv.
   markOrig();
   if (!ui.member || ui.page || ui.recovery) { renderGate(); return; }
+  if (ui.menu) { renderMenu(); return; }
   if (!ui.loaded) { setTop(headerHtml()); toolbar(false); root.innerHTML = '<p class="loading">Henter guiden…</p>'; slim.innerHTML = ""; slim.classList.remove("show"); panel.hidden = true; return; }
   if (ui.cat === "hjem" && !ui.place && !(ui.q || "").trim()) { renderHome(); return; }
   var APT = ui.cat, inApt = isApt(ui.cat), inTowns = ui.cat === "byer", inTrips = ui.cat === "dagsture";
@@ -1259,7 +1262,8 @@ function wireCarousels() {
 /* ---------- top, bund, velkomst ---------- */
 function navBtns() {
   if (!ui.member) return "";
-  return (navStack.length ? '<button class="iconbtn" type="button" data-nav="back" aria-label="Tilbage" title="Tilbage">' + ICON_BACK + "</button>" : "") +
+  if (ui.menu && !ui.page) return "";
+  return '<button class="iconbtn" type="button" data-menu="menu" aria-label="Menu" title="Menu">' + ICON_MENU + "</button>" + (navStack.length ? '<button class="iconbtn" type="button" data-nav="back" aria-label="Tilbage" title="Tilbage">' + ICON_BACK + "</button>" : "") +
     (!atStart() ? '<button class="iconbtn" type="button" data-nav="home" aria-label="Til forsiden" title="Til forsiden">' + ICON_HOME + "</button>" : "");
 }
 function headerHtml() {
@@ -1292,6 +1296,7 @@ function renderGate() {
   else if (ui.page === "hjaelp") html += helpPageHtml();
   else if (ui.page === "andel" && ui.member) html += pageBack() + andelPageHtml();
   else if (ui.page === "admin" && me && me.admin) html += pageBack() + adminPageHtml();
+  else if ((ui.page === "akt" || ui.page === "sortbog") && ui.member) html += soonHtml(ui.page);
   else if (!ui.user) {
     html += '<section class="welcome"><p class="lead">Andelshavernes egne tips til lokalområdet: spisesteder, strande, udsigtspunkter, dagsture og det praktiske. Adgang kun via invitation fra en andelshaver.</p></section>';
     if (!ui.login) ui.login = { mode: "login" };
@@ -1306,6 +1311,42 @@ function renderGate() {
   slim.innerHTML = ""; slim.classList.remove("show"); panel.hidden = true;
 }
 function pageBack() { return ""; }
+/* ---------- Startmenu: det første man ser efter login (også fra QR-koden på skærmen i receptionen) ---------- */
+var ICON_CAL = licon('<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8 14h3M13 14h3M8 17h3"/>');
+var ICON_KEYBED = licon('<path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7"/><path d="M3 15h18M3 18v2M21 18v2"/><rect x="6" y="9" width="5" height="3" rx="1"/>');
+var ICON_COMPASS = licon('<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>');
+var ICON_BOOK = licon('<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/><path d="M9 8h6"/>');
+var ICON_MENU = licon('<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>');
+var MENU = [
+  ["ahbooking", ICON_KEYBED, "AHbooking", "Book uger i lejlighederne, point og år-rul"],
+  ["akt", ICON_CAL, "Fælles aktiviteter", "Se hvad der sker, og tilmeld dig"],
+  ["guide", ICON_COMPASS, "Guide til området", "Spisesteder, strande, udflugter og andelshavernes tips"],
+  ["sortbog", ICON_BOOK, "Den sorte bog", "Er noget gået i stykker, eller mangler der noget?"]
+];
+function renderMenu() {
+  setTop(headerHtml()); toolbar(false);
+  var html = "";
+  if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
+  html += screenNote() + inAppNote();
+  html += '<section class="menuhead"><h2>Hej' + (me && me.name ? " " + esc(me.name) : "") + "</h2>" + (me ? '<p class="hint">Andel ' + esc(me.label) + "</p>" : "") + "</section>";
+  html += '<nav class="menugrid" aria-label="Startmenu">' + MENU.map(function (m) {
+    var inner = '<span class="micon">' + m[1] + '</span><span class="mtext"><span class="mtitle">' + m[2] + (m[0] === "ahbooking" ? ' <span class="mext" aria-hidden="true">↗</span>' : "") + '</span><span class="msub">' + m[3] + "</span></span>";
+    return m[0] === "ahbooking"
+      ? '<a class="mtile" href="https://ahbooking.dk/" target="_blank" rel="noopener">' + inner + "</a>"
+      : '<button class="mtile" type="button" data-menu="' + m[0] + '">' + inner + "</button>";
+  }).join("") + "</nav>";
+  html += '<p class="hint menunote">AHbooking er Andelshotellets eget system og har sit eget login.</p>';
+  html += ui.loaded ? footerHtml() : "";
+  root.innerHTML = html;
+  slim.innerHTML = ""; slim.classList.remove("show"); panel.hidden = true;
+}
+function soonHtml(k) {
+  var akt = k === "akt";
+  return '<section class="panel"><h2>' + (akt ? "Fælles aktiviteter" : "Den sorte bog") + '</h2><p class="notice">Test – kommer snart.</p><p>' +
+    (akt ? "Her kommer man til at kunne se ugens fælles aktiviteter, tilmelde sig og selv oprette en aktivitet – fx en padelkamp, en cykeltur eller et kortspil."
+      : "Her kommer man til at kunne skrive, hvis noget er gået i stykker eller mangler i en lejlighed – fx et knust spejl eller manglende gryder. Den ansvarlige får besked og kan markere, når det er ordnet.") +
+    '</p><div class="row"><button class="btn primary" type="button" data-menu="menu">Tilbage til menuen</button></div></section>';
+}
 
 /* ---------- Vores andel: medlemmer, invitationer, billeder med personer ---------- */
 var andelData = null;
@@ -2678,7 +2719,7 @@ async function handleReport(id, remove) {
    Hver gang man går ind i noget (et sted, en kategori, en by, et område, en side), huskes hvor man var.
    Tilbage-pilen (og telefonens egen tilbage) går ét skridt tilbage; huset går til forsiden. */
 var navStack = [];
-function snap() { return { cat: ui.cat, town: ui.town, region: ui.region, sub: ui.sub, subcat: ui.subcat, ftown: ui.ftown, place: ui.place, page: ui.page, y: window.scrollY }; }
+function snap() { return { menu: !!ui.menu, cat: ui.cat, town: ui.town, region: ui.region, sub: ui.sub, subcat: ui.subcat, ftown: ui.ftown, place: ui.place, page: ui.page, y: window.scrollY }; }
 function atStart() { return ui.cat === "hjem" && !ui.town && !ui.region && !ui.place && !ui.page && !ui.subcat && !ui.ftown && !ui.sub && !ui.fOpen && !ui.fSun && !ui.fEarly && !ui.fLunch; }
 function nav(change) {
   navStack.push(snap()); if (navStack.length > 60) navStack.shift();
@@ -2733,7 +2774,7 @@ function goBack() {
   try { history.back(); } catch (x) { restore(navStack.pop()); }
 }
 function restore(s) {
-  ui.cat = s.cat; ui.town = s.town; ui.region = s.region; ui.sub = s.sub; ui.subcat = s.subcat; ui.ftown = s.ftown; ui.place = s.place; ui.page = s.page; ui.panel = false;
+  ui.menu = !!s.menu; ui.cat = s.cat; ui.town = s.town; ui.region = s.region; ui.sub = s.sub; ui.subcat = s.subcat; ui.ftown = s.ftown; ui.place = s.place; ui.page = s.page; ui.panel = false;
   if (!ui.page) { andelData = null; adminData = null; }
   render(); window.scrollTo({ top: s.y || 0 });
 }
@@ -3179,6 +3220,14 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.adminvite) { adminInvite(t.dataset.adminvite); return; }
   if (t.dataset.resetk != null) { ui.resetK = t.dataset.resetk || null; ui.resetMsg = ""; ui.confirmStart = null; rerenderAdmin(); return; }
   if (t.dataset.rpw) { adminResetPw(t.dataset.rpw); return; }
+  if (t.dataset.menu) {
+    var mk = t.dataset.menu;
+    leaveDraft(function () {
+      if (mk === "menu") { nav(function () { ui.menu = true; ui.page = null; ui.place = null; ui.cat = "hjem"; ui.q = ""; }); return; }
+      nav(function () { ui.menu = false; ui.place = null; ui.cat = "hjem"; ui.page = mk === "guide" ? null : mk; });
+    });
+    return;
+  }
   if (t.id === "screen-hide") { ui.screenHide = true; render(); return; }
   if (t.id === "inapp-hide") { ui.inAppHide = true; render(); return; }
   if (t.dataset.rstart) { if (ui.confirmStart !== t.dataset.rstart) { ui.confirmStart = t.dataset.rstart; rerenderAdmin(); return; } adminStartOver(t.dataset.rstart); return; }
@@ -3276,7 +3325,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 191;
+var APP_VERSION = 192;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -3286,16 +3335,16 @@ async function checkForUpdate() {
 }
 /* Åbnes appen igen efter mere end 30 minutter, starter den forfra på "Alle" som liste */
 var hiddenAt = 0;
-function resetToStart() {
+function resetToStart(toMenu) {
   if (ui.draft || ui.areaDraft || ui.busy || (window.BOL && window.BOL.importing)) return;
   ui.cat = "hjem"; ui.view = "liste"; ui.town = null; ui.region = null; ui.ftown = null; ui.subcat = null; ui.sub = null; ui.place = null;
-  ui.fOpen = ui.fSun = ui.fEarly = ui.fLunch = false; ui.minRating = 0; ui.q = ""; ui.msg = ""; ui.page = null; navStack = [];
+  ui.fOpen = ui.fSun = ui.fEarly = ui.fLunch = false; ui.minRating = 0; ui.q = ""; ui.msg = ""; ui.page = null; navStack = []; ui.menu = !!toMenu;
   try { history.replaceState(null, "", location.pathname); } catch (e) {}
   render(); window.scrollTo({ top: 0 });
 }
 document.addEventListener("visibilitychange", function () {
   if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
-  if (hiddenAt && Date.now() - hiddenAt > 30 * 60 * 1000) resetToStart();
+  if (hiddenAt && Date.now() - hiddenAt > 30 * 60 * 1000) resetToStart(true);
   checkForUpdate();
 });
 checkForUpdate();
