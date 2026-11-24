@@ -1443,7 +1443,7 @@ function aktFormHtml() {
   var e = ui.akEdit && aktData ? aktData.list.filter(function (x) { return x.id === ui.akEdit; })[0] : null;
   var st = e ? new Date(e.starts_at) : ui.akPre ? new Date(ui.akPre) : null, en = e && e.ends_at ? new Date(e.ends_at) : null;
   var v = function (x) { return x == null ? "" : esc(x); };
-  return '<form class="panel" id="akt-form"><h2>' + (e ? "Ret aktivitet" : "Ny aktivitet") + "</h2>" +
+  return '<div class="wizwrap"><div class="rback"></div><form class="helpmodal wiz pop" id="akt-form"><button type="button" class="hclose" data-akclose="1" aria-label="Luk">×</button><h2>' + (e ? "Ret aktivitet" : "Ny aktivitet") + "</h2>" +
     '<label>Hvad skal der ske?<input name="title" required maxlength="80" placeholder="Fx padel, cykeltur til Puerto, kortspil" value="' + v(e && e.title) + '"></label>' +
     '<div class="akrow"><label>Dato<input type="date" name="date" required value="' + (st ? dayKey(st) : "") + '"></label>' +
     '<label>Fra kl.<input type="time" name="from" required value="' + (st ? p2(st.getHours()) + ":" + p2(st.getMinutes()) : "") + '"></label>' +
@@ -1453,7 +1453,7 @@ function aktFormHtml() {
     '<label class="akcheck"><input type="checkbox" name="signup"' + (!e || e.signup ? " checked" : "") + "> Man skal tilmelde sig</label>" +
     '<label>Højst antal deltagere (valgfri)<input type="number" name="max" min="1" max="200" inputmode="numeric" placeholder="Ingen grænse" value="' + v(e && e.max_people) + '"></label>' +
     (ui.aktErr ? '<p class="error">' + esc(ui.aktErr) + "</p>" : "") +
-    '<div class="row"><button class="btn primary" type="submit">' + (e ? "Gem" : "Opret aktivitet") + '</button><button class="btn" type="button" data-akclose="1">Annuller</button></div></form>';
+    '<div class="row wizfoot"><button class="btn" type="button" data-akclose="1">Annuller</button><button class="btn primary" type="submit">' + (e ? "Gem" : "Opret aktivitet") + "</button></div></form></div>";
 }
 function aktPageHtml() {
   if (!aktData) { loadAkt(); return '<p class="loading">Henter aktiviteter…</p>'; }
@@ -1462,7 +1462,7 @@ function aktPageHtml() {
   if (aktData.err) h += '<p class="error">' + esc(aktData.err) + "</p>";
   if (ui.akForm) h += aktFormHtml();
   var pick = ui.akPick && aktData.list.filter(function (a) { return a.id === ui.akPick; })[0];
-  if (pick) h += '<section class="panel akpick">' + aktCard(pick) + '<div class="row"><button class="btn" type="button" data-akpick="">Luk</button></div></section>';
+  if (pick && !ui.akForm) h += '<div class="wizwrap"><div class="rback"></div><section class="helpmodal wiz pop akpick"><button type="button" class="hclose" data-akpick="" aria-label="Luk">×</button>' + aktCard(pick) + '<div class="row wizfoot"><span></span><button class="btn" type="button" data-akpick="">Luk</button></div></section></div>';
   h += weekBlockHtml(aktData.list, aktCard, "Intet planlagt", aktGrid);
   return h;
 }
@@ -1635,14 +1635,14 @@ function aktGrid(days, todayK) {
 function bkFormHtml() {
   ui.bkSel = (ui.bkSel || []).filter(bkIsFree);
   var hs = function (name, v, min, max) { var o = ""; for (var x = min; x <= max; x++) o += '<option value="' + x + '"' + (x === v ? " selected" : "") + ">" + p2(x) + ".00</option>"; return '<select name="' + name + '" data-bkt="' + name + '">' + o + "</select>"; };
-  return '<form class="panel" id="bk-form"><h2>Book udstyr</h2>' +
+  return '<div class="wizwrap"><div class="rback"></div><form class="helpmodal wiz pop" id="bk-form"><button type="button" class="hclose" data-bkclose="1" aria-label="Luk">×</button><h2>Book udstyr</h2>' +
     '<div class="akrow"><label>Dato<input type="date" name="date" data-bkt="date" required min="' + dayKey(new Date()) + '" value="' + esc(ui.bkDate) + '"></label>' +
     '<label>Fra kl.' + hs("from", ui.bkFrom, BK_H0, BK_H1 - 1) + '</label><label>Til kl.' + hs("to", ui.bkTo, ui.bkFrom + 1, BK_H1) + "</label></div>" +
     '<p class="hint">Hvad vil du låne? Vælg gerne flere. Gråt er optaget i det tidsrum.</p><div class="bkgrid">' + bkData.equip.map(function (e) {
       var free = bkIsFree(e.id), on = ui.bkSel.indexOf(e.id) >= 0;
       return '<button type="button" class="bkit ' + e.kind + (on ? " on" : "") + '" data-bksel="' + esc(e.id) + '"' + (free ? "" : " disabled") + ">" + esc(e.name) + (free ? "" : "<small>optaget</small>") + "</button>";
     }).join("") + "</div>" + (ui.bkErr ? '<p class="error">' + esc(ui.bkErr) + "</p>" : "") +
-    '<div class="row"><button class="btn primary" type="submit"' + (ui.bkSel.length ? "" : " disabled") + ">Book" + (ui.bkSel.length > 1 ? " " + ui.bkSel.length + " ting" : "") + '</button><button class="btn" type="button" data-bkclose="1">Annuller</button></div></form>';
+    '<div class="row wizfoot"><button class="btn" type="button" data-bkclose="1">Annuller</button><button class="btn primary" type="submit"' + (ui.bkSel.length ? "" : " disabled") + ">Book" + (ui.bkSel.length > 1 ? " " + ui.bkSel.length + " ting" : "") + "</button></div></form></div>";
 }
 function udstyrPageHtml() {
   if (!bkData) { loadBk(); return '<section class="akhead"><h2>Booking af udstyr</h2></section><p class="loading">Henter…</p>'; }
@@ -1654,9 +1654,9 @@ function udstyrPageHtml() {
     var grp = bkData.list.filter(function (b) { return bkKey(b) === ui.bkPick; });
     if (grp.length) {
       var pb = grp[0], pst = new Date(pb.starts_at), pen = new Date(pb.ends_at), pcan = ((ui.user && pb.user_id === ui.user.id) || lvl() >= 3) && pen > new Date();
-      h += '<section class="panel bkpick"><p><strong>' + dayTitle(pst) + " kl. " + hhmm(pst) + "–" + hhmm(pen) + "</strong><br>" + esc([pb.name, bkLabel(pb) ? "lejl. " + bkLabel(pb) : ""].filter(Boolean).join(" · ")) + (pb.source === "skaerm" ? " · booket på skærmen" : "") + "</p>" +
+      h += '<div class="wizwrap"><div class="rback"></div><section class="helpmodal wiz pop bkpick"><button type="button" class="hclose" data-bkpick="" aria-label="Luk">×</button><h2>Booking</h2><p><strong>' + dayTitle(pst) + " kl. " + hhmm(pst) + "–" + hhmm(pen) + "</strong><br>" + esc([pb.name, bkLabel(pb) ? "lejl. " + bkLabel(pb) : ""].filter(Boolean).join(" · ")) + (pb.source === "skaerm" ? " · booket på skærmen" : "") + "</p>" +
         '<ul class="nlist">' + grp.map(function (b) { return '<li class="nitem"><span>' + esc((b.equipment || {}).name || "Udstyr") + "</span>" + (pcan ? '<button class="linkbtn danger-t" type="button" data-bkdel="' + esc(b.id) + '">' + (ui.bkDelConfirm === b.id ? "Tryk igen for at aflyse" : "Aflys") + "</button>" : "") + "</li>"; }).join("") + "</ul>" +
-        '<div class="row"><button class="btn" type="button" data-bkpick="">Luk</button></div></section>';
+        '<div class="row wizfoot"><span></span><button class="btn" type="button" data-bkpick="">Luk</button></div></section></div>';
     }
   }
   h += weekBlockHtml(bkData.list, bkCard, "Intet booket", bkGrid);
@@ -1696,12 +1696,12 @@ document.addEventListener("click", function (e) {
   h = Math.max(h0, Math.min(h1 - 1, h));
   if (day < today) { ui.msg = "Den dag er allerede passeret."; render(); return; }
   if (b.dataset.tgnew === "akt") {
-    ui.akForm = true; ui.akEdit = null; ui.aktErr = ""; ui.msg = ""; ui.akPick = null; ui.akPre = day + "T" + p2(h) + ":00";
+    ui.akForm = true; ui.akEdit = null; ui.aktErr = ""; ui.msg = ""; ui.akPick = null; ui.akPre = day + "T" + p2(h) + ":00"; ui.bkForm = false;
   } else {
     var f = Math.max(BK_H0, Math.min(BK_H1 - 1, h));
     ui.bkForm = true; ui.bkDate = day; ui.bkSel = []; ui.bkErr = ""; ui.msg = ""; ui.bkPick = null; ui.bkFrom = f; ui.bkTo = Math.min(BK_H1, f + 3);
   }
-  render(); window.scrollTo({ top: 0 });
+  render();
 });
 /* ---------- Den sorte bog: fejl og mangler. Ny sag laves med en guide i 4 trin, så alle oplysninger kommer med ---------- */
 var sbData = null, sbLoading = false;
@@ -3819,8 +3819,8 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.bknew) {
     var sd = ui.akDay && ui.akDay >= dayKey(new Date()) ? ui.akDay : dayKey(new Date());
     ui.bkForm = true; ui.bkDate = sd; ui.bkSel = []; ui.bkErr = ""; ui.msg = "";
-    ui.bkFrom = sd === dayKey(new Date()) ? Math.min(BK_H1 - 1, Math.max(BK_H0, new Date().getHours() + 1)) : 10; ui.bkTo = Math.min(BK_H1, ui.bkFrom + 3);
-    render(); window.scrollTo({ top: 0 }); return;
+    ui.bkFrom = sd === dayKey(new Date()) ? Math.min(BK_H1 - 1, Math.max(BK_H0, new Date().getHours() + 1)) : 10; ui.bkTo = Math.min(BK_H1, ui.bkFrom + 3); ui.bkPick = null;
+    render(); return;
   }
   if (t.dataset.bkpick != null) { ui.bkPick = t.dataset.bkpick || null; ui.bkDelConfirm = null; render(); if (ui.bkPick) { var pe = document.querySelector(".bkpick"); if (pe) pe.scrollIntoView({ block: "center", behavior: "smooth" }); } return; }
   if (t.dataset.sbnew) { sbOpen(); return; }
@@ -3838,8 +3838,8 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.bkdel) { if (ui.bkDelConfirm !== t.dataset.bkdel) { ui.bkDelConfirm = t.dataset.bkdel; render(); return; } bkDelete(t.dataset.bkdel); return; }
   if (t.dataset.akwk) { akGoWeek(parseInt(t.dataset.akwk, 10)); return; }
   if (t.dataset.akday) { ui.akDay = t.dataset.akday; render(); return; }
-  if (t.dataset.aknew) { ui.akForm = true; ui.akEdit = null; ui.akPre = null; ui.aktErr = ""; ui.msg = ""; render(); window.scrollTo({ top: 0 }); return; }
-  if (t.dataset.akedit) { ui.akForm = true; ui.akEdit = t.dataset.akedit; ui.aktErr = ""; ui.msg = ""; render(); window.scrollTo({ top: 0 }); return; }
+  if (t.dataset.aknew) { ui.akForm = true; ui.akEdit = null; ui.akPre = null; ui.akPick = null; ui.aktErr = ""; ui.msg = ""; render(); return; }
+  if (t.dataset.akedit) { ui.akForm = true; ui.akEdit = t.dataset.akedit; ui.aktErr = ""; ui.msg = ""; render(); return; }
   if (t.dataset.akclose) { ui.akForm = false; ui.akEdit = null; ui.akPre = null; ui.aktErr = ""; render(); return; }
   if (t.dataset.akon) { aktSignup(t.dataset.akon, true); return; }
   if (t.dataset.akoff) { aktSignup(t.dataset.akoff, false); return; }
@@ -3957,7 +3957,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 226;
+var APP_VERSION = 227;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

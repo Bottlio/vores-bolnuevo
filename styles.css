@@ -1032,3 +1032,9 @@ footer.foot .footlabel:first-child{margin-top:0}
 .lvact{display:flex;align-items:center;gap:8px}
 .lvact select{font:inherit;font-size:.85rem;padding:4px 6px;border-radius:8px;border:1px solid var(--line)}
 .tgbody[data-tgnew]{cursor:pointer}
+/* Opret aktivitet / Book udstyr som pop-up */
+.helpmodal.pop{width:min(560px,calc(100vw - 24px))}
+.helpmodal.pop .akrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.helpmodal.pop .akrow label{margin:6px 0}
+.helpmodal.pop .akcard{border:0;padding:0;box-shadow:none;background:none}
+.helpmodal.pop .bkgrid{margin-bottom:4px}
