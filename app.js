@@ -3333,12 +3333,12 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 195;
+var APP_VERSION = 196;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
     var j = await r.json();
-    if (j && j.v > APP_VERSION && !ui.draft && !ui.busy && !(window.BOL && window.BOL.importing)) location.replace(location.pathname + "?v=" + j.v + location.hash);
+    if (j && j.v > APP_VERSION && !ui.draft && !ui.busy && !(window.BOL && window.BOL.importing)) { var qs = location.search.replace(/^\?/, "").split("&").filter(function (x) { return x && !/^v=/.test(x); }); qs.push("v=" + j.v); location.replace(location.pathname + "?" + qs.join("&") + location.hash); }   // behold fx menu=test og fra=skaerm
   } catch (e) { /* ingen forbindelse; prøv igen næste gang */ }
 }
 /* Åbnes appen igen efter mere end 30 minutter, starter den forfra på "Alle" som liste */
