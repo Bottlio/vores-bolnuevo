@@ -1297,7 +1297,8 @@ function renderGate() {
   else if (ui.page === "hjaelp") html += helpPageHtml();
   else if (ui.page === "andel" && ui.member) html += pageBack() + andelPageHtml();
   else if (ui.page === "admin" && me && me.admin) html += pageBack() + adminPageHtml();
-  else if ((ui.page === "akt" || ui.page === "sortbog") && ui.member) html += soonHtml(ui.page);
+  else if (ui.page === "akt" && ui.member) html += aktPageHtml();
+  else if ((ui.page === "udstyr" || ui.page === "sortbog") && ui.member) html += soonHtml(ui.page);
   else if (!ui.user) {
     html += '<section class="welcome"><p class="lead">Andelshavernes egne tips til lokalområdet: spisesteder, strande, udsigtspunkter, dagsture og det praktiske. Adgang kun via invitation fra en andelshaver.</p></section>';
     if (!ui.login) ui.login = { mode: "login" };
@@ -1317,10 +1318,12 @@ var ICON_CAL = licon('<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d
 var ICON_KEYBED = licon('<path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7"/><path d="M3 15h18M3 18v2M21 18v2"/><rect x="6" y="9" width="5" height="3" rx="1"/>');
 var ICON_COMPASS = licon('<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>');
 var ICON_BOOK = licon('<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/><path d="M9 8h6"/>');
+var ICON_BIKE = licon('<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9 8.5 6H7M15 9l-3 7"/>');
 var ICON_MENU = licon('<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>');
 var MENU = [
   ["ahbooking", ICON_KEYBED, "AHbooking", "Book uger i lejlighederne, point og år-rul"],
   ["akt", ICON_CAL, "Fælles aktiviteter", "Se hvad der sker, og tilmeld dig"],
+  ["udstyr", ICON_BIKE, "Booking af udstyr", "Cykler, golfsæt og andet, der kan lånes"],
   ["guide", ICON_COMPASS, "Guide til området", "Spisesteder, strande, udflugter og andelshavernes tips"],
   ["sortbog", ICON_BOOK, "Den sorte bog", "Er noget gået i stykker, eller mangler der noget?"]
 ];
@@ -1348,10 +1351,106 @@ function renderMenu() {
   root.innerHTML = html;
   slim.innerHTML = ""; slim.classList.remove("show"); panel.hidden = true;
 }
+/* ---------- Fælles aktiviteter: alle kan oprette, alle (også gæster) kan tilmelde sig ---------- */
+var aktData = null, aktLoading = false;
+var DA_DAY = ["Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag"], DA_MON = ["jan.", "feb.", "mar.", "apr.", "maj", "jun.", "jul.", "aug.", "sep.", "okt.", "nov.", "dec."];
+function p2(n) { return n < 10 ? "0" + n : "" + n; }
+function hhmm(d) { return p2(d.getHours()) + "." + p2(d.getMinutes()); }
+function dayKey(d) { return d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate()); }
+function dayTitle(d) {
+  var t = new Date(); t.setHours(0, 0, 0, 0); var x = new Date(d); x.setHours(0, 0, 0, 0);
+  var diff = Math.round((x - t) / 86400000);
+  return (diff === 0 ? "I dag" : diff === 1 ? "I morgen" : DA_DAY[d.getDay()]) + " " + d.getDate() + ". " + DA_MON[d.getMonth()];
+}
+async function loadAkt() {
+  if (aktLoading) return; aktLoading = true;
+  var from = new Date(); from.setHours(0, 0, 0, 0);
+  var r = await sb.from("activities").select("*, activity_signups(user_id, andel_id, name, people)").gte("starts_at", from.toISOString()).order("starts_at");
+  aktLoading = false;
+  aktData = { list: r.data || [], err: r.error ? "Aktiviteterne kunne ikke hentes: " + r.error.message : "" };
+  if (ui.page === "akt") render();
+}
+function aktUsed(a) { return (a.activity_signups || []).reduce(function (s, x) { return s + (x.people || 1); }, 0); }
+function aktCard(a) {
+  var st = new Date(a.starts_at), en = a.ends_at ? new Date(a.ends_at) : null;
+  var sig = a.activity_signups || [], mine = ui.user && sig.filter(function (x) { return x.user_id === ui.user.id; })[0];
+  var used = aktUsed(a), full = a.max_people && used >= a.max_people, past = (en || st) < new Date();
+  var canEdit = ui.user && (a.created_by === ui.user.id || (me && me.admin));
+  var status = a.cancelled ? '<p class="akst cancel">Aflyst</p>'
+    : !a.signup ? '<p class="akst">Ingen tilmelding – bare mød op</p>'
+    : '<p class="akst ' + (full ? "full" : "ok") + '">' + (a.max_people ? (full ? "Fuldt booket" : used + " af " + a.max_people + " tilmeldt") : used + " tilmeldt") + "</p>";
+  var who = a.signup && sig.length ? '<p class="akwho">' + sig.map(function (x) { return esc((x.name || "?") + (andelLabels[x.andel_id] ? " (" + andelLabels[x.andel_id].replace(/ m\.fl\.$/, "") + ")" : "")) + (x.people > 1 ? " ×" + x.people : ""); }).join(", ") + "</p>" : "";
+  var btns = "";
+  if (ui.editor && !a.cancelled && !past && a.signup) {
+    if (mine) btns += '<button class="btn small" type="button" data-akoff="' + esc(a.id) + '">Afmeld' + (mine.people > 1 ? " (" + mine.people + ")" : "") + "</button>";
+    else if (!full) btns += '<select class="akppl" id="akppl-' + esc(a.id) + '" aria-label="Antal personer">' + [1, 2, 3, 4, 5, 6].map(function (n) { return '<option value="' + n + '">' + n + (n === 1 ? " person" : " personer") + "</option>"; }).join("") + '</select><button class="btn small primary" type="button" data-akon="' + esc(a.id) + '">Tilmeld</button>';
+  }
+  if (canEdit && !past) btns += '<button class="linkbtn" type="button" data-akedit="' + esc(a.id) + '">Ret</button>' +
+    (a.cancelled ? "" : '<button class="linkbtn danger-t" type="button" data-akcancel="' + esc(a.id) + '">' + (ui.akConfirm === a.id ? "Tryk igen for at aflyse" : "Aflys") + "</button>");
+  return '<article class="akcard' + (a.cancelled ? " cancelled" : "") + '"><p class="aktime">' + hhmm(st) + (en ? "–" + hhmm(en) : "") + '</p><h3>' + esc(a.title) + "</h3>" +
+    (a.place ? '<p class="akplace">' + esc(a.place) + "</p>" : "") + (a.description ? '<p class="akdesc">' + esc(a.description) + "</p>" : "") +
+    status + who + (btns ? '<div class="akbtns">' + btns + "</div>" : "") + "</article>";
+}
+function aktFormHtml() {
+  var e = ui.akEdit && aktData ? aktData.list.filter(function (x) { return x.id === ui.akEdit; })[0] : null;
+  var st = e ? new Date(e.starts_at) : null, en = e && e.ends_at ? new Date(e.ends_at) : null;
+  var v = function (x) { return x == null ? "" : esc(x); };
+  return '<form class="panel" id="akt-form"><h2>' + (e ? "Ret aktivitet" : "Ny aktivitet") + "</h2>" +
+    '<label>Hvad skal der ske?<input name="title" required maxlength="80" placeholder="Fx padel, cykeltur til Puerto, kortspil" value="' + v(e && e.title) + '"></label>' +
+    '<div class="akrow"><label>Dato<input type="date" name="date" required value="' + (st ? dayKey(st) : "") + '"></label>' +
+    '<label>Fra kl.<input type="time" name="from" required value="' + (st ? p2(st.getHours()) + ":" + p2(st.getMinutes()) : "") + '"></label>' +
+    '<label>Til kl. (valgfri)<input type="time" name="to" value="' + (en ? p2(en.getHours()) + ":" + p2(en.getMinutes()) : "") + '"></label></div>' +
+    '<label>Hvor?<input name="place" maxlength="80" placeholder="Fx terrassen, receptionen, Mazarrón Padel Club" value="' + v(e && e.place) + '"></label>' +
+    '<label>Beskrivelse (valgfri)<textarea name="desc" rows="3" maxlength="600">' + v(e && e.description) + "</textarea></label>" +
+    '<label class="akcheck"><input type="checkbox" name="signup"' + (!e || e.signup ? " checked" : "") + "> Man skal tilmelde sig</label>" +
+    '<label>Højst antal deltagere (valgfri)<input type="number" name="max" min="1" max="200" inputmode="numeric" placeholder="Ingen grænse" value="' + v(e && e.max_people) + '"></label>' +
+    (ui.aktErr ? '<p class="error">' + esc(ui.aktErr) + "</p>" : "") +
+    '<div class="row"><button class="btn primary" type="submit">' + (e ? "Gem" : "Opret aktivitet") + '</button><button class="btn" type="button" data-akclose="1">Annuller</button></div></form>';
+}
+function aktPageHtml() {
+  if (!aktData) { loadAkt(); return '<p class="loading">Henter aktiviteter…</p>'; }
+  var h = '<section class="akhead"><h2>Fælles aktiviteter</h2>' + (ui.editor && !ui.akForm ? '<button class="btn primary" type="button" data-aknew="1">+ Opret aktivitet</button>' : "") + "</section>";
+  h += '<p class="notice">Test: aktiviteter, du opretter her, er rigtige og kan ses af alle andre testere.</p>';
+  if (aktData.err) h += '<p class="error">' + esc(aktData.err) + "</p>";
+  if (ui.akForm) h += aktFormHtml();
+  var list = aktData.list, groups = [], cur = null;
+  list.forEach(function (a) { var k = dayKey(new Date(a.starts_at)); if (!cur || cur.k !== k) { cur = { k: k, d: new Date(a.starts_at), items: [] }; groups.push(cur); } cur.items.push(a); });
+  if (!groups.length) h += '<p class="hint">Der er ingen aktiviteter endnu. ' + (ui.editor ? "Tryk på \"Opret aktivitet\" for at lave den første." : "") + "</p>";
+  groups.forEach(function (g) { h += '<h3 class="akday">' + dayTitle(g.d) + '</h3><div class="aklist">' + g.items.map(aktCard).join("") + "</div>"; });
+  return h + '<div class="row akback"><button class="btn" type="button" data-menu="menu">Tilbage til menuen</button></div>';
+}
+async function saveAkt(f) {
+  var g = function (n) { return (f.elements[n].value || "").trim(); };
+  var st = new Date(g("date") + "T" + g("from")), en = g("to") ? new Date(g("date") + "T" + g("to")) : null;
+  if (!g("title") || isNaN(st)) { ui.aktErr = "Skriv hvad der skal ske, og vælg dato og tidspunkt."; render(); return; }
+  if (en && en <= st) en.setDate(en.getDate() + 1);   // slutter efter midnat
+  if (!ui.akEdit && st < new Date(Date.now() - 3600000)) { ui.aktErr = "Tidspunktet er allerede passeret."; render(); return; }
+  var max = parseInt(g("max"), 10);
+  var row = { title: g("title"), starts_at: st.toISOString(), ends_at: en ? en.toISOString() : null, place: g("place") || null, description: g("desc") || null,
+    signup: f.elements.signup.checked, max_people: f.elements.signup.checked && max > 0 ? max : null };
+  var r = ui.akEdit ? await sb.from("activities").update(row).eq("id", ui.akEdit) : await sb.from("activities").insert(Object.assign(row, { andel_id: me && me.andel }));
+  if (r.error) { ui.aktErr = "Det blev ikke gemt: " + r.error.message; render(); return; }
+  ui.akForm = false; ui.akEdit = null; ui.aktErr = ""; aktData = null; render(); window.scrollTo({ top: 0 });
+}
+async function aktSignup(id, on) {
+  var r;
+  if (on) {
+    var sel = document.getElementById("akppl-" + id), n = sel ? parseInt(sel.value, 10) || 1 : 1;
+    r = await sb.from("activity_signups").insert({ activity_id: id, andel_id: me && me.andel, name: (me && me.name) || "", people: n });
+  } else r = await sb.from("activity_signups").delete().eq("activity_id", id).eq("user_id", ui.user.id);
+  if (r.error) { ui.msg = /plads|fuldt/i.test(r.error.message) ? "Der er desværre ikke plads længere." : "Det lykkedes ikke: " + r.error.message; }
+  else ui.msg = on ? "Du er tilmeldt." : "Du er afmeldt.";
+  aktData = null; render();
+}
+async function aktCancel(id) {
+  var r = await sb.from("activities").update({ cancelled: true }).eq("id", id);
+  ui.akConfirm = null; ui.msg = r.error ? "Aktiviteten blev ikke aflyst: " + r.error.message : "Aktiviteten er aflyst.";
+  aktData = null; render();
+}
 function soonHtml(k) {
-  var akt = k === "akt";
-  return '<section class="panel"><h2>' + (akt ? "Fælles aktiviteter" : "Den sorte bog") + '</h2><p class="notice">Test – kommer snart.</p><p>' +
-    (akt ? "Her kommer man til at kunne se ugens fælles aktiviteter, tilmelde sig og selv oprette en aktivitet – fx en padelkamp, en cykeltur eller et kortspil."
+  var udst = k === "udstyr";
+  return '<section class="panel"><h2>' + (udst ? "Booking af udstyr" : "Den sorte bog") + '</h2><p class="notice">Test – kommer snart.</p><p>' +
+    (udst ? "Her kommer man til at kunne booke cykler, golfsæt og andet udstyr – også fra Danmark, fx to cykler i næste uge. Bookinger herfra og fra skærmen i receptionen er de samme."
       : "Her kommer man til at kunne skrive, hvis noget er gået i stykker eller mangler i en lejlighed – fx et knust spejl eller manglende gryder. Den ansvarlige får besked og kan markere, når det er ordnet.") +
     '</p><div class="row"><button class="btn primary" type="button" data-menu="menu">Tilbage til menuen</button></div></section>';
 }
@@ -3228,8 +3327,14 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.adminvite) { adminInvite(t.dataset.adminvite); return; }
   if (t.dataset.resetk != null) { ui.resetK = t.dataset.resetk || null; ui.resetMsg = ""; ui.confirmStart = null; rerenderAdmin(); return; }
   if (t.dataset.rpw) { adminResetPw(t.dataset.rpw); return; }
+  if (t.dataset.aknew) { ui.akForm = true; ui.akEdit = null; ui.aktErr = ""; ui.msg = ""; render(); window.scrollTo({ top: 0 }); return; }
+  if (t.dataset.akedit) { ui.akForm = true; ui.akEdit = t.dataset.akedit; ui.aktErr = ""; ui.msg = ""; render(); window.scrollTo({ top: 0 }); return; }
+  if (t.dataset.akclose) { ui.akForm = false; ui.akEdit = null; ui.aktErr = ""; render(); return; }
+  if (t.dataset.akon) { aktSignup(t.dataset.akon, true); return; }
+  if (t.dataset.akoff) { aktSignup(t.dataset.akoff, false); return; }
+  if (t.dataset.akcancel) { if (ui.akConfirm !== t.dataset.akcancel) { ui.akConfirm = t.dataset.akcancel; render(); return; } aktCancel(t.dataset.akcancel); return; }
   if (t.dataset.menu) {
-    var mk = t.dataset.menu;
+    var mk = t.dataset.menu; ui.msg = ""; if (mk === "akt") { aktData = null; ui.akForm = false; }
     leaveDraft(function () {
       if (mk === "menu") { nav(function () { ui.menu = true; ui.page = null; ui.place = null; ui.cat = "hjem"; ui.q = ""; }); return; }
       nav(function () { ui.menu = false; ui.place = null; ui.cat = "hjem"; ui.page = mk === "guide" ? null : mk; });
@@ -3294,6 +3399,7 @@ root.addEventListener("submit", function (e) {
   if (e.target.dataset && e.target.dataset.kform) { e.preventDefault(); saveContact(e.target); return; }
   if (e.target.dataset && e.target.dataset.kmail) { e.preventDefault(); adminChangeMail(e.target); return; }
   e.preventDefault();
+  if (e.target.id === "akt-form") { saveAkt(e.target); return; }
   if (e.target.id === "editor") saveDraft();
   if (e.target.id === "cmtform") saveComment();
   if (e.target.id === "addnum-form") addAndelNum();
@@ -3333,7 +3439,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 196;
+var APP_VERSION = 197;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

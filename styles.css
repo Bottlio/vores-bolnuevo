@@ -900,3 +900,24 @@ footer.foot .footlabel:first-child{margin-top:0}
 .mb svg{width:18px;height:18px}
 .mb-v{background:#2e7d4f}.mb-h{background:#7b1e2e}
 @media (prefers-color-scheme:dark){.mb-v{background:#3a9a63}.mb-h{background:#a3283d}}
+/* Fælles aktiviteter */
+.akhead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0 10px}
+.akhead h2{font-family:var(--display);font-size:1.6rem;margin:0}
+.akday{font-family:var(--display);color:var(--sea);font-size:1.15rem;margin:22px 0 8px}
+.aklist{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.akcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
+.akcard.cancelled{opacity:.6}
+.akcard.cancelled h3{text-decoration:line-through}
+.aktime{color:var(--ochre);font-weight:700;margin:0;font-variant-numeric:tabular-nums}
+.akcard h3{font-family:var(--display);font-weight:700;font-size:1.15rem;margin:2px 0 2px}
+.akplace{color:var(--muted);margin:0}
+.akdesc{margin:8px 0 0;line-height:1.4}
+.akst{margin:10px 0 0;font-weight:700;color:var(--muted)}
+.akst.ok{color:#2e7d4f}.akst.full,.akst.cancel{color:var(--danger)}
+.akwho{margin:4px 0 0;color:var(--muted);font-size:.92rem}
+.akbtns{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+.akppl{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
+.akrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:520px){.akrow{grid-template-columns:1fr 1fr}.akrow label:first-child{grid-column:1/-1}}
+.akcheck{display:flex;align-items:center;gap:8px}
+.akback{margin-top:22px}

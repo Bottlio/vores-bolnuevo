@@ -67,8 +67,10 @@ footer{display:flex;justify-content:space-between;color:var(--muted);font-size:.
     <section class="box sort"><h2>Sort bog</h2><p>Noget i stykker eller noget, der mangler? Skriv det via koden ovenfor.</p></section>
   </aside>
 </main>
-<footer><span class="demo">TESTSIDE – aktiviteter og udlån er eksempler</span><span id="upd"></span></footer>
+<footer><span class="demo" id="demo">TESTSIDE – aktiviteter og udlån er eksempler</span><span id="upd"></span></footer>
+<script src="config.js"></script>
 <script>
+var LIVE=/[?&]live=1/.test(location.search);
 var DAYS=["Søn","Man","Tir","Ons","Tor","Fre","Lør"], MON=["jan.","feb.","mar.","apr.","maj","jun.","jul.","aug.","sep.","okt.","nov.","dec."];
 // Eksempler (dag 0 = mandag)
 var ACTS=[
@@ -84,6 +86,7 @@ var ACTS=[
  {d:6,t:"17.00",n:"Velkomstdrink",w:"Terrassen",nt:true}
 ];
 var LEND=[["Cykel 1","free"],["Cykel 2","Udlånt · 103 til fre."],["Cykel 3","free"],["Cykel 4","Udlånt · 206 til i morgen"],["Golfsæt (herre)","free"],["Golfsæt (dame)","Udlånt · 104 til tor."]];
+function E(x){return String(x==null?"":x).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})}
 function pad(n){return n<10?"0"+n:n}
 function tick(){var d=new Date();document.getElementById("clock").textContent=pad(d.getHours())+"."+pad(d.getMinutes());
  document.getElementById("date").textContent=["Søndag","Mandag","Tirsdag","Onsdag","Torsdag","Fredag","Lørdag"][d.getDay()]+" "+d.getDate()+". "+MON[d.getMonth()]}
@@ -92,14 +95,23 @@ function week(){var now=new Date(),wd=(now.getDay()+6)%7,mon=new Date(now);mon.s
   h+='<div class="day'+(i===wd?' today':'')+'"><div class="dh"><b>'+(i===wd?"I dag":DAYS[dd.getDay()])+'</b><span>'+dd.getDate()+'. '+MON[dd.getMonth()]+'</span></div>';
   if(!list.length)h+='<p class="empty">Intet planlagt</p>';
   list.forEach(function(a){var s=a.nt?'<p class="s">Ingen tilmelding</p>':a.m?(a.c>=a.m?'<p class="s full">Fuldt booket</p>':'<p class="s ok">'+a.c+' af '+a.m+' tilmeldt</p>'):'<p class="s">'+a.c+' tilmeldt</p>';
-   h+='<div class="act"><p class="t">'+a.t+'</p><p class="n">'+a.n+'</p><p class="w">'+a.w+'</p>'+s+'</div>'});
+   h+='<div class="act"><p class="t">'+E(a.t)+'</p><p class="n">'+E(a.n)+'</p><p class="w">'+E(a.w)+'</p>'+s+'</div>'});
   h+='</div>'}
  document.getElementById("week").innerHTML=h;
  document.getElementById("lend").innerHTML=LEND.map(function(l){return '<li><span>'+l[0]+'</span>'+(l[1]==="free"?'<span class="free">Ledig</span>':'<span class="busy">'+l[1]+'</span>')+'</li>'}).join("")}
 var WX={0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",48:"🌫️",51:"🌦️",53:"🌦️",55:"🌦️",61:"🌧️",63:"🌧️",65:"🌧️",80:"🌦️",81:"🌧️",82:"🌧️",95:"⛈️"};
 function weather(){try{fetch("https://api.open-meteo.com/v1/forecast?latitude=37.563&longitude=-1.307&current=temperature_2m,weather_code&timezone=Europe%2FMadrid")
  .then(function(r){return r.json()}).then(function(j){var c=j.current;document.getElementById("wx").innerHTML='<span class="ico">'+(WX[c.weather_code]||"🌤️")+'</span><b>'+Math.round(c.temperature_2m)+'°</b><span>Bolnuevo</span>'}).catch(function(){})}catch(e){}}
-function refresh(){week();weather();var d=new Date();document.getElementById("upd").textContent="Opdateret "+pad(d.getHours())+"."+pad(d.getMinutes())}
+function live(){ // rigtige aktiviteter fra appen (kun titel, tid, sted og antal)
+ var now=new Date(),wd=(now.getDay()+6)%7,mon=new Date(now);mon.setHours(0,0,0,0);mon.setDate(now.getDate()-wd);var sun=new Date(mon);sun.setDate(mon.getDate()+7);
+ var C=window.BOLNUEVO||{};
+ return fetch(C.supabaseUrl+"/rest/v1/rpc/screen_activities",{method:"POST",headers:{"apikey":C.supabaseKey,"Authorization":"Bearer "+C.supabaseKey,"Content-Type":"application/json"},body:JSON.stringify({p_from:mon.toISOString(),p_to:sun.toISOString()})})
+  .then(function(r){return r.json()}).then(function(rows){ if(!Array.isArray(rows))return;
+   ACTS=rows.map(function(a){var st=new Date(a.starts_at),en=a.ends_at?new Date(a.ends_at):null;
+    return {d:(st.getDay()+6)%7,t:pad(st.getHours())+"."+pad(st.getMinutes())+(en?"–"+pad(en.getHours())+"."+pad(en.getMinutes()):""),n:a.title,w:a.place||"",nt:!a.signup,c:a.people,m:a.max_people||0}});
+   week();}).catch(function(){});}
+function refresh(){if(LIVE){live();}else{week();}weather();var d=new Date();document.getElementById("upd").textContent="Opdateret "+pad(d.getHours())+"."+pad(d.getMinutes())}
+if(LIVE)document.getElementById("demo").textContent="TESTSIDE – aktiviteter fra appen · udlån er eksempler";
 tick();refresh();setInterval(tick,10000);setInterval(refresh,300000);
 setTimeout(function(){location.reload()},6*3600000);
 </script></body></html>
