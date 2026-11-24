@@ -1282,9 +1282,10 @@ function fitCar(car) {
   if (!car || !car.classList.contains("fit")) return;
   var track = car.querySelector(".track"), slides = track.children, i = Math.round(track.scrollLeft / (track.clientWidth || 1));
   var img = slides[i] && slides[i].querySelector("img"); if (!img || !img.naturalWidth) return;
-  var r = img.naturalWidth / img.naturalHeight, w = car.clientWidth, h = Math.min(w / r, Math.min(window.innerHeight * 0.72, 640));
+  // Et billede på højkant må ikke være højere end et liggende billede i fuld bredde (4:3)
+  var r = img.naturalWidth / img.naturalHeight, w = car.clientWidth - 8, h = Math.min(w / r, w * 0.75, 640);
   car.style.setProperty("--h", Math.round(h) + "px");
-  var side = Math.max(0, (w - h * r) / 2), count = car.querySelector(".count"), prev = car.querySelector(".arrow.prev"), next = car.querySelector(".arrow.next");
+  var side = Math.max(0, (w - h * r) / 2) + 4, count = car.querySelector(".count"), prev = car.querySelector(".arrow.prev"), next = car.querySelector(".arrow.next");
   if (count) count.style.right = (side + 8) + "px"; if (prev) prev.style.left = (side + 8) + "px"; if (next) next.style.right = (side + 8) + "px";
 }
 function wireCarousels() {
@@ -1296,7 +1297,8 @@ function wireCarousels() {
       var i = Math.round(track.scrollLeft / track.clientWidth);
       dots.forEach(function (d, j) { d.classList.toggle("on", i === j); });
       if (count) count.textContent = (i + 1) + "/" + dots.length;
-      if (i !== last) { last = i; fitCar(car); }
+      // Højden tilpasses først, når swipet er slut – ellers kan billederne gå skævt i hinanden
+      clearTimeout(car._ft); car._ft = setTimeout(function () { if (i !== last) { last = i; fitCar(car); } }, 140);
     }, { passive: true });
   });
 }
@@ -3984,7 +3986,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 231;
+var APP_VERSION = 232;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

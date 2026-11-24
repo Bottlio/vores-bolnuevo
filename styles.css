@@ -1079,3 +1079,5 @@ footer.foot .footlabel:first-child{margin-top:0}
 .car.fit .phw{position:relative;display:block;max-width:100%}
 .car.fit .phw img{display:block}
 .car.fit .phw img{width:auto;height:auto;max-width:100%;max-height:var(--h,72vh);border-radius:10px;object-fit:fill}
+/* Lille mellemrum mellem billederne, så de ikke flyder sammen, når man swiper */
+.car.fit .slide{padding:0 4px;box-sizing:border-box}
