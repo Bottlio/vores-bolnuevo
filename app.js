@@ -1419,7 +1419,7 @@ function aktCard(a) {
   if (canEdit && !past) btns += '<button class="linkbtn" type="button" data-akedit="' + esc(a.id) + '">Ret</button>' +
     (a.cancelled ? "" : '<button class="linkbtn danger-t" type="button" data-akcancel="' + esc(a.id) + '">' + (ui.akConfirm === a.id ? "Tryk igen for at aflyse" : "Aflys") + "</button>");
   if (canEdit) btns += '<button class="linkbtn danger-t" type="button" data-akdel="' + esc(a.id) + '">' + (ui.akDelConfirm === a.id ? "Tryk igen for at slette helt" : "Slet") + "</button>";
-  return '<article class="akcard' + (a.cancelled ? " cancelled" : "") + '"><p class="aktime">' + hhmm(st) + (en ? "–" + hhmm(en) : "") + '</p><h3>' + esc(a.title) + "</h3>" + (a.series_id ? '<p class="akfast">Fast hver uge</p>' : "") +
+  return '<article class="akcard' + (a.cancelled ? " cancelled" : "") + '"><p class="aktime">' + hhmm(st) + (en ? "–" + hhmm(en) : "") + '</p><h3>' + esc(a.title) + "</h3>" +
     (a.place ? '<p class="akplace">' + esc(a.place) + "</p>" : "") + (a.description ? '<p class="akdesc">' + esc(a.description) + "</p>" : "") +
     status + who + (btns ? '<div class="akbtns">' + btns + "</div>" : "") + "</article>";
 }
@@ -3501,7 +3501,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 202;
+var APP_VERSION = 203;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
