@@ -783,11 +783,21 @@ function inAppNote() {
     (IS_ANDROID ? 'Tryk så på de tre prikker i Chrome og vælg <strong>Føj til startskærm</strong>.' : 'Tryk så på Del-knappen og vælg <strong>Føj til hjemmeskærm</strong>.') + '</p>' +
     '<button class="linkbtn" type="button" id="inapp-hide">Skjul</button></div>';
 }
+// Samme toppe med billede og "Hej …" på menuen, guidens forside og siderne fra menuen
+function heroHtml() {
+  if (!me) return "";
+  var hero = "";
+  if (ui.loaded) {
+    var spots = places.filter(function (p) { return !isApt(p.cat); });
+    var hotel = places.filter(function (p) { return p.cat === "lejligheden" && p.photos && p.photos.length; })[0];
+    hero = hotel ? photoUrl(hotel.photos[0]) : coverFor(spots);
+  }
+  return '<section class="hero"' + (hero ? ' style="--hero:url(&quot;' + esc(hero) + '&quot;)"' : "") + '><div class="herotext"><p>Hej ' + esc(me.name || "") + '</p><p class="herosub">Andel ' + esc(me.label) + "</p></div></section>";
+}
 function renderHome() {
   var spots = places.filter(function (p) { return !isApt(p.cat); });
   var hotel = places.filter(function (p) { return p.cat === "lejligheden" && p.photos && p.photos.length; })[0];
-  var hero = hotel ? photoUrl(hotel.photos[0]) : coverFor(spots);
-  setTop(headerHtml() + '<section class="hero"' + (hero ? ' style="--hero:url(&quot;' + esc(hero) + '&quot;)"' : "") + '><div class="herotext"><p>Hej ' + esc(me.name || "") + '</p><p class="herosub">Andel ' + esc(me.label) + "</p></div></section>");
+  setTop(headerHtml() + heroHtml());
   toolbar(true);
   var html = "";
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
@@ -1293,7 +1303,7 @@ var ICON_SHIELD = licon('<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V
 var ICON_ADMIN = licon('<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/>');
 var ICON_UPLOAD = licon('<path d="M12 16V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>');
 function renderGate() {
-  setTop(headerHtml()); toolbar(false);
+  setTop(headerHtml() + (ui.member && ["akt", "udstyr", "sortbog"].indexOf(ui.page) >= 0 ? heroHtml() : "")); toolbar(false);
   var html = "";
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
   html += screenNote() + inAppNote();
@@ -1334,11 +1344,10 @@ var MENU = [
   ["sortbog", ICON_BOOK, "Den sorte bog", "Er noget gået i stykker, eller mangler der noget?"]
 ];
 function renderMenu() {
-  setTop(headerHtml()); toolbar(false);
+  setTop(headerHtml() + heroHtml()); toolbar(false);
   var html = "";
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
   html += screenNote() + inAppNote();
-  html += '<section class="menuhead"><h2>Hej' + (me && me.name ? " " + esc(me.name) : "") + "</h2>" + (me ? '<p class="hint">Andel ' + esc(me.label) + "</p>" : "") + "</section>";
   var now = new Date(), MDA = ["jan.", "feb.", "mar.", "apr.", "maj", "jun.", "jul.", "aug.", "sep.", "okt.", "nov.", "dec."], WDA = ["søn", "man", "tir", "ons", "tor", "fre", "lør"];
   var deco = {
     ahbooking: '<img class="mlogo" src="logo-ah.png" alt="">',
@@ -3484,7 +3493,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 200;
+var APP_VERSION = 201;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

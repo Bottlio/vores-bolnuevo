@@ -953,3 +953,4 @@ footer.foot .footlabel:first-child{margin-top:0}
   .akcol .akppl{max-width:100%}
 }
 @media (min-width:900px){.akcol .akmeet{display:none}.akcol .akst{font-size:.9rem}.akcol .akplace{font-size:.92rem}}
+.akhead{margin-top:16px}.menugrid{margin-top:4px}
