@@ -1737,7 +1737,7 @@ function sortbogPageHtml() {
   if (sbData.err) h += '<p class="error">' + esc(sbData.err) + "</p>";
   var f = ui.sbFilter || "open", open = sbData.list.filter(function (d) { return d.status !== "loest"; }), done = sbData.list.filter(function (d) { return d.status === "loest"; });
   var ord = { rod: 0, gul: 1, gron: 2 };
-  var srt = ui.sbSort || (f === "open" ? "prio" : "date");
+  var srt = ui.sbSort || "date";
   var byDate = function (a, b) { return String(b.created_at).localeCompare(String(a.created_at)); };
   var list = (f === "open" ? open : done).slice().sort(srt === "prio" ? function (a, b) { return (ord[a.priority] - ord[b.priority]) || byDate(a, b); } : srt === "old" ? function (a, b) { return byDate(b, a); } : byDate);
   h += '<div class="sbtabs"><button type="button" class="chip' + (f === "open" ? " on" : "") + '" data-sbf="open">Åbne sager (' + open.length + ')</button><button type="button" class="chip' + (f === "done" ? " on" : "") + '" data-sbf="done">Løste (' + done.length + ")</button>" +
@@ -3915,7 +3915,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 223;
+var APP_VERSION = 224;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
