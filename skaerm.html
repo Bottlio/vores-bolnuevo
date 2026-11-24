@@ -71,7 +71,7 @@ aside .box.gcard{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;o
 .gimg{flex:1 1 auto;min-height:6em;border-radius:10px;background:var(--sea) center/cover no-repeat;position:relative;overflow:hidden}
 .gimg .gk{position:absolute;left:.6em;top:.6em;background:rgba(255,255,255,.92);color:var(--sea);font-weight:700;font-size:.8em;padding:.2em .6em;border-radius:999px}
 .gtxt{padding-top:.6em}.gtxt b{font-family:var(--display);font-size:1.25em;display:block}
-.gtxt .gt{color:var(--muted)}.gtxt .gs{color:#e0a100;font-weight:700;margin-top:.15em}
+.gtxt .gt{color:var(--muted)}.gtxt .gs{color:#e0a100;font-weight:700;margin-top:.15em}.gtxt .gn{color:var(--fg);font-family:var(--display);font-size:1.1em;margin-right:.15em}
 .gdots{display:flex;gap:.35em;justify-content:center;margin-top:.5em}.gdots i{width:.45em;height:.45em;border-radius:50%;background:var(--line)}.gdots i.on{background:var(--sea)}aside .box.sort{flex:1 1 auto;overflow:hidden}
 .qr{display:flex;gap:1vw;align-items:center}
 .qr svg{width:min(5.5vw,10vh);height:min(5.5vw,10vh);flex:none}
@@ -206,12 +206,12 @@ var GUIDE=[],GI=0,CATN={spisesteder:"Spisested",strande:"Strand",natur:"Natur og
 function notes(){var C=window.BOLNUEVO||{};fetch(C.supabaseUrl+"/rest/v1/rpc/screen_notices",{method:"POST",headers:{"apikey":C.supabaseKey,"Authorization":"Bearer "+C.supabaseKey,"Content-Type":"application/json"},body:"{}"})
  .then(function(r){return r.json()}).then(function(rows){if(!Array.isArray(rows))return;document.getElementById("notes").innerHTML=rows.length?rows.map(function(n){return '<div class="note"><b>'+E(n.title)+'</b>'+(n.body?'<p>'+E(n.body)+'</p>':'')+'</div>'}).join(""):'<p class="empty">Ingen opslag lige nu.</p>'}).catch(function(){});}
 function guide(){var C=window.BOLNUEVO||{};fetch(C.supabaseUrl+"/functions/v1/screen-guide",{headers:{"apikey":C.supabaseKey}})
- .then(function(r){return r.json()}).then(function(rows){if(!Array.isArray(rows))return;GUIDE=rows.filter(function(x){return x.img}).concat(rows.filter(function(x){return !x.img})).slice(0,8);GI=0;showGuide();}).catch(function(){});}
+ .then(function(r){return r.json()}).then(function(rows){if(!Array.isArray(rows))return;GUIDE=rows.filter(function(x){return x.img&&x.score}).slice(0,8);GI=0;showGuide();}).catch(function(){});}
 function stars(v){var n=Math.round(v||0);return "★★★★★".slice(0,n)+'<span style="color:var(--line)">'+"★★★★★".slice(n)+'</span>';}
 function showGuide(){var el=document.getElementById("guide");if(!GUIDE.length){el.innerHTML='<p class="empty">Intet nyt endnu.</p>';return;}
  var g=GUIDE[GI%GUIDE.length];
- el.innerHTML='<div class="gimg"'+(g.img?' style="background-image:url(&quot;'+E(g.img)+'&quot;)"':'')+'><span class="gk">'+(g.kind==="nyt"?"Nyt sted":"Ny vurdering")+'</span></div>'+
-  '<div class="gtxt"><b>'+E(g.name)+'</b><span class="gt">'+E([CATN[g.cat]||"",g.town||""].filter(Boolean).join(" · "))+'</span>'+(g.score?'<p class="gs">'+stars(g.score)+' '+String(g.score).replace(".",",")+'</p>':'')+'</div>'+
+ el.innerHTML='<div class="gimg"'+(g.img?' style="background-image:url(&quot;'+E(g.img)+'&quot;)"':'')+'></div>'+
+  '<div class="gtxt"><b>'+E(g.name)+'</b><span class="gt">'+E([CATN[g.cat]||"",g.town||""].filter(Boolean).join(" · "))+'</span>'+(g.score?'<p class="gs"><span class="gn">'+String(g.score).replace(".",",")+'</span> '+stars(g.score)+'</p>':'')+'</div>'+
   '<div class="gdots">'+GUIDE.map(function(x,i){return '<i class="'+(i===GI%GUIDE.length?'on':'')+'"></i>'}).join("")+'</div>';}
 setInterval(function(){GI++;showGuide();},10000);
 tick();refresh();notes();guide();setInterval(notes,120000);setInterval(guide,300000);setInterval(tick,10000);setInterval(refresh,60000);
