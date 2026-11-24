@@ -182,7 +182,7 @@ footer{display:flex;justify-content:space-between;color:var(--muted);font-size:.
 .gvt>span{display:block;color:var(--muted);font-size:.9em;margin-top:.2em}
 .gvs{margin-top:.35em;color:var(--ochre);font-size:.95em}.gvs .gn{color:var(--sea);font-weight:700;margin-right:.3em}
 .gvs .gvn{color:var(--muted);font-size:.9em}
-.gvf{margin-top:.3em;font-size:.88em;color:var(--fg)}
+.gvf{margin-top:.25em;font-size:.88em;color:var(--fg)}.gvdist{color:var(--muted)}.gvwarn{color:var(--red);font-weight:700}
 .gvs.none{color:var(--muted);font-size:.85em;font-style:italic}
 .gvd{position:fixed;inset:0;z-index:11;background:rgba(0,0,0,.5);display:grid;place-items:center}
 .gvd[hidden]{display:none}
@@ -392,7 +392,12 @@ function gvScore(x){return x.score!=null?'<p class="gvs"><span class="gn">'+Stri
 // Type (fx Restaurant, Bar/café, Strandbar) og hvornår køkkenet åbner om aftenen
 var GV_SUB={restaurant:"Restaurant",barcafe:"Bar/café",strandbar:"Strandbar",is:"Is og bageri",bystrand:"Bystrand",bugt:"Bugt og vig",naturstrand:"Naturstrand",udsigt:"Udsigtspunkt",vandretur:"Vandretur og sti",fanomen:"Naturfænomen",naturpark:"Naturpark",supermarked:"Supermarked",marked:"Marked"};
 function gvType(x){return x.subcat?(GV_SUB[x.subcat]||""):"";}
-function gvFacts(x){if(x.cat!=="spisesteder")return "";var f=[];if(x.tidlig==="ja")f.push("Køkken åbner før kl. 20");else if(x.tidlig==="nej")f.push("Køkken åbner efter kl. 20");if(x.frokost==="ja")f.push("Frokoståbent");return f.length?'<p class="gvf">'+E(f.join(" · "))+'</p>':"";}
+function gvDist(x){if(x.lat==null)return "";var k=x.drive_km!=null?+x.drive_km:gvKm(x);var t=(k<10?k.toFixed(1).replace(".",","):Math.round(k))+" km fra hotellet";if(x.drive_min)t+=" · "+x.drive_min+" min. i bil";return t;}
+function gvFacts(x){var h="";var d=gvDist(x);if(d)h+='<p class="gvf gvdist">'+E(d)+'</p>';
+ if(x.cat==="spisesteder"){var f=[];if(x.tidlig==="ja")f.push("Køkken åbner før kl. 20");else if(x.tidlig==="nej")f.push("Køkken åbner efter kl. 20");if(x.frokost==="ja")f.push("Frokoståbent");
+  if(f.length)h+='<p class="gvf">'+E(f.join(" · "))+'</p>';
+  if(x.saeson==="ja")h+='<p class="gvf gvwarn">Sæsonlukket – tjek om der er åbent</p>';else if(x.saeson==="nej")h+='<p class="gvf">Åbent hele året</p>';}
+ return h;}
 function gvMaps(p){if(p.maps_url)return p.maps_url;var where=[p.area&&p.area!==p.town?p.area:"",p.town||(p.area?"":"Mazarrón")].filter(Boolean).join(", ");
  var byC=["natur","parkering","opladning"].indexOf(p.cat)>=0;var q=(p.lat==null||!byC)?(p.name+", "+where+", España"):(p.lat+","+p.lon);
  return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q);}
@@ -400,8 +405,8 @@ function gvQR(t){try{var q=qrcode(0,"M");q.addData(t);q.make();return q.createSv
 function gvPlace(id){var x=(GV.all||[]).filter(function(p){return p.id===id})[0];if(!x)return;gvIdle();
  var cn=(GCATS.filter(function(c){return c[0]===x.cat})[0]||[,""])[1];
  var im=document.getElementById("gvdimg");im.style.backgroundImage=x.big||x.img?'url("'+(x.big||x.img)+'")':"none";im.textContent="";
- document.getElementById("gvdt").innerHTML='<h3>'+E(x.name)+'</h3><p class="gvmeta">'+E([gvType(x)||cn,x.town||"",x.drive_min?x.drive_min+" min. i bil":""].filter(Boolean).join(" · "))+'</p>'+
-  gvScore(x)+gvFacts(x)+(x.score!=null&&x.n?'<p class="gvmeta">'+x.n+(x.n===1?' vurdering':' vurderinger')+' fra andelshaverne</p>':'')+
+ document.getElementById("gvdt").innerHTML='<h3>'+E(x.name)+'</h3><p class="gvmeta">'+E([gvType(x)||cn,x.town||""].filter(Boolean).join(" · "))+'</p>'+
+  gvScore(x)+gvFacts(x)+
   (x.note?'<p class="gvnote">'+E(x.note)+'</p>':'')+
   '<div class="gvqrs"><div>'+gvQR(APP_URL+"#sted/"+encodeURIComponent(x.id))+'Åbn i appen</div><div>'+gvQR(gvMaps(x))+'Google Maps</div></div>'+
   '<button type="button" class="ovclose" id="gvdclose">Luk</button>';
