@@ -1043,7 +1043,15 @@ function render() {
   if (detail) {
     html += '<div class="bar detailbar" id="fullbar"></div>';
   } else if (searching) {
-    html += '<div class="bar" id="fullbar"><div class="row"><strong>' + list.length + (list.length === 1 ? " sted" : " steder") + ' matcher "' + esc(ui.q.trim()) + '"</strong></div></div>';
+    // Byer og områder (fx Lorca, Totana) er ikke steder – find dem også
+    var hitW = function (n) { var h = String(n || "").toLowerCase(); return words.every(function (w) { return h.indexOf(w) >= 0; }); };
+    var hitTowns = allTownNames().filter(hitW), hitRegions = regionNames().filter(function (r) { return r !== NO_REGION && hitW(r) && townsInRegion(r).length > 1; });
+    var nAreas = hitTowns.length + hitRegions.length, cnt = [];
+    if (list.length || !nAreas) cnt.push(list.length + (list.length === 1 ? " sted" : " steder"));
+    if (hitTowns.length) cnt.push(hitTowns.length + (hitTowns.length === 1 ? " by" : " byer"));
+    if (hitRegions.length) cnt.push(hitRegions.length + (hitRegions.length === 1 ? " område" : " områder"));
+    html += '<div class="bar" id="fullbar"><div class="row"><strong>' + cnt.join(" og ") + ' matcher "' + esc(ui.q.trim()) + '"</strong></div></div>';
+    if (nAreas) html += '<div class="towns searchtowns">' + hitRegions.map(function (r) { return areaCard("region", r, ui.status); }).join("") + hitTowns.map(function (n) { return areaCard("town", n, ui.status); }).join("") + "</div>";
   } else html += '<div class="bar" id="fullbar">' + f + "</div>";
   slimBar(summary, f, list ? list.length : null);
 
@@ -1087,7 +1095,7 @@ function render() {
   html += '<div class="list' + (detail ? "" : " grid") + '">';
   if (!ui.loaded) html += '<p class="empty-state">Henter steder…</p>';
   else if (!list.length && inApt) html += '<p class="empty-state">' + (ui.cat === "vores" ? "Intet om jeres lejlighed endnu. Tryk \"+ Nyt sted\" for at lægge billeder og noter om jeres lejlighed ind – det kan kun jeres andel se." : "Ingen billeder af hotellet endnu.") + "</p>";
-  else if (!list.length && searching && !detail) html += '<p class="empty-state">Ingen steder matcher søgningen.</p>';
+  else if (!list.length && searching && !detail) html += nAreas ? "" : '<p class="empty-state">Ingen steder matcher søgningen.</p>';
   else if (!list.length && listView && ui.view !== "kort" && !((inTowns || inTrips) && (ui.town || ui.region))) html += '<p class="empty-state">' + (ui.status === "wish" ? "Ingen ønsker her endnu." : "Intet her endnu.") + (ui.editor ? ' Tryk "+ Nyt sted" for at tilføje et.' : "") + "</p>";
   // Mens stedet rettes, vises kun redigeringen – ikke selve stedet nedenunder
   var editingDetail = detail && ui.draft && !ui.draft.isNew && !ui.draft.wiz && ui.draft.id === detail.id;
@@ -3361,8 +3369,8 @@ document.addEventListener("click", async function (e) {
     if (!fr.error) favCounts[fp.id] = Math.max(0, (favCounts[fp.id] || 0) + (wasF ? -1 : 1));
     ui.msg = fr.error ? "Det blev ikke gemt. Prøv igen." : ""; decorate(); render(); return;
   }
-  if (t.dataset.town != null) { var tw = t.dataset.town; nav(function () { ui.place = null; ui.town = tw || null; ui.region = null; ui.sub = null; if (ui.town) ui.cat = "byer"; }); return; }
-  if (t.dataset.region != null) { var rg = t.dataset.region; nav(function () { ui.place = null; ui.region = rg || null; ui.town = null; ui.sub = null; if (ui.region && ui.cat !== "byer") ui.cat = "dagsture"; }); return; }
+  if (t.dataset.town != null) { var tw = t.dataset.town; nav(function () { ui.place = null; ui.town = tw || null; ui.region = null; ui.sub = null; if (ui.town) { ui.cat = "byer"; ui.q = ""; } }); return; }
+  if (t.dataset.region != null) { var rg = t.dataset.region; nav(function () { ui.place = null; ui.region = rg || null; ui.town = null; ui.sub = null; if (ui.region) ui.q = ""; if (ui.region && ui.cat !== "byer") ui.cat = "dagsture"; }); return; }
   if (t.dataset.fopen) { ui.fOpen = !ui.fOpen; render(); return; }
   if (t.dataset.fsun) { ui.fSun = !ui.fSun; render(); return; }
   if (t.dataset.fearly) { ui.fEarly = !ui.fEarly; render(); return; }
@@ -3550,7 +3558,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 205;
+var APP_VERSION = 206;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
