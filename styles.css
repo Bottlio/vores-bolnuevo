@@ -999,3 +999,25 @@ footer.foot .footlabel:first-child{margin-top:0}
 .tgb.akt.cancel{background:#9aa3a4;text-decoration:line-through}
 .tgb small{display:block;margin-top:auto;opacity:.85;font-size:.95em}
 .akpick .akcard{border:0;padding:0;box-shadow:none}
+/* Den sorte bog */
+.sbtabs,.sbareas{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}
+.sbtabs .chip.on,.sbareas .chip.on{background:var(--sea);border-color:var(--sea);color:var(--surface)}
+.wizopt.on{border-color:var(--sea);box-shadow:inset 0 0 0 1px var(--sea);background:color-mix(in srgb,var(--sea) 7%,var(--surface))}
+.sblist{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.sbcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
+.sbcard.loest{opacity:.8}
+.sbcard h3{margin:8px 0 4px;font-size:1.05rem}
+.sbtop{display:flex;align-items:center;gap:8px;font-size:.82rem}
+.sbdate{margin-left:auto;color:var(--muted)}
+.sbprio{font-weight:700;padding:2px 8px;border-radius:999px;color:#fff}
+.sbprio.rod,.sbdot.rod{background:#b3402f}.sbprio.gul,.sbdot.gul{background:#c9961a}.sbprio.gron,.sbdot.gron{background:#2e7d4f}
+.sbstat{color:var(--muted);border:1px solid var(--line);padding:1px 8px;border-radius:999px}
+.sbstat.loest{color:#2e7d4f;border-color:#2e7d4f}
+.sbdesc{margin:4px 0 8px;white-space:pre-wrap}
+.sbpics img{height:72px;width:auto;border-radius:8px;display:block}
+.sbwho,.sbhandl{font-size:.85rem;color:var(--muted);margin:4px 0}
+.sbadm{border-top:1px solid var(--line);margin-top:10px;padding-top:8px;display:grid;gap:6px}
+.sbadm label{display:flex;flex-direction:column;gap:3px;font-size:.85rem}
+.sbadm label.akcheck{flex-direction:row;align-items:center;gap:6px}
+.sbdot{width:22px;height:22px;border-radius:50%;flex:none}
+.qthumb .sbrm{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:1rem;line-height:1;cursor:pointer}
