@@ -68,7 +68,9 @@ aside .box.gcard{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;o
 .note{border-bottom:1px solid var(--line);padding:.45em 0}.note:last-child{border-bottom:0}
 .note b{display:block;font-size:1.05em}.note p{margin:.15em 0 0;color:var(--muted);line-height:1.35}
 #guide{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
-.gimg{flex:1 1 auto;min-height:6em;border-radius:10px;background:var(--sea) center/cover no-repeat;position:relative;overflow:hidden}
+.gimg{flex:1 1 auto;min-height:9em;border-radius:10px;background:#1b2b2e;position:relative;overflow:hidden}
+.gimg .gbg{position:absolute;inset:-20px;background:center/cover no-repeat;filter:blur(18px) brightness(.75);transform:scale(1.1)}
+.gimg img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
 .gimg .gk{position:absolute;left:.6em;top:.6em;background:rgba(255,255,255,.92);color:var(--sea);font-weight:700;font-size:.8em;padding:.2em .6em;border-radius:999px}
 .gtxt{padding-top:.6em}.gtxt b{font-family:var(--display);font-size:1.25em;display:block}
 .gtxt .gt{color:var(--muted)}.gtxt .gs{color:#e0a100;font-weight:700;margin-top:.15em}.gtxt .gn{color:var(--fg);font-family:var(--display);font-size:1.1em;margin-right:.15em}
@@ -210,7 +212,7 @@ function guide(){var C=window.BOLNUEVO||{};fetch(C.supabaseUrl+"/functions/v1/sc
 function stars(v){var n=Math.round(v||0);return "★★★★★".slice(0,n)+'<span style="color:var(--line)">'+"★★★★★".slice(n)+'</span>';}
 function showGuide(){var el=document.getElementById("guide");if(!GUIDE.length){el.innerHTML='<p class="empty">Intet nyt endnu.</p>';return;}
  var g=GUIDE[GI%GUIDE.length];
- el.innerHTML='<div class="gimg"'+(g.img?' style="background-image:url(&quot;'+E(g.img)+'&quot;)"':'')+'></div>'+
+ el.innerHTML='<div class="gimg"><div class="gbg" style="background-image:url(&quot;'+E(g.img)+'&quot;)"></div><img src="'+E(g.img)+'" alt=""></div>'+
   '<div class="gtxt"><b>'+E(g.name)+'</b><span class="gt">'+E([CATN[g.cat]||"",g.town||""].filter(Boolean).join(" · "))+'</span>'+(g.score?'<p class="gs"><span class="gn">'+String(g.score).replace(".",",")+'</span> '+stars(g.score)+'</p>':'')+'</div>'+
   '<div class="gdots">'+GUIDE.map(function(x,i){return '<i class="'+(i===GI%GUIDE.length?'on':'')+'"></i>'}).join("")+'</div>';}
 setInterval(function(){GI++;showGuide();},10000);
