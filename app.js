@@ -376,7 +376,7 @@ function carousel(p) {
     // Jeres egne billeder: mærke nede til højre med hvem der kan se det – tryk for at skifte
     if (row && me && row.id && row.andel_id === me.andel && !canSetVis(row.owner === ui.user.id)) rb += '<span class="visbtn carvis visro v-' + esc(row.visibility) + '">' + esc(VIS_NAMES[row.visibility] || row.visibility) + "</span>";
     else if (row && me && row.id && row.andel_id === me.andel) rb += '<button type="button" class="visbtn carvis v-' + esc(row.visibility) + '" data-cvis="' + esc(row.id) + '" title="Hvem kan se billedet? Tryk for at skifte">' + esc(VIS_NAMES[row.visibility] || row.visibility) + "</button>" + helpBtn(row.visibility === "lejlighed" || (row.kind === "place" && isAptPlace(row.target)) ? "photovisapt" : "photovis", "onphoto");
-    return '<div class="slide">' + rb + '<img src="' + u + '" alt="' + esc(p.name) + (ph.length > 1 ? ", billede " + (i + 1) : "") + '" loading="lazy" decoding="async">' + credit + "</div>";
+    return '<div class="slide"><span class="phw">' + rb + '<img src="' + u + '" alt="' + esc(p.name) + (ph.length > 1 ? ", billede " + (i + 1) : "") + '" loading="lazy" decoding="async">' + credit + "</span></div>";
   }).join("") + "</div>";
   if (ph.length > 1) {
     html += '<span class="count">1/' + ph.length + '</span><button class="arrow prev" type="button" data-step="-1" aria-label="Forrige billede">‹</button><button class="arrow next" type="button" data-step="1" aria-label="Næste billede">›</button>';
@@ -1276,17 +1276,31 @@ document.addEventListener("click", function (e) {
   if (t.id === "q-clear" || t.dataset.tb === "clear") { closeSearch(); if (tbInput) tbInput.focus(); return; }
 });
 
+// Rammen følger billedet: højden tilpasses det billede, der vises – stående billeder bliver smallere, ingen sløret fyld.
+// Gælder stedets egen side og telefonen; i gitteret på en bred skærm beholder kortene ens højde.
+function fitCar(car) {
+  if (!car || !car.classList.contains("fit")) return;
+  var track = car.querySelector(".track"), slides = track.children, i = Math.round(track.scrollLeft / (track.clientWidth || 1));
+  var img = slides[i] && slides[i].querySelector("img"); if (!img || !img.naturalWidth) return;
+  var r = img.naturalWidth / img.naturalHeight, w = car.clientWidth, h = Math.min(w / r, Math.min(window.innerHeight * 0.72, 640));
+  car.style.setProperty("--h", Math.round(h) + "px");
+  var side = Math.max(0, (w - h * r) / 2), count = car.querySelector(".count"), prev = car.querySelector(".arrow.prev"), next = car.querySelector(".arrow.next");
+  if (count) count.style.right = (side + 8) + "px"; if (prev) prev.style.left = (side + 8) + "px"; if (next) next.style.right = (side + 8) + "px";
+}
 function wireCarousels() {
   root.querySelectorAll("[data-car]").forEach(function (car) {
     var track = car.querySelector(".track"), dots = car.querySelectorAll(".dot"), count = car.querySelector(".count");
-    if (!dots.length) return;
+    if (car.closest(".detailcard") || window.innerWidth < 700) { car.classList.add("fit"); fitCar(car); }
+    var last = 0;
     track.addEventListener("scroll", function () {
       var i = Math.round(track.scrollLeft / track.clientWidth);
       dots.forEach(function (d, j) { d.classList.toggle("on", i === j); });
       if (count) count.textContent = (i + 1) + "/" + dots.length;
+      if (i !== last) { last = i; fitCar(car); }
     }, { passive: true });
   });
 }
+window.addEventListener("resize", function () { root.querySelectorAll(".car.fit").forEach(fitCar); });
 
 /* ---------- top, bund, velkomst ---------- */
 function navBtns() {
@@ -3970,7 +3984,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 230;
+var APP_VERSION = 231;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -3997,8 +4011,10 @@ checkForUpdate();
 /* Slørret baggrund bag hvert billede, sat når billedet er hentet */
 document.addEventListener("load", function (e) {
   var t = e.target;
-  if (t && t.tagName === "IMG" && t.parentNode && t.parentNode.classList && t.parentNode.classList.contains("slide")) {
-    t.parentNode.style.setProperty("--src", 'url("' + (t.currentSrc || t.src).replace(/"/g, "%22") + '")');
+  var sl = t && t.tagName === "IMG" && t.closest && t.closest(".slide");
+  if (sl) {
+    sl.style.setProperty("--src", 'url("' + (t.currentSrc || t.src).replace(/"/g, "%22") + '")');
+    fitCar(sl.closest(".car"));
   }
 }, true);
 

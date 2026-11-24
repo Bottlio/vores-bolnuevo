@@ -1071,3 +1071,11 @@ footer.foot .footlabel:first-child{margin-top:0}
 }
 @media (max-width:520px){ .helpmodal.pop .akrow2 input[type=checkbox]{width:20px;height:20px;min-height:0;flex:none} .helpmodal.pop .akrow2 .akcheck{white-space:nowrap} }
 @media (max-width:520px){ .helpmodal.pop .akrow2 label{text-align:left;align-items:flex-start} }
+/* Rammen følger billedet (stedets side og telefon) – ingen sløret fyld */
+.slide .phw{display:contents}
+.car.fit .track{height:var(--h,auto);transition:height .25s ease;align-items:center;border-radius:0}
+.car.fit .slide{aspect-ratio:auto;max-height:none;height:100%;background:none;display:flex;align-items:center;justify-content:center}
+.car.fit .slide::before{display:none}
+.car.fit .phw{position:relative;display:block;max-width:100%}
+.car.fit .phw img{display:block}
+.car.fit .phw img{width:auto;height:auto;max-width:100%;max-height:var(--h,72vh);border-radius:10px;object-fit:fill}
