@@ -1460,11 +1460,16 @@ function aktPageHtml() {
   h += '<p class="notice">Test: aktiviteter, du opretter her, er rigtige og kan ses af alle andre testere.</p>';
   if (aktData.err) h += '<p class="error">' + esc(aktData.err) + "</p>";
   if (ui.akForm) h += aktFormHtml();
-  // Ugevisning: dagene fra venstre mod højre, pile eller swipe mellem ugerne
+  h += weekBlockHtml(aktData.list, aktCard, "Intet planlagt");
+  return h + '<div class="row akback"><button class="btn" type="button" data-menu="menu">Tilbage til menuen</button></div>';
+}
+// Ugevisning (fælles for aktiviteter og udstyr): dagene fra venstre mod højre, pile eller swipe mellem ugerne
+function weekBlockHtml(list, card, emptyTxt) {
+  var h = "";
   var wk = ui.akWeek || 0, ws = weekStart(wk), we = new Date(ws); we.setDate(ws.getDate() + 6);
   var days = [], todayK = dayKey(new Date());
   for (var i = 0; i < 7; i++) { var d = new Date(ws); d.setDate(ws.getDate() + i); days.push({ d: d, k: dayKey(d), items: [] }); }
-  aktData.list.forEach(function (a) { var k = dayKey(new Date(a.starts_at)); days.forEach(function (x) { if (x.k === k) x.items.push(a); }); });
+  list.forEach(function (a) { var k = dayKey(new Date(a.starts_at)); days.forEach(function (x) { if (x.k === k) x.items.push(a); }); });
   // Valgt dag: den man har trykket på – ellers første dag fra i dag med noget på programmet
   var sel = days.filter(function (x) { return x.k === ui.akDay; })[0] || days.filter(function (x) { return x.k >= todayK && x.items.length; })[0] || days.filter(function (x) { return x.k === todayK; })[0] || days[0];
   var wlabel = ws.getMonth() === we.getMonth() ? ws.getDate() + ".–" + we.getDate() + ". " + DA_MON[we.getMonth()] : ws.getDate() + ". " + DA_MON[ws.getMonth()] + " – " + we.getDate() + ". " + DA_MON[we.getMonth()];
@@ -1476,13 +1481,13 @@ function aktPageHtml() {
       return '<button type="button" role="tab" class="akdaybtn' + (x === sel ? " on" : "") + (x.k === todayK ? " today" : "") + '" data-akday="' + x.k + '" aria-selected="' + (x === sel) + '"><span class="dn">' + DA_DAY[x.d.getDay()].slice(0, 3) + '</span><span class="dd">' + x.d.getDate() + '</span><span class="dc">' + (x.items.length ? x.items.filter(function (a) { return !a.cancelled; }).map(function () { return "•"; }).join("").slice(0, 4) : "&nbsp;") + "</span></button>";
     }).join("") + "</div>" +
     // Telefon: den valgte dag under strimlen
-    '<div class="akone"><h3 class="akday">' + dayTitle(sel.d) + "</h3>" + (sel.items.length ? '<div class="aklist">' + sel.items.map(aktCard).join("") + "</div>" : '<p class="hint">Intet planlagt.</p>') + "</div>" +
+    '<div class="akone"><h3 class="akday">' + dayTitle(sel.d) + "</h3>" + (sel.items.length ? '<div class="aklist">' + sel.items.map(card).join("") + "</div>" : '<p class="hint">' + emptyTxt + ".</p>") + "</div>" +
     // Bred skærm: hele ugen i kolonner
     '<div class="akcols">' + days.map(function (x) {
       return '<div class="akcol' + (x.k === todayK ? " today" : "") + '"><p class="akch"><b>' + (x.k === todayK ? "I dag" : DA_DAY[x.d.getDay()].slice(0, 3)) + "</b> <span>" + x.d.getDate() + ". " + DA_MON[x.d.getMonth()] + "</span></p>" +
-        (x.items.length ? x.items.map(aktCard).join("") : '<p class="hint">Intet planlagt</p>') + "</div>";
+        (x.items.length ? x.items.map(card).join("") : '<p class="hint">' + emptyTxt + "</p>") + "</div>";
     }).join("") + "</div></div>";
-  return h + '<div class="row akback"><button class="btn" type="button" data-menu="menu">Tilbage til menuen</button></div>';
+  return h;
 }
 async function saveAkt(f) {
   var g = function (n) { return (f.elements[n].value || "").trim(); };
@@ -1521,58 +1526,47 @@ async function aktCancel(id) {
   ui.akConfirm = null; ui.msg = r.error ? "Aktiviteten blev ikke aflyst: " + r.error.message : "Aktiviteten er aflyst.";
   aktData = null; render();
 }
-/* ---------- Booking af udstyr: cykler og golfsæt, time for time – samme bookinger som på skærmen ---------- */
+/* ---------- Booking af udstyr: samme ugevisning som Fælles aktiviteter. "Book udstyr" åbner en formular. Samme bookinger som på skærmen ---------- */
 var bkData = null, bkLoading = false, BK_H0 = 8, BK_H1 = 20;
-function bkDay() { var d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + (ui.bkDay || 0)); return d; }
 async function loadBk() {
   if (bkLoading) return; bkLoading = true;
-  var d0 = bkDay(), d1 = new Date(d0); d1.setDate(d0.getDate() + 1);
   var r = await Promise.all([
     sb.from("equipment").select("*").eq("active", true).order("sort"),
-    sb.from("equipment_bookings").select("*").lt("starts_at", d1.toISOString()).gt("ends_at", d0.toISOString()),
-    ui.user ? sb.from("equipment_bookings").select("*, equipment(name)").eq("user_id", ui.user.id).gt("ends_at", new Date().toISOString()).order("starts_at") : Promise.resolve({ data: [] })
+    sb.from("equipment_bookings").select("*, equipment(name, kind, sort)").lt("starts_at", weekStart(AK_WEEKS).toISOString()).gt("ends_at", weekStart(0).toISOString()).order("starts_at")
   ]);
   bkLoading = false;
-  bkData = { equip: r[0].data || [], day: r[1].data || [], mine: r[2].data || [], err: (r[0].error || r[1].error) ? "Kunne ikke hente bookinger." : "" };
+  var list = (r[1].data || []).slice().sort(function (a, b) { return String(a.starts_at).localeCompare(String(b.starts_at)) || ((a.equipment || {}).sort || 0) - ((b.equipment || {}).sort || 0); });
+  bkData = { equip: r[0].data || [], list: list, err: (r[0].error || r[1].error) ? "Kunne ikke hente bookinger." : "" };
   if (ui.page === "udstyr") render();
 }
 function bkLabel(b) { var a = andelLabels[b.andel_id]; return b.lejlighed || (a ? a.split("-")[0] : ""); }
-function bkRange() { var d = bkDay(), st = new Date(d), en = new Date(d); st.setHours(ui.bkFrom || 10); en.setHours(ui.bkTo || 13); return [st, en]; }
-function bkIsFree(id) { var rg = bkRange(); return !bkData.day.some(function (b) { return b.equipment_id === id && new Date(b.starts_at) < rg[1] && new Date(b.ends_at) > rg[0]; }); }
+function bkRange() { var d = new Date((ui.bkDate || dayKey(new Date())) + "T00:00"), st = new Date(d), en = new Date(d); st.setHours(ui.bkFrom); en.setHours(ui.bkTo); return [st, en]; }
+function bkIsFree(id) { var rg = bkRange(); return !bkData.list.some(function (b) { return b.equipment_id === id && new Date(b.starts_at) < rg[1] && new Date(b.ends_at) > rg[0]; }); }
+function bkCard(b) {
+  var st = new Date(b.starts_at), en = new Date(b.ends_at), e = b.equipment || {};
+  var mine = ui.user && b.user_id === ui.user.id, can = mine || (me && me.admin), past = en < new Date();
+  return '<article class="akcard bkcard ' + (e.kind || "") + '"><p class="aktime">' + hhmm(st) + "–" + hhmm(en) + "</p><h3>" + esc(e.name || "Udstyr") + '</h3><p class="akplace">' + esc([b.name, bkLabel(b) ? "lejl. " + bkLabel(b) : ""].filter(Boolean).join(" · ")) + (b.source === "skaerm" ? " · booket på skærmen" : "") + "</p>" +
+    (can && !past ? '<div class="akbtns"><button class="linkbtn danger-t" type="button" data-bkdel="' + esc(b.id) + '">' + (ui.bkDelConfirm === b.id ? "Tryk igen for at aflyse" : "Aflys") + "</button></div>" : "") + "</article>";
+}
+function bkFormHtml() {
+  ui.bkSel = (ui.bkSel || []).filter(bkIsFree);
+  var hs = function (name, v, min, max) { var o = ""; for (var x = min; x <= max; x++) o += '<option value="' + x + '"' + (x === v ? " selected" : "") + ">" + p2(x) + ".00</option>"; return '<select name="' + name + '" data-bkt="' + name + '">' + o + "</select>"; };
+  return '<form class="panel" id="bk-form"><h2>Book udstyr</h2>' +
+    '<div class="akrow"><label>Dato<input type="date" name="date" data-bkt="date" required min="' + dayKey(new Date()) + '" value="' + esc(ui.bkDate) + '"></label>' +
+    '<label>Fra kl.' + hs("from", ui.bkFrom, BK_H0, BK_H1 - 1) + '</label><label>Til kl.' + hs("to", ui.bkTo, ui.bkFrom + 1, BK_H1) + "</label></div>" +
+    '<p class="hint">Hvad vil du låne? Vælg gerne flere. Gråt er optaget i det tidsrum.</p><div class="bkgrid">' + bkData.equip.map(function (e) {
+      var free = bkIsFree(e.id), on = ui.bkSel.indexOf(e.id) >= 0;
+      return '<button type="button" class="bkit ' + e.kind + (on ? " on" : "") + '" data-bksel="' + esc(e.id) + '"' + (free ? "" : " disabled") + ">" + esc(e.name) + (free ? "" : "<small>optaget</small>") + "</button>";
+    }).join("") + "</div>" + (ui.bkErr ? '<p class="error">' + esc(ui.bkErr) + "</p>" : "") +
+    '<div class="row"><button class="btn primary" type="submit"' + (ui.bkSel.length ? "" : " disabled") + ">Book" + (ui.bkSel.length > 1 ? " " + ui.bkSel.length + " ting" : "") + '</button><button class="btn" type="button" data-bkclose="1">Annuller</button></div></form>';
+}
 function udstyrPageHtml() {
-  if (ui.bkFrom == null) { ui.bkFrom = Math.min(19, Math.max(8, new Date().getHours() + 1)); ui.bkTo = Math.min(20, ui.bkFrom + 3); ui.bkSel = []; }
   if (!bkData) { loadBk(); return '<section class="akhead"><h2>Booking af udstyr</h2></section><p class="loading">Henter…</p>'; }
-  var d = bkDay(), h = '<section class="akhead"><h2>Booking af udstyr</h2></section><p class="notice">Test: bookinger her er rigtige og kan ses på skærmen i receptionen.</p>';
+  var h = '<section class="akhead"><h2>Booking af udstyr</h2>' + (ui.editor && !ui.bkForm ? '<button class="btn primary" type="button" data-bknew="1">+ Book udstyr</button>' : "") + "</section>";
+  h += '<p class="notice">Test: bookinger her er rigtige og kan ses på skærmen i receptionen.</p>';
   if (bkData.err) h += '<p class="error">' + esc(bkData.err) + "</p>";
-  h += '<div class="akweekbar"><button class="iconbtn" type="button" data-bkday="-1" aria-label="Forrige dag"' + ((ui.bkDay || 0) <= 0 ? " disabled" : "") + '>‹</button><div class="akwl"><strong>' + dayTitle(d) + '</strong><span>Tryk på pilene for at skifte dag</span></div><button class="iconbtn" type="button" data-bkday="1" aria-label="Næste dag"' + ((ui.bkDay || 0) >= 60 ? " disabled" : "") + ">›</button></div>";
-  // Book
-  if (ui.editor) {
-    ui.bkSel = (ui.bkSel || []).filter(bkIsFree);
-    var hs = function (name, v, min, max) { var o = ""; for (var x = min; x <= max; x++) o += '<option value="' + x + '"' + (x === v ? " selected" : "") + ">" + p2(x) + ".00</option>"; return '<select class="akppl" name="' + name + '" data-bkt="' + name + '">' + o + "</select>"; };
-    h += '<section class="panel bkform"><h3>Book</h3><div class="akrow2"><label>Fra kl. ' + hs("from", ui.bkFrom, BK_H0, BK_H1 - 1) + '</label><label>Til kl. ' + hs("to", ui.bkTo, ui.bkFrom + 1, BK_H1) + "</label></div>" +
-      '<p class="hint">Vælg hvad du vil låne – gerne flere:</p><div class="bkgrid">' + bkData.equip.map(function (e) {
-        var free = bkIsFree(e.id), on = ui.bkSel.indexOf(e.id) >= 0;
-        return '<button type="button" class="bkit ' + e.kind + (on ? " on" : "") + '" data-bksel="' + esc(e.id) + '"' + (free ? "" : " disabled") + ">" + esc(e.name) + (free ? "" : '<small>optaget</small>') + "</button>";
-      }).join("") + "</div>" + (ui.bkErr ? '<p class="error">' + esc(ui.bkErr) + "</p>" : "") +
-      '<button class="btn primary" type="button" data-bkgo="1"' + (ui.bkSel.length ? "" : " disabled") + ">Book" + (ui.bkSel.length > 1 ? " " + ui.bkSel.length + " ting" : "") + "</button></section>";
-  }
-  // Dagens oversigt
-  var ticks = ""; for (var t = BK_H0; t <= BK_H1; t += 2) ticks += '<span style="left:' + ((t - BK_H0) / (BK_H1 - BK_H0) * 100) + '%">' + p2(t) + "</span>";
-  h += '<h3 class="akday">Hvad er booket</h3><div class="bkday"><div class="bkrow bkaxis"><span class="bkn"></span><div class="bkline">' + ticks + "</div></div>" + bkData.equip.map(function (e) {
-    var blocks = bkData.day.filter(function (b) { return b.equipment_id === e.id; }).map(function (b) {
-      var st = new Date(b.starts_at), en = new Date(b.ends_at), d0 = bkDay();
-      var a = Math.max(BK_H0, st < d0 ? 0 : st.getHours() + st.getMinutes() / 60), z = Math.min(BK_H1, (en - d0) >= 86400000 ? 24 : en.getHours() + en.getMinutes() / 60);
-      if (z <= a) return "";
-      var mine = ui.user && b.user_id === ui.user.id;
-      return '<span class="bkb ' + e.kind + (mine ? " mine" : "") + '" style="left:' + ((a - BK_H0) / (BK_H1 - BK_H0) * 100) + "%;width:" + ((z - a) / (BK_H1 - BK_H0) * 100) + '%" title="' + esc((b.name || "") + " " + bkLabel(b)) + '">' + esc(bkLabel(b)) + "</span>";
-    }).join("");
-    return '<div class="bkrow"><span class="bkn">' + esc(e.name) + '</span><div class="bkline">' + blocks + "</div></div>";
-  }).join("") + "</div>";
-  // Mine bookinger
-  if (bkData.mine.length) h += '<h3 class="akday">Jeres bookinger</h3><ul class="nlist">' + bkData.mine.map(function (b) {
-    var st = new Date(b.starts_at), en = new Date(b.ends_at);
-    return '<li class="nitem"><span><strong>' + esc((b.equipment && b.equipment.name) || "") + "</strong> " + dayTitle(st) + " kl. " + hhmm(st) + "–" + hhmm(en) + '</span><button class="linkbtn danger-t" type="button" data-bkdel="' + esc(b.id) + '">' + (ui.bkDelConfirm === b.id ? "Tryk igen for at aflyse" : "Aflys") + "</button></li>";
-  }).join("") + "</ul>";
+  if (ui.bkForm) h += bkFormHtml();
+  h += weekBlockHtml(bkData.list, bkCard, "Intet booket");
   return h + '<div class="row akback"><button class="btn" type="button" data-menu="menu">Tilbage til menuen</button></div>';
 }
 async function bkBook() {
@@ -1584,8 +1578,13 @@ async function bkBook() {
     made.push(r.data.id);
   }
   if (err && made.length) await sb.from("equipment_bookings").delete().in("id", made);
-  ui.bkErr = err; if (!err) { ui.msg = made.length === 1 ? "Booket – god tur!" : made.length + " ting er booket – god tur!"; ui.bkSel = []; }
-  bkData = null; render();
+  ui.bkErr = err;
+  if (!err) {
+    ui.msg = made.length === 1 ? "Booket – god tur!" : made.length + " ting er booket – god tur!"; ui.bkSel = []; ui.bkForm = false;
+    var off = Math.floor((new Date(rg[0].getFullYear(), rg[0].getMonth(), rg[0].getDate()) - weekStart(0)) / (7 * 86400000));
+    ui.akWeek = Math.max(0, Math.min(AK_WEEKS - 1, off)); ui.akDay = dayKey(rg[0]);
+  }
+  bkData = null; render(); if (!err) window.scrollTo({ top: 0 });
 }
 async function bkDelete(id) { await sb.from("equipment_bookings").delete().eq("id", id); ui.bkDelConfirm = null; ui.msg = "Bookingen er aflyst."; bkData = null; render(); }
 function soonHtml(k) {
@@ -3513,9 +3512,14 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.edrm) { rmEditor(t.dataset.edrm); return; }
   if (t.dataset.ndel) { if (ui.nDelConfirm !== t.dataset.ndel) { ui.nDelConfirm = t.dataset.ndel; rerenderAdmin(); return; } delNotice(t.dataset.ndel); return; }
   if (t.dataset.akdel) { if (ui.akDelConfirm !== t.dataset.akdel) { ui.akDelConfirm = t.dataset.akdel; ui.akConfirm = null; render(); return; } aktDelete(t.dataset.akdel); return; }
-  if (t.dataset.bkday) { ui.bkDay = Math.max(0, Math.min(60, (ui.bkDay || 0) + parseInt(t.dataset.bkday, 10))); ui.bkErr = ""; ui.msg = ""; bkData = null; render(); return; }
+  if (t.dataset.bknew) {
+    var sd = ui.akDay && ui.akDay >= dayKey(new Date()) ? ui.akDay : dayKey(new Date());
+    ui.bkForm = true; ui.bkDate = sd; ui.bkSel = []; ui.bkErr = ""; ui.msg = "";
+    ui.bkFrom = sd === dayKey(new Date()) ? Math.min(BK_H1 - 1, Math.max(BK_H0, new Date().getHours() + 1)) : 10; ui.bkTo = Math.min(BK_H1, ui.bkFrom + 3);
+    render(); window.scrollTo({ top: 0 }); return;
+  }
+  if (t.dataset.bkclose) { ui.bkForm = false; ui.bkErr = ""; render(); return; }
   if (t.dataset.bksel) { var bi = (ui.bkSel || []).indexOf(t.dataset.bksel); if (bi >= 0) ui.bkSel.splice(bi, 1); else ui.bkSel.push(t.dataset.bksel); ui.bkErr = ""; render(); return; }
-  if (t.dataset.bkgo) { bkBook(); return; }
   if (t.dataset.bkdel) { if (ui.bkDelConfirm !== t.dataset.bkdel) { ui.bkDelConfirm = t.dataset.bkdel; render(); return; } bkDelete(t.dataset.bkdel); return; }
   if (t.dataset.akwk) { akGoWeek(parseInt(t.dataset.akwk, 10)); return; }
   if (t.dataset.akday) { ui.akDay = t.dataset.akday; render(); return; }
@@ -3526,7 +3530,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.akoff) { aktSignup(t.dataset.akoff, false); return; }
   if (t.dataset.akcancel) { if (ui.akConfirm !== t.dataset.akcancel) { ui.akConfirm = t.dataset.akcancel; render(); return; } aktCancel(t.dataset.akcancel); return; }
   if (t.dataset.menu) {
-    var mk = t.dataset.menu; ui.msg = ""; if (mk === "akt") { aktData = null; ui.akForm = false; ui.akWeek = 0; ui.akDay = null; } if (mk === "udstyr") { bkData = null; ui.bkDay = 0; ui.bkErr = ""; }
+    var mk = t.dataset.menu; ui.msg = ""; if (mk === "akt") { aktData = null; ui.akForm = false; ui.akWeek = 0; ui.akDay = null; } if (mk === "udstyr") { bkData = null; ui.bkForm = false; ui.bkErr = ""; ui.akWeek = 0; ui.akDay = null; }
     leaveDraft(function () {
       if (mk === "menu") { nav(function () { ui.menu = true; ui.page = null; ui.place = null; ui.cat = "hjem"; ui.q = ""; }); return; }
       nav(function () { ui.menu = false; ui.place = null; ui.cat = "hjem"; ui.page = mk === "guide" ? null : mk; });
@@ -3588,6 +3592,7 @@ document.addEventListener("click", async function (e) {
 root.addEventListener("input", function (e) { if (e.target.id === "adm-q") filterAdmList(); });
 root.addEventListener("change", function (e) {
   if (e.target.dataset && e.target.dataset.notify) saveNotify(e.target);
+  if (e.target.dataset && e.target.dataset.bkt === "date") { if (e.target.value) ui.bkDate = e.target.value; ui.bkErr = ""; render(); return; }
   if (e.target.dataset && e.target.dataset.bkt) { var v = parseInt(e.target.value, 10); if (e.target.dataset.bkt === "from") { ui.bkFrom = v; if (ui.bkTo <= v) ui.bkTo = Math.min(BK_H1, v + 1); } else ui.bkTo = v; ui.bkErr = ""; render(); }
 });
 root.addEventListener("submit", function (e) {
@@ -3595,6 +3600,7 @@ root.addEventListener("submit", function (e) {
   if (e.target.dataset && e.target.dataset.kmail) { e.preventDefault(); adminChangeMail(e.target); return; }
   e.preventDefault();
   if (e.target.id === "akt-form") { saveAkt(e.target); return; }
+  if (e.target.id === "bk-form") { if ((ui.bkSel || []).length) bkBook(); return; }
   if (e.target.id === "notice-form") { saveNotice(e.target); return; }
   if (e.target.id === "editor-form") { addEditor(e.target); return; }
   if (e.target.id === "editor") saveDraft();
@@ -3636,7 +3642,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 212;
+var APP_VERSION = 213;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
