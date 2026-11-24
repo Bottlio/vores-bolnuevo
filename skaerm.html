@@ -90,8 +90,9 @@ aside .box.gcard{flex:none;height:33vh;margin-top:auto;padding:0;overflow:hidden
 .gtxt .gt{color:rgba(255,255,255,.85);display:block;margin-top:.1em}
 .gtxt .gs{margin:.25em 0 0;font-weight:700;color:#ffc93c}.gtxt .gn{color:#fff;font-family:var(--display);font-size:1.15em;margin-right:.2em}
 .gdots{position:absolute;right:1em;bottom:1em;display:flex;gap:.35em}.gdots i{width:.45em;height:.45em;border-radius:50%;background:rgba(255,255,255,.45)}.gdots i.on{background:#fff}
-.note{border-bottom:1px solid var(--line);padding:.45em 0}.note:last-child{border-bottom:0}
-.note b{display:block;font-size:1.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.note p{margin:.15em 0 0;color:var(--muted);line-height:1.35}
+.note{border-bottom:1px solid var(--line);padding:.6em 0}.note:first-child{padding-top:0}.note:last-child{border-bottom:0}
+/* Opslag skal springe i øjnene: stor rød overskrift, mørk og lidt større tekst */
+.note b{display:block;font-size:1.3em;line-height:1.2;color:var(--red);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.note p{margin:.3em 0 0;color:var(--fg);font-size:1.08em;line-height:1.4}
 .qr{display:flex;gap:1vw;align-items:center}
 .qr svg{width:min(5.5vw,10vh);height:min(5.5vw,10vh);flex:none}
 .qr p{font-size:.95em;line-height:1.35}
@@ -323,7 +324,7 @@ var GUIDE=[],GI=0,CATN={spisesteder:"Spisested",strande:"Strand",natur:"Natur og
 // Uden at Nyt i guiden mister plads: vis QR-boksen kun, når der er plads til den
 function fitAside(){var a=document.querySelector("aside"),q=document.getElementById("qrbox");if(!a||!q)return;q.hidden=false;q.classList.toggle("fill",document.getElementById("notesbox").hidden);
  // Overskriften på én linje: gør skriften lidt mindre, hvis den er for lang
- document.querySelectorAll(".note b").forEach(function(b){var f=1.05;b.style.fontSize=f+"em";while(b.scrollWidth>b.clientWidth+1&&f>0.8){f-=0.025;b.style.fontSize=f.toFixed(3)+"em";}});var nb=document.getElementById("notesbox"),n=document.getElementById("notes");if(a.scrollHeight>a.clientHeight+1||(!nb.hidden&&n.scrollHeight>nb.clientHeight-parseFloat(getComputedStyle(nb).paddingTop)-parseFloat(getComputedStyle(nb).paddingBottom)+1))q.hidden=true;}
+ document.querySelectorAll(".note b").forEach(function(b){var f=1.3;b.style.fontSize=f+"em";while(b.scrollWidth>b.clientWidth+1&&f>0.8){f-=0.025;b.style.fontSize=f.toFixed(3)+"em";}});var nb=document.getElementById("notesbox"),n=document.getElementById("notes");if(a.scrollHeight>a.clientHeight+1||(!nb.hidden&&n.scrollHeight>nb.clientHeight-parseFloat(getComputedStyle(nb).paddingTop)-parseFloat(getComputedStyle(nb).paddingBottom)+1))q.hidden=true;}
 window.addEventListener("resize",fitAside);
 // Tjek igen, når skrifttyperne er hentet (teksten fylder så mere) og jævnligt, så et opslag aldrig bliver skåret af
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(function(){setTimeout(fitAside,50)});setInterval(fitAside,30000);
