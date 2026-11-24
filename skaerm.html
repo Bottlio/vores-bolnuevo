@@ -123,6 +123,13 @@ ul.lend li:last-child{border-bottom:0}
 .svppl{display:flex;gap:.3em}.svppl button{font:inherit;width:2.4em;padding:.5em 0;border-radius:8px;border:1px solid var(--line);background:var(--surface);cursor:pointer}.svppl button.on{background:var(--sea);color:#fff;border-color:var(--sea)}
 .svgo{font:inherit;font-weight:700;padding:.65em 1.6em;border-radius:10px;border:0;background:var(--sea);color:#fff;cursor:pointer;margin-top:.9em}
 .sverr{color:var(--red);font-weight:700;margin:.6em 0 0}.svok{color:var(--green);font-weight:700;font-size:1.2em}
+.crdays{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.35em}
+.crdays button{font:inherit;padding:.45em 0;border-radius:8px;border:1px solid var(--line);background:var(--surface);cursor:pointer;line-height:1.2}
+.crdays button b{display:block;font-family:var(--display)}.crdays button small{color:var(--muted);font-size:.8em}
+.crdays button.on{background:var(--sea);border-color:var(--sea);color:#fff}.crdays button.on small{color:#fff}
+.crsel{font:inherit;padding:.5em .6em;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.crchips{display:flex;flex-wrap:wrap;gap:.35em;margin-top:.35em}.crchips button{font:inherit;font-size:.9em;padding:.3em .8em;border-radius:999px;border:1px solid var(--line);background:var(--surface);cursor:pointer}
+.crtog{display:flex;gap:.35em}.crtog button{font:inherit;padding:.45em .9em;border-radius:8px;border:1px solid var(--line);background:var(--surface);cursor:pointer}.crtog button.on{background:var(--sea);color:#fff;border-color:var(--sea)}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:10}
 .ov[hidden]{display:none}
 .ovbox{background:var(--surface);border-radius:16px;padding:2vw 2.4vw;max-width:44vw;text-align:center}
@@ -217,7 +224,7 @@ function refresh(){if(LIVE){live();}else{week();}weather();var d=new Date();docu
 if(LIVE)document.getElementById("demo").textContent="TESTSIDE – aktiviteter fra appen · udlån er eksempler";
 
 var OVT=null,NAMES={akt:"Opret eller tilmeld dig en aktivitet",udstyr:"Book udstyr",guide:"Guide til området",sortbog:"Den sorte bog"};
-document.querySelector(".acts").addEventListener("click",function(e){var b=e.target.closest(".ab");if(!b)return;document.getElementById("ovh").textContent=NAMES[b.dataset.k];document.getElementById("ov").hidden=false;clearTimeout(OVT);OVT=setTimeout(closeOv,20000);});
+document.querySelector(".acts").addEventListener("click",function(e){var b=e.target.closest(".ab");if(!b)return;if(b.dataset.k==="akt"){crOpen();return;}document.getElementById("ovh").textContent=NAMES[b.dataset.k];document.getElementById("ov").hidden=false;clearTimeout(OVT);OVT=setTimeout(closeOv,20000);});
 function closeOv(){document.getElementById("ov").hidden=true;}
 document.getElementById("ov").addEventListener("click",function(e){if(e.target.id==="ov"||e.target.id==="ovclose")closeOv();});
 function wlabel(mon){var sun=new Date(mon);sun.setDate(mon.getDate()+6);var el=document.getElementById("wl");if(!el)return;
@@ -264,13 +271,13 @@ setInterval(function(){GI++;showGuide();},10000);
 var SV={id:null,lejl:null,ppl:1,lejls:null,busy:false},SVT=null;
 function fn(body){var C=window.BOLNUEVO||{};return fetch(C.supabaseUrl+"/functions/v1/screen-signup",{method:"POST",headers:{"apikey":C.supabaseKey,"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(r){return r.json()});}
 function svIdle(){clearTimeout(SVT);SVT=setTimeout(svClose,60000);}
-function svClose(){document.getElementById("sv").hidden=true;SV.id=null;clearTimeout(SVT);}
-function svOpen(id){SV={id:id,lejl:null,ppl:1,lejls:SV.lejls,busy:false,msg:"",err:""};document.getElementById("sv").hidden=false;document.getElementById("svbody").innerHTML='<p>Henter…</p>';svIdle();
+function svClose(){document.getElementById("sv").hidden=true;SV.id=null;clearTimeout(SVT);if(typeof CR!=="undefined")CR=null;}
+function svOpen(id){CR=null;SV={id:id,lejl:null,ppl:1,lejls:SV.lejls,busy:false,msg:"",err:""};document.getElementById("sv").hidden=false;document.getElementById("svbody").innerHTML='<p>Henter…</p>';svIdle();
  var p=[fn({action:"get",activity_id:id})];if(!SV.lejls)p.push(fn({action:"lejl"}));
  Promise.all(p).then(function(r){if(r[1])SV.lejls=r[1].list||[];SV.data=r[0];svDraw();}).catch(function(){document.getElementById("svbody").innerHTML='<p class="sverr">Kunne ikke hente aktiviteten.</p>';});}
 function svDraw(){var d=SV.data;if(!d||!d.activity){document.getElementById("svbody").innerHTML='<p class="sverr">'+E((d&&d.error)||"Aktiviteten findes ikke.")+'</p>';return;}
  var a=d.activity,st=new Date(a.starts_at),en=a.ends_at?new Date(a.ends_at):null,used=d.signups.reduce(function(x,y){return x+(y.people||1)},0),full=a.max_people&&used>=a.max_people,past=(en||st)<new Date();
- var h='<p class="svt">'+DAYS[st.getDay()]+' '+st.getDate()+'. '+MON[st.getMonth()]+' · kl. '+pad(st.getHours())+'.'+pad(st.getMinutes())+(en?'–'+pad(en.getHours())+'.'+pad(en.getMinutes()):'')+'</p><h2>'+E(a.title)+'</h2>'+(a.place?'<p class="svw">'+E(a.place)+'</p>':'')+(a.description?'<p>'+E(a.description)+'</p>':'');
+ var h='<p class="svt">'+DAYS[st.getDay()]+' '+st.getDate()+'. '+MON[st.getMonth()]+' · kl. '+pad(st.getHours())+'.'+pad(st.getMinutes())+(en?'–'+pad(en.getHours())+'.'+pad(en.getMinutes()):'')+'</p><h2>'+E(a.title)+'</h2>'+(a.place?'<p class="svw">'+E(a.place)+'</p>':'')+(a.creator_name?'<p class="svw">Oprettet af '+E(a.creator_name)+(a.creator_lejl?' ('+E(a.creator_lejl)+')':'')+'</p>':'')+(a.description?'<p>'+E(a.description)+'</p>':'');
  if(!a.signup){h+='<p class="svst">Ingen tilmelding – bare mød op.</p>';document.getElementById("svbody").innerHTML=h;return;}
  h+='<p class="svst '+(full?'full':'ok')+'">'+(a.max_people?(full?'Fuldt booket':used+' af '+a.max_people+' tilmeldt'):used+' tilmeldt')+'</p>';
  if(d.signups.length)h+='<ul class="svlist">'+d.signups.map(function(x){return '<li>'+E(x.name)+(x.lejl?' ('+E(x.lejl)+')':'')+(x.people>1?' ×'+x.people:'')+(x.screen?' <button type="button" data-un="'+E(x.id)+'" aria-label="Afmeld">×</button>':'')+'</li>'}).join("")+'</ul>';
@@ -282,8 +289,8 @@ function svDraw(){var d=SV.data;if(!d||!d.activity){document.getElementById("svb
  }
  document.getElementById("svbody").innerHTML=h;}
 document.getElementById("week").addEventListener("click",function(e){var c=e.target.closest(".act.tap");if(c)svOpen(c.dataset.id);});
-document.getElementById("sv").addEventListener("input",function(e){if(e.target.id==="svname"){SV.name=e.target.value;svIdle();}});
-document.getElementById("sv").addEventListener("click",function(e){svIdle();var t=e.target;
+document.getElementById("sv").addEventListener("input",function(e){svIdle();if(e.target.id==="svname"){SV.name=e.target.value;}});
+document.getElementById("sv").addEventListener("click",function(e){svIdle();if(CR)return;var t=e.target;
  if(t.id==="sv"||t.id==="svclose"){svClose();return;}
  if(t.dataset.lj){SV.lejl=t.dataset.lj;SV.err="";svDraw();return;}
  if(t.dataset.pp){SV.ppl=+t.dataset.pp;svDraw();return;}
@@ -295,6 +302,45 @@ document.getElementById("sv").addEventListener("click",function(e){svIdle();var 
    if(r.ok){SV.data.signups=r.signups;SV.msg="Du er tilmeldt – tak!";SV.name="";SV.lejl=null;SV.ppl=1;svDraw();refresh();setTimeout(function(){if(!document.getElementById("sv").hidden)svClose();},5000);}
    else{SV.err=r.error||"Det lykkedes ikke.";svDraw();}}).catch(function(){SV.busy=false;SV.err="Ingen forbindelse – prøv igen.";svDraw();});}
 });
+
+// Opret aktivitet direkte på skærmen
+var CR=null,TIMES=[];for(var hh=7;hh<=22;hh++){TIMES.push(pad(hh)+":00");TIMES.push(pad(hh)+":30");}
+function crOpen(){CR={day:0,from:"10:00",to:"",title:"",place:"",signup:true,max:0,lejl:null,name:"",err:"",busy:false};document.getElementById("sv").hidden=false;svIdle();
+ if(!SV.lejls)fn({action:"lejl"}).then(function(r){SV.lejls=r.list||[];crDraw();});crDraw();}
+function crDraw(){if(!CR)return;var t0=new Date();t0.setHours(0,0,0,0);
+ var days="";for(var i=0;i<14;i++){var d=new Date(t0);d.setDate(t0.getDate()+i);days+='<button type="button" data-cd="'+i+'"'+(CR.day===i?' class="on"':'')+'><b>'+(i===0?"I dag":i===1?"I morgen":DAYS[d.getDay()])+'</b><small>'+d.getDate()+'. '+MON[d.getMonth()]+'</small></button>';}
+ var opt=function(sel,none){return (none?'<option value="">'+none+'</option>':'')+TIMES.map(function(t){return '<option'+(t===sel?' selected':'')+'>'+t.replace(":",".")+'</option>'}).join("");};
+ var h='<h2>Opret aktivitet</h2>'+
+  '<p class="svlab">Hvad skal der ske?</p><div class="svrow" style="margin:0"><input id="crtitle" maxlength="60" placeholder="Fx padel, cykeltur, kortspil" value="'+E(CR.title)+'"></div>'+
+  '<p class="svlab">Hvilken dag?</p><div class="crdays">'+days+'</div>'+
+  '<div class="svrow"><span class="svlab" style="margin:0">Fra kl.</span><select class="crsel" id="crfrom">'+opt(CR.from)+'</select><span class="svlab" style="margin:0">Til kl.</span><select class="crsel" id="crto">'+opt(CR.to,"Ingen")+'</select></div>'+
+  '<p class="svlab">Hvor?</p><div class="svrow" style="margin:0"><input id="crplace" maxlength="60" placeholder="Fx terrassen" value="'+E(CR.place)+'"></div><div class="crchips">'+["Terrassen","Poolen","Receptionen","Fællesrummet","Stranden"].map(function(x){return '<button type="button" data-cp="'+x+'">'+x+'</button>'}).join("")+'</div>'+
+  '<div class="svrow"><span class="svlab" style="margin:0">Tilmelding</span><span class="crtog"><button type="button" data-cs="1"'+(CR.signup?' class="on"':'')+'>Ja</button><button type="button" data-cs="0"'+(!CR.signup?' class="on"':'')+'>Nej, bare mød op</button></span></div>'+
+  (CR.signup?'<div class="svrow"><span class="svlab" style="margin:0">Højst</span><span class="crtog">'+[0,2,4,6,8,10,12,20].map(function(n){return '<button type="button" data-cm="'+n+'"'+(CR.max===n?' class="on"':'')+'>'+(n?n:"Ingen grænse")+'</button>'}).join("")+'</span></div>':'')+
+  '<p class="svlab">Hvem opretter? Vælg jeres lejlighed</p><div class="svlejl">'+(SV.lejls||[]).map(function(l){return '<button type="button" data-cl="'+E(l)+'"'+(CR.lejl===l?' class="on"':'')+'>'+E(l)+'</button>'}).join("")+'</div>'+
+  '<div class="svrow"><span class="svlab" style="margin:0">Dit fornavn</span><input id="crname" maxlength="30" autocomplete="off" value="'+E(CR.name)+'"></div>'+
+  (CR.err?'<p class="sverr">'+E(CR.err)+'</p>':'')+(CR.ok?'<p class="svok">'+E(CR.ok)+'</p>':'<button type="button" class="svgo" id="crgo">'+(CR.busy?'Opretter…':'Opret aktivitet')+'</button>');
+ document.getElementById("svbody").innerHTML=h;}
+function crSync(){var g=function(id){var el=document.getElementById(id);return el?el.value:""};if(!CR||!document.getElementById("crtitle"))return;
+ CR.title=g("crtitle");CR.place=g("crplace");CR.name=g("crname");CR.from=g("crfrom").replace(".",":");CR.to=g("crto").replace(".",":");}
+document.getElementById("sv").addEventListener("click",function(e){if(!CR)return;var t=e.target.closest("button")||e.target;
+ if(t.id==="sv"||t.id==="svclose"){svClose();return;}
+ if(t.dataset.cd!=null){crSync();CR.day=+t.dataset.cd;crDraw();return;}
+ if(t.dataset.cp){crSync();CR.place=t.dataset.cp;crDraw();return;}
+ if(t.dataset.cs!=null){crSync();CR.signup=t.dataset.cs==="1";crDraw();return;}
+ if(t.dataset.cm!=null){crSync();CR.max=+t.dataset.cm;crDraw();return;}
+ if(t.dataset.cl){crSync();CR.lejl=t.dataset.cl;CR.err="";crDraw();return;}
+ if(t.id==="crgo"&&!CR.busy){crSync();
+  if(!CR.title.trim()){CR.err="Skriv hvad der skal ske.";crDraw();return;} if(!CR.lejl){CR.err="Vælg jeres lejlighed.";crDraw();return;} if(!CR.name.trim()){CR.err="Skriv dit fornavn.";crDraw();return;}
+  var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+CR.day);var f=CR.from.split(":"),st=new Date(d);st.setHours(+f[0],+f[1]);var en=null;
+  if(CR.to){var q=CR.to.split(":");en=new Date(d);en.setHours(+q[0],+q[1]);if(en<=st)en.setDate(en.getDate()+1);}
+  if(st<new Date(Date.now()-3600000)){CR.err="Tidspunktet er allerede passeret.";crDraw();return;}
+  CR.busy=true;CR.err="";crDraw();
+  fn({action:"create",title:CR.title,place:CR.place,starts_at:st.toISOString(),ends_at:en?en.toISOString():null,signup:CR.signup,max_people:CR.max||null,lejlighed:CR.lejl,name:CR.name}).then(function(r){CR.busy=false;
+   if(r.ok){CR.ok="Aktiviteten er oprettet – tak!";crDraw();var off=Math.floor((st-weekStartNow())/(7*864e5));WOFF=Math.max(0,Math.min(8,off));refresh();setTimeout(function(){if(CR&&CR.ok){svClose();CR=null;}},4000);}
+   else{CR.err=r.error||"Det lykkedes ikke.";crDraw();}}).catch(function(){CR.busy=false;CR.err="Ingen forbindelse – prøv igen.";crDraw();});}
+});
+function weekStartNow(){var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d;}
 tick();refresh();notes();guide();setInterval(notes,120000);setInterval(guide,300000);setInterval(tick,10000);setInterval(refresh,60000);
 setTimeout(function(){location.reload()},6*3600000);
 </script></body></html>
