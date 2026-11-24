@@ -130,6 +130,7 @@ ul.lend li:last-child{border-bottom:0}
 .crsel{font:inherit;padding:.5em .6em;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
 .crchips{display:flex;flex-wrap:wrap;gap:.35em;margin-top:.35em}.crchips button{font:inherit;font-size:.9em;padding:.3em .8em;border-radius:999px;border:1px solid var(--line);background:var(--surface);cursor:pointer}
 .crtog{display:flex;gap:.35em}.crtog button{font:inherit;padding:.45em .9em;border-radius:8px;border:1px solid var(--line);background:var(--surface);cursor:pointer}.crtog button.on{background:var(--sea);color:#fff;border-color:var(--sea)}
+.ov.kb{place-items:start center}.ov.kb .ovbox{max-height:46vh;overflow:auto;margin-top:2vh}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:10}
 .ov[hidden]{display:none}
 .ovbox{background:var(--surface);border-radius:16px;padding:2vw 2.4vw;max-width:44vw;text-align:center}
@@ -270,6 +271,7 @@ setInterval(function(){GI++;showGuide();},10000);
 // Tilmelding direkte på skærmen – på tillid, som på whiteboardet
 var SV={id:null,lejl:null,ppl:1,lejls:null,busy:false},SVT=null;
 function fn(body){var C=window.BOLNUEVO||{};return fetch(C.supabaseUrl+"/functions/v1/screen-signup",{method:"POST",headers:{"apikey":C.supabaseKey,"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(r){return r.json()});}
+function sv_kb(){return document.getElementById("sv").classList.contains("kb")||Date.now()-(window.KBAT||0)<1500;}
 function svIdle(){clearTimeout(SVT);SVT=setTimeout(svClose,60000);}
 function svClose(){document.getElementById("sv").hidden=true;SV.id=null;clearTimeout(SVT);if(typeof CR!=="undefined")CR=null;}
 function svOpen(id){CR=null;SV={id:id,lejl:null,ppl:1,lejls:SV.lejls,busy:false,msg:"",err:""};document.getElementById("sv").hidden=false;document.getElementById("svbody").innerHTML='<p>Henter…</p>';svIdle();
@@ -291,7 +293,7 @@ function svDraw(){var d=SV.data;if(!d||!d.activity){document.getElementById("svb
 document.getElementById("week").addEventListener("click",function(e){var c=e.target.closest(".act.tap");if(c)svOpen(c.dataset.id);});
 document.getElementById("sv").addEventListener("input",function(e){svIdle();if(e.target.id==="svname"){SV.name=e.target.value;}});
 document.getElementById("sv").addEventListener("click",function(e){svIdle();if(CR)return;var t=e.target;
- if(t.id==="sv"||t.id==="svclose"){svClose();return;}
+ if(t.id==="svclose"||(t.id==="sv"&&!sv_kb())){svClose();return;}
  if(t.dataset.lj){SV.lejl=t.dataset.lj;SV.err="";svDraw();return;}
  if(t.dataset.pp){SV.ppl=+t.dataset.pp;svDraw();return;}
  if(t.dataset.un){fn({action:"unsign",activity_id:SV.id,signup_id:t.dataset.un}).then(function(r){if(r.signups){SV.data.signups=r.signups;SV.msg="Afmeldt.";}else SV.err=r.error||"";svDraw();refresh();});return;}
@@ -324,7 +326,7 @@ function crDraw(){if(!CR)return;var t0=new Date();t0.setHours(0,0,0,0);
 function crSync(){var g=function(id){var el=document.getElementById(id);return el?el.value:""};if(!CR||!document.getElementById("crtitle"))return;
  CR.title=g("crtitle");CR.place=g("crplace");CR.name=g("crname");CR.from=g("crfrom").replace(".",":");CR.to=g("crto").replace(".",":");}
 document.getElementById("sv").addEventListener("click",function(e){if(!CR)return;var t=e.target.closest("button")||e.target;
- if(t.id==="sv"||t.id==="svclose"){svClose();return;}
+ if(t.id==="svclose"||(t.id==="sv"&&!sv_kb())){svClose();return;}
  if(t.dataset.cd!=null){crSync();CR.day=+t.dataset.cd;crDraw();return;}
  if(t.dataset.cp){crSync();CR.place=t.dataset.cp;crDraw();return;}
  if(t.dataset.cs!=null){crSync();CR.signup=t.dataset.cs==="1";crDraw();return;}
@@ -341,6 +343,13 @@ document.getElementById("sv").addEventListener("click",function(e){if(!CR)return
    else{CR.err=r.error||"Det lykkedes ikke.";crDraw();}}).catch(function(){CR.busy=false;CR.err="Ingen forbindelse – prøv igen.";crDraw();});}
 });
 function weekStartNow(){var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d;}
+
+// Skærmtastatur: når man trykker i et tekstfelt, flyttes boksen op i øverste halvdel, så feltet står over tastaturet
+(function(){var sv=document.getElementById("sv"),T=null;
+ sv.addEventListener("focusin",function(e){if(e.target.tagName!=="INPUT")return;window.KBAT=Date.now();clearTimeout(T);sv.classList.add("kb");setTimeout(function(){e.target.scrollIntoView({block:"center"});},60);});
+ sv.addEventListener("focusout",function(){T=setTimeout(function(){var a=document.activeElement;if(!a||a.tagName!=="INPUT"||!sv.contains(a))sv.classList.remove("kb");},250);});
+ if(window.visualViewport)visualViewport.addEventListener("resize",function(){var a=document.activeElement;if(a&&a.tagName==="INPUT"&&sv.contains(a))a.scrollIntoView({block:"center"});});
+})();
 tick();refresh();notes();guide();setInterval(notes,120000);setInterval(guide,300000);setInterval(tick,10000);setInterval(refresh,60000);
 setTimeout(function(){location.reload()},6*3600000);
 </script></body></html>
