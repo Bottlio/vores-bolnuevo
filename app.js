@@ -37,7 +37,13 @@ var isApp = (window.matchMedia && matchMedia("(display-mode: standalone)").match
 var h = (location.hash || "").slice(1); if ((CATNAME[h] || h === "byer" || h === "dagsture" || h === "alle") && (!isApp || /[?&]v=/.test(location.search))) ui.cat = h;
 if (/^sted\//.test(h)) ui.place = decodeURIComponent(h.slice(5));
 // Startmenuen er under test: vises kun via QR-koden på skærmen (?fra=skaerm) eller ?menu=test – ellers er guiden forsiden som før
+// Huskes på enheden, så testmenuen bliver ved, selvom adressen ændrer sig (fx ved automatisk opdatering). ?menu=off slår den fra igen.
 var TEST_MENU = /[?&](fra=skaerm|menu=test)/.test(location.search);
+try {
+  if (/[?&]menu=off/.test(location.search)) localStorage.removeItem("bol_testmenu");
+  else if (TEST_MENU) localStorage.setItem("bol_testmenu", "1");
+  else TEST_MENU = localStorage.getItem("bol_testmenu") === "1";
+} catch (x) {}
 ui.menu = TEST_MENU && ui.cat === "hjem" && !ui.place;
 var root = document.getElementById("root");
 var newInput = document.getElementById("new-photos");
@@ -3439,7 +3445,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 198;
+var APP_VERSION = 199;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
