@@ -10,7 +10,13 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:clamp(12px,min(1.05vw,1.85vh),26px);overflow:hidden;
-display:grid;grid-template-rows:auto 1fr auto auto;gap:1.1vw;padding:1.4vw 1.8vw}
+display:grid;grid-template-columns:minmax(0,1fr) 22vw;grid-template-rows:auto minmax(0,1fr) auto auto;gap:1.1vw;padding:1.4vw 1.8vw}
+/* Kalender + knapper til venstre, højre kolonne går helt ned til bunden af knapperne */
+header,footer{grid-column:1 / -1}
+main{display:contents}
+main>.wbox{grid-column:1;grid-row:2;min-height:0}
+main>aside{grid-column:2;grid-row:2 / 4;min-height:0}
+.acts{grid-column:1;grid-row:3}
 header{display:flex;align-items:flex-end;justify-content:space-between;gap:2vw}
 .brand small{display:block;font-size:.8em;letter-spacing:.12em;text-transform:uppercase;color:var(--sea);font-weight:700}
 .brand h1{font-family:var(--display);font-size:2.6em;line-height:1.05}
@@ -20,7 +26,7 @@ header{display:flex;align-items:flex-end;justify-content:space-between;gap:2vw}
 .wx{display:flex;align-items:center;gap:.6em;font-size:1.05em;color:var(--muted)}
 .wx b{font-family:var(--display);font-size:2.2em;color:var(--fg)}
 .wx .ico{font-size:2.2em;line-height:1}
-main{display:grid;grid-template-columns:minmax(0,1fr) 22vw;gap:1.1vw;min-height:0}
+
 .box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:1vw 1.1vw;min-height:0}
 h2{font-family:var(--display);font-size:1.45em;color:var(--sea);margin-bottom:.6em;display:flex;justify-content:space-between;align-items:baseline}
 h2 span{font-family:var(--body);font-size:.62em;color:var(--muted);font-weight:400}
@@ -71,7 +77,7 @@ aside .box[hidden]{display:none}
 aside .box.fill{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center}
 aside .box.notes{flex:1 1 auto;min-height:0;overflow:hidden}
 /* Nyt i guiden har altid samme størrelse; bliver der trangt, fjernes QR-boksen */
-aside .box.gcard{flex:none;height:36vh;margin-top:auto;padding:0;overflow:hidden;position:relative;background:#1b2b2e;border:0}
+aside .box.gcard{flex:none;height:33vh;margin-top:auto;padding:0;overflow:hidden;position:relative;background:#1b2b2e;border:0}
 #guide{position:absolute;inset:0}
 .gslide{position:absolute;inset:0;opacity:0;transition:opacity 1.2s ease}.gslide.in{opacity:1}
 @media (prefers-reduced-motion:reduce){.gslide{transition:none}}
@@ -94,7 +100,7 @@ ul.lend li{display:flex;justify-content:space-between;padding:.4em 0;border-bott
 ul.lend li:last-child{border-bottom:0}
 .free{color:var(--green);font-weight:700}.busy{color:var(--muted)}
 .sort p{line-height:1.35}
-.acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) 22vw;gap:1.1vw}   /* sorte bog = samme bredde som højre kolonne */
+.acts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1.1vw}   /* de fire knapper deler kalenderens bredde */
 .ab{display:flex;align-items:center;gap:.8em;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.9em 1em;font:inherit;color:var(--fg);cursor:pointer}
 .ab b{display:block;font-family:var(--display);color:var(--sea);font-size:1.15em}
 .ab small{display:block;color:var(--muted);font-size:.85em;margin-top:.1em}
