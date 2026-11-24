@@ -66,6 +66,7 @@ h2 span{font-family:var(--body);font-size:.62em;color:var(--muted);font-weight:4
 aside{display:flex;flex-direction:column;gap:1.1vw;min-height:0}
 aside .box{flex:none}
 aside .box[hidden]{display:none}
+aside .box.fill{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center}
 aside .box.notes{flex:1 1 auto;min-height:0;overflow:hidden}
 /* Nyt i guiden har altid samme størrelse; bliver der trangt, fjernes QR-boksen */
 aside .box.gcard{flex:none;height:36vh;margin-top:auto;padding:0;overflow:hidden;position:relative;background:#1b2b2e;border:0}
@@ -307,7 +308,7 @@ if(/[?&]vis=udl/.test(location.search))setView("udl");
 
 var GUIDE=[],GI=0,CATN={spisesteder:"Spisested",strande:"Strand",natur:"Natur og udsigt",sevaerdigheder:"Seværdighed",oplevelser:"Oplevelse",sport:"Sport",dagligvarer:"Dagligvarer",opladning:"Opladning",parkering:"Parkering",lejebil:"Lejebil",shopping:"Shopping"};
 // Uden at Nyt i guiden mister plads: vis QR-boksen kun, når der er plads til den
-function fitAside(){var a=document.querySelector("aside"),q=document.getElementById("qrbox");if(!a||!q)return;q.hidden=false;
+function fitAside(){var a=document.querySelector("aside"),q=document.getElementById("qrbox");if(!a||!q)return;q.hidden=false;q.classList.toggle("fill",document.getElementById("notesbox").hidden);
  // Overskriften på én linje: gør skriften lidt mindre, hvis den er for lang
  document.querySelectorAll(".note b").forEach(function(b){var f=1.05;b.style.fontSize=f+"em";while(b.scrollWidth>b.clientWidth+1&&f>0.8){f-=0.025;b.style.fontSize=f.toFixed(3)+"em";}});var nb=document.getElementById("notesbox"),n=document.getElementById("notes");if(a.scrollHeight>a.clientHeight+1||(!nb.hidden&&n.scrollHeight>nb.clientHeight-parseFloat(getComputedStyle(nb).paddingTop)-parseFloat(getComputedStyle(nb).paddingBottom)+1))q.hidden=true;}
 window.addEventListener("resize",fitAside);
