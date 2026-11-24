@@ -39,8 +39,10 @@ if (/^sted\//.test(h)) ui.place = decodeURIComponent(h.slice(5));
 // Startmenuen er under test: vises kun via QR-koden på skærmen (?fra=skaerm) eller ?menu=test – ellers er guiden forsiden som før
 // Huskes på enheden, så testmenuen bliver ved, selvom adressen ændrer sig (fx ved automatisk opdatering). ?menu=off slår den fra igen.
 var TEST_MENU = /[?&](fra=skaerm|menu=test)/.test(location.search);
+var TEST_ONCE = /[?&]menu=vis/.test(location.search);   // kun dette besøg – huskes ikke på enheden
 try {
-  if (/[?&]menu=off/.test(location.search)) localStorage.removeItem("bol_testmenu");
+  if (TEST_ONCE) TEST_MENU = true;
+  else if (/[?&]menu=off/.test(location.search)) localStorage.removeItem("bol_testmenu");
   else if (TEST_MENU) localStorage.setItem("bol_testmenu", "1");
   else TEST_MENU = localStorage.getItem("bol_testmenu") === "1";
 } catch (x) {}
@@ -3558,7 +3560,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 206;
+var APP_VERSION = 207;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
