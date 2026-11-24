@@ -921,3 +921,4 @@ footer.foot .footlabel:first-child{margin-top:0}
 @media (max-width:520px){.akrow{grid-template-columns:1fr 1fr}.akrow label:first-child{grid-column:1/-1}}
 .akcheck{display:flex;align-items:center;gap:8px}
 .akback{margin-top:22px}
+.akfast{margin:0 0 2px;font-size:.85rem;color:var(--sea);font-weight:700}
