@@ -1366,7 +1366,8 @@ function renderMenu() {
     ahbooking: '<img class="mlogo" src="logo-ah.png" alt="">',
     akt: '<span class="mcal" aria-hidden="true"><span class="mcal-m">' + MDA[now.getMonth()] + '</span><span class="mcal-d">' + now.getDate() + '</span><span class="mcal-w">' + WDA[now.getDay()] + "</span></span>",
     guide: '<span class="mrate" aria-hidden="true"><span class="mstars">★★★★★</span><span class="mpair"><span class="mb mb-v">' + visitSvg(true) + '</span><span class="mb mb-h">' + heartSvg(true) + "</span></span></span>",
-    sortbog: ""
+    udstyr: '<span class="micon mright">' + ICON_BIKE + "</span>",
+    sortbog: '<span class="micon mright">' + ICON_BOOK + "</span>"
   };
   html += '<nav class="menugrid" aria-label="Startmenu">' + MENU.map(function (m) {
     var inner = (deco[m[0]] ? "" : '<span class="micon">' + m[1] + "</span>") + '<span class="mtext"><span class="mtitle">' + m[2] + (m[0] === "ahbooking" ? ' <span class="mext" aria-hidden="true">↗</span>' : "") + '</span><span class="msub">' + m[3] + "</span></span>" + (deco[m[0]] ? '<span class="mdeco">' + deco[m[0]] + "</span>" : "");
@@ -3560,7 +3561,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 207;
+var APP_VERSION = 208;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
