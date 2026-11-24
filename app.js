@@ -1575,6 +1575,9 @@ function bkGrid(days, todayK) {
   var ax = '<div class="tgax"><div class="tgh">&nbsp;</div><div class="tgbody">';
   for (var t = BK_H0; t <= BK_H1; t += 2) ax += '<span style="top:' + ((t - BK_H0) / span * 100) + '%">' + p2(t) + "</span>";
   ax += "</div></div>";
+  // Timestreger som rigtige streger (en baggrundsgradient tabte nogle af dem ved afrunding)
+  var hourLines = "";
+  for (var h = BK_H0 + 1; h < BK_H1; h++) hourLines += '<i class="tgl" style="top:' + ((h - BK_H0) / span * 100) + '%"></i>';
   return '<div class="tgwrap" style="--n:' + days.length + '">' + ax + days.map(function (x) {
     var d0 = new Date(x.d), d1 = new Date(x.d); d1.setDate(d1.getDate() + 1);
     // Samme person, samme tidsrum = én blok (fx "2 cykler + golfsæt")
@@ -1591,7 +1594,7 @@ function bkGrid(days, todayK) {
       return '<button type="button" class="tgb ' + kind + (mine ? " mine" : "") + '" data-bkpick="' + esc(r.key) + '" style="top:' + ((r.a - BK_H0) / span * 100) + "%;height:" + ((r.z - r.a) / span * 100) + "%;left:calc(" + (r.k / r.n * 100) + "% + 2px);width:calc(" + (100 / r.n) + '% - 4px)"><b>' + esc(bkLabel(r.b) || r.b.name || "") + "</b>" + esc(bkWhat(r.g)) + "</button>";
     }).join("");
     var nowLine = x.k === todayK && nowH >= BK_H0 && nowH <= BK_H1 ? '<span class="tgnow" style="top:' + ((nowH - BK_H0) / span * 100) + '%"></span>' : "";
-    return '<div class="tgday' + (x.k === todayK ? " today" : "") + '"><div class="tgh"><b>' + (x.k === todayK ? "I dag" : DA_DAY[x.d.getDay()].slice(0, 3)) + "</b> <span>" + x.d.getDate() + ". " + DA_MON[x.d.getMonth()] + '</span></div><div class="tgbody">' + blocks + nowLine + "</div></div>";
+    return '<div class="tgday' + (x.k === todayK ? " today" : "") + '"><div class="tgh"><b>' + (x.k === todayK ? "I dag" : DA_DAY[x.d.getDay()].slice(0, 3)) + "</b> <span>" + x.d.getDate() + ". " + DA_MON[x.d.getMonth()] + '</span></div><div class="tgbody">' + hourLines + blocks + nowLine + "</div></div>";
   }).join("") + "</div>";
 }
 function bkFormHtml() {
@@ -3698,7 +3701,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 216;
+var APP_VERSION = 217;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

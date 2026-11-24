@@ -40,7 +40,8 @@ h2 span{font-family:var(--body);font-size:.62em;color:var(--muted);font-weight:4
 .hday.today{border-color:var(--sea);box-shadow:inset 0 0 0 1px var(--sea)}
 .hdh{display:flex;justify-content:space-between;align-items:baseline;padding:.4vw .55vw;border-bottom:1px solid var(--line);flex:none}
 .hdh b{font-family:var(--display)}.hday.today .hdh b{color:var(--sea)}.hdh span{color:var(--muted);font-size:.85em}
-.hgrid{position:relative;flex:1 1 auto;background:repeating-linear-gradient(to bottom,transparent 0,transparent calc(100%/12 - 1px),var(--line) calc(100%/12 - 1px),var(--line) calc(100%/12))}
+.hgrid{position:relative;flex:1 1 auto}
+.hgl{position:absolute;left:0;right:0;height:0;border-top:1px solid var(--line);pointer-events:none}
 .haxh{flex:none;visibility:hidden;padding:.4vw 0;border-bottom:1px solid transparent}
 .haxg{position:relative;flex:1 1 auto}
 .haxg span{position:absolute;right:.3em;transform:translateY(-50%);font-size:.75em;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -212,7 +213,7 @@ function week(){var now=new Date(),wd=(now.getDay()+6)%7,mon=new Date(now);mon.s
  for(var q=H0;q<=H1;q+=2)hh+='<span style="top:'+((q-H0)/(H1-H0)*100)+'%">'+pad(q)+'</span>';
  hh+='</div></div>';
  for(var j=0;j<7;j++){var dj=new Date(mon);dj.setDate(mon.getDate()+j);
-  hh+='<div class="hday'+(j===TW?' today':'')+'"><div class="hdh"><b>'+(j===TW?"I dag":DAYS[dj.getDay()])+'</b><span>'+dj.getDate()+'. '+MON[dj.getMonth()]+'</span></div><div class="hgrid">';
+  hh+='<div class="hday'+(j===TW?' today':'')+'"><div class="hdh"><b>'+(j===TW?"I dag":DAYS[dj.getDay()])+'</b><span>'+dj.getDate()+'. '+MON[dj.getMonth()]+'</span></div><div class="hgrid">';for(var hl=1;hl<12;hl++)hh+='<i class="hgl" style="top:'+(hl/12*100)+'%"></i>';
   var dayL=LOANS.filter(function(l){return (LIVE||WOFF===0)&&l[2]===j}).map(function(l){return {l:l,a:l[3],z:l[4]}});lanesS(dayL);
   dayL.forEach(function(o){var l=o.l,k=o.k,n=o.n;
    hh+='<div class="hb'+(l[7]?' '+l[7]:(/golf/i.test(l[0])?' golf':''))+'"'+(l[5]?' data-bk="'+E(l[5])+'" data-src="'+E(l[6])+'" data-inf="'+E((l[8]||l[0])+' · lejl. '+l[1]+' · '+hm(l[3])+'–'+hm(l[4]))+'"':'')+' style="top:'+((l[3]-H0)/(H1-H0)*100)+'%;height:'+((l[4]-l[3])/(H1-H0)*100)+'%;left:calc('+(k/n*100)+'% + 3px);right:auto;width:calc('+(100/n)+'% - 6px)"><b>'+E(l[1]?"Lejl. "+l[1]:"")+'</b>'+E(l[0])+'</div>'});
