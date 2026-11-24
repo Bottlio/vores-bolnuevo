@@ -958,3 +958,4 @@ footer.foot .footlabel:first-child{margin-top:0}
 .nitem{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-top:1px solid var(--line);padding:10px 0}
 .nitem p{margin:2px 0 0}.nitem.gone{opacity:.55}
 .searchtowns{margin:6px 0 18px}
+.micon.mright{width:66px;height:66px}.micon.mright svg{width:34px;height:34px}
