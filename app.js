@@ -2139,21 +2139,24 @@ function noticesAdminHtml() {
     var gone = n.show_until && n.show_until < today;
     return '<li class="nitem' + (gone ? " gone" : "") + '"><div><strong>' + esc(n.title) + "</strong>" + (n.body ? '<p class="hint">' + esc(n.body) + "</p>" : "") +
       '<p class="hint">' + (n.show_until ? (gone ? "Udløbet " : "Vises til og med ") + esc(n.show_until.split("-").reverse().join(".")) : "Vises indtil det slettes") + "</p></div>" +
-      '<button class="linkbtn danger-t" type="button" data-ndel="' + esc(n.id) + '">' + (ui.nDelConfirm === n.id ? "Tryk igen for at slette" : "Slet") + "</button></li>";
+      '<span class="lvact"><button class="linkbtn" type="button" data-nedit="' + esc(n.id) + '">Rediger</button><button class="linkbtn danger-t" type="button" data-ndel="' + esc(n.id) + '">' + (ui.nDelConfirm === n.id ? "Tryk igen for at slette" : "Slet") + "</button></span></li>";
   }).join("");
+  var ed = ui.nEdit && noticeData.list.filter(function (n) { return n.id === ui.nEdit; })[0];
   return (noticeData.err ? '<p class="err">' + esc(noticeData.err) + "</p>" : "") +
-    '<form id="notice-form" class="invite"><label>Overskrift<input name="title" required maxlength="70" placeholder="Fx Poolen er lukket torsdag"></label>' +
-    '<label>Tekst (valgfri)<textarea name="body" rows="2" maxlength="240" placeholder="Fx på grund af rengøring – åbner igen fredag kl. 9."></textarea></label>' +
-    '<label>Vis til og med (valgfri)<input type="date" name="until"></label><button class="btn primary" type="submit">Sæt opslag op</button></form>' +
+    '<form id="notice-form" class="invite">' + (ed ? "<h3>Rediger opslag</h3>" : "") + '<label>Overskrift<input name="title" required maxlength="70" placeholder="Fx Poolen er lukket torsdag" value="' + esc(ed ? ed.title : "") + '"></label>' +
+    '<label>Tekst (valgfri)<textarea name="body" rows="2" maxlength="240" placeholder="Fx på grund af rengøring – åbner igen fredag kl. 9.">' + esc(ed && ed.body ? ed.body : "") + "</textarea></label>" +
+    '<label>Vis til og med (valgfri)<input type="date" name="until" value="' + esc(ed && ed.show_until ? ed.show_until : "") + '"></label>' +
+    (ed ? '<div class="row"><button class="btn primary" type="submit">Gem ændringer</button><button class="btn" type="button" data-nedit="">Annuller</button></div>' : '<button class="btn primary" type="submit">Sæt opslag op</button>') + "</form>" +
     (list ? '<ul class="nlist">' + list + "</ul>" : '<p class="hint">Ingen opslag endnu.</p>') +
     '<p class="hint">Opslag vises på skærmen i receptionen inden for 2 minutter. De nyeste står øverst.</p>';
 }
 async function saveNotice(f) {
   var g = function (n) { return (f.elements[n].value || "").trim(); };
   if (!g("title")) return;
-  var r = await sb.from("notices").insert({ title: g("title"), body: g("body") || null, show_until: g("until") || null });
+  var row = { title: g("title"), body: g("body") || null, show_until: g("until") || null };
+  var r = ui.nEdit ? await sb.from("notices").update(row).eq("id", ui.nEdit) : await sb.from("notices").insert(row);
   if (r.error) { noticeData.err = "Opslaget blev ikke gemt: " + r.error.message; render(); return; }
-  noticeData = null; rerenderAdmin();
+  ui.nEdit = null; noticeData = null; rerenderAdmin();
 }
 async function delNotice(id) { await sb.from("notices").delete().eq("id", id); ui.nDelConfirm = null; noticeData = null; rerenderAdmin(); }
 /* ---------- Ændringer: alt der oprettes, rettes og slettes (logges af databasen) ---------- */
@@ -3843,6 +3846,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.resetk != null) { ui.resetK = t.dataset.resetk || null; ui.resetMsg = ""; ui.confirmStart = null; rerenderAdmin(); return; }
   if (t.dataset.rpw) { adminResetPw(t.dataset.rpw); return; }
   if (t.dataset.edrm) { rmEditor(t.dataset.edrm); return; }
+  if (t.dataset.nedit != null) { ui.nEdit = t.dataset.nedit || null; ui.nDelConfirm = null; rerenderAdmin(); var nf = document.getElementById("notice-form"); if (nf && ui.nEdit) { nf.scrollIntoView({ block: "center", behavior: "smooth" }); var ti = nf.elements.title; if (ti) ti.focus({ preventScroll: true }); } return; }
   if (t.dataset.ndel) { if (ui.nDelConfirm !== t.dataset.ndel) { ui.nDelConfirm = t.dataset.ndel; rerenderAdmin(); return; } delNotice(t.dataset.ndel); return; }
   if (t.dataset.akdel) { if (ui.akDelConfirm !== t.dataset.akdel) { ui.akDelConfirm = t.dataset.akdel; ui.akConfirm = null; render(); return; } aktDelete(t.dataset.akdel); return; }
   if (t.dataset.bknew) {
@@ -3986,7 +3990,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 232;
+var APP_VERSION = 233;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
