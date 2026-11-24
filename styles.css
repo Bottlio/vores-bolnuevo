@@ -975,3 +975,22 @@ footer.foot .footlabel:first-child{margin-top:0}
 .bkb{position:absolute;top:2px;bottom:2px;border-radius:5px;background:var(--sea);color:#fff;font-size:.78rem;font-weight:700;padding:0 4px;overflow:hidden;white-space:nowrap;line-height:22px}
 .bkb.golf{background:var(--ochre)}.bkb.mine{outline:2px solid #2e7d4f;outline-offset:1px}
 @media (max-width:520px){.bkn{width:84px;font-size:.82rem}}
+/* Tidsskema for udstyr – som på skærmen */
+.tgwrap{display:grid;grid-template-columns:2.4em repeat(var(--n),minmax(0,1fr));gap:6px;height:560px}
+.tgax,.tgday{display:flex;flex-direction:column;min-height:0}
+.tgday{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.tgday.today{border-color:var(--sea)}
+.tgh{flex:none;padding:6px 8px;border-bottom:1px solid var(--line);font-size:.9rem;display:flex;justify-content:space-between;gap:4px}
+.tgh span{color:var(--muted);font-size:.82rem}.tgday.today .tgh b{color:var(--sea)}
+.tgax .tgh{border-bottom-color:transparent;visibility:hidden}
+.tgbody{position:relative;flex:1 1 auto;background:repeating-linear-gradient(to bottom,transparent 0,transparent calc(100%/12 - 1px),var(--line) calc(100%/12 - 1px),var(--line) calc(100%/12))}
+.tgax .tgbody{background:none}.tgax .tgbody span{position:absolute;right:4px;transform:translateY(-50%);font-size:.75rem;color:var(--muted)}
+.tgb{position:absolute;border:0;border-radius:6px;padding:3px 5px;text-align:left;font:inherit;font-size:.78rem;line-height:1.2;color:#fff;background:var(--sea);overflow:hidden;cursor:pointer}
+.tgb.golf{background:var(--ochre)}.tgb.mine{box-shadow:inset 0 0 0 2px #fff}
+.tgb b{display:block}
+.tgnow{position:absolute;left:0;right:0;height:2px;background:var(--danger);z-index:2}
+.akcols.tg{display:none}
+@media (min-width:900px){.akcols.tg{display:block}}
+.akone .tgwrap{height:520px}
+.bkpick p{margin:0 0 10px}
+.tgb{display:flex;flex-direction:column;justify-content:flex-start;align-items:flex-start}
