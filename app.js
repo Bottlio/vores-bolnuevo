@@ -214,6 +214,34 @@ function coordsFromLink(u) {
   var m = u.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/) || u.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || u.match(/[?&](?:q|query|ll)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
   return m ? [+m[1], +m[2]] : null;
 }
+// Korte links (maps.app.goo.gl/…) indeholder ikke placeringen. En lille funktion på serveren følger linket;
+// giver det lange link ingen koordinater, slås adressen fra linket op hos OpenStreetMap (fra browseren).
+async function coordsFromShortLink(u) {
+  if (!u || !/^https?:\/\/(maps\.app\.goo\.gl|goo\.gl)\//i.test(u.trim())) return null;
+  try {
+    var r = await sb.functions.invoke("resolve-maps", { body: { url: u.trim() } }), x = r.data || {};
+    if (x.lat != null && x.lon != null) return [+x.lat, +x.lon];
+    if (!x.q) return null;
+    var parts = x.q.split(",").map(function (y) { return y.trim(); }).filter(function (y) { return y && !/^(spanien|spain|españa)$/i.test(y); });
+    var tries = [parts.join(", "), parts.slice(1).join(", "), parts.slice(-2).join(", ")].filter(function (y, i, a) { return y && a.indexOf(y) === i; });
+    for (var i = 0; i < tries.length; i++) {
+      var j = await (await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=3&countrycodes=es&accept-language=es&q=" + encodeURIComponent(tries[i]))).json();
+      // Kun et fund på adresse-/stedniveau – et midtpunkt for hele byen eller postnummeret er for upræcist
+      var hit = (j || []).filter(function (h) { return !/^(city|town|village|municipality|postcode|county|state|region|country|suburb|hamlet|neighbourhood|quarter)$/.test(h.addresstype || ""); })[0];
+      if (hit) return [+(+hit.lat).toFixed(5), +(+hit.lon).toFixed(5)];
+    }
+  } catch (e) {}
+  return null;
+}
+// Steder uden placering, men med et Google Maps-link: find placeringen, når stedet åbnes, og gem den
+var healTried = {};
+async function healPlace(p) {
+  if (!p || p.lat != null || !p.maps_url || healTried[p.id] || !ui.editor) return; healTried[p.id] = 1;
+  var c = coordsFromLink(p.maps_url) || await coordsFromShortLink(p.maps_url); if (!c) return;
+  var town = p.town || townFor(c[0], c[1], {}) || null, drive = await driveFromHotel(c[0], c[1]);
+  var r = await sb.from("places").update({ lat: c[0], lon: c[1], town: town, drive_km: drive ? drive.km : null, drive_min: drive ? drive.min : null }).eq("id", p.id).select("id");
+  if (!r.error && (r.data || []).length) { p.lat = c[0]; p.lon = c[1]; p.town = town; if (drive) { p.drive_km = drive.km; p.drive_min = drive.min; } render(); }
+}
 function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return "link"; } }
 function stars(r) { var s = ""; for (var i = 1; i <= 5; i++) s += i <= r ? "★" : "☆"; return s; }
 /* Billederne ligger i en lukket mappe. Hvert billede hentes via en midlertidig adresse (7 dage), som huskes i browseren. */
@@ -1081,7 +1109,8 @@ function render() {
   // Kortet på en stedside: vises i stedet for billederne (se placeCard)
   if (ui.view === "kort" && detail) {
     mapList = [detail];
-    if (detail.lat == null) html += '<p class="hint">' + esc(detail.name) + " har ingen placering endnu, så det kan ikke vises på kortet." + (ui.editor ? ' Tryk "Ret" for at tilføje et link fra Google Maps.' : "") + "</p>";
+    if (detail.lat == null) healPlace(detail);
+    if (detail.lat == null) html += '<p class="hint">' + esc(detail.name) + " har ingen placering endnu, så det kan ikke vises på kortet." + (ui.editor ? (detail.maps_url ? ' Linket fra Google Maps indeholder kun adressen, og den kunne ikke findes præcist på kortet. Tryk "Ret" og derefter "Find på kortet" – eller "Brug min placering", når du står ved stedet.' : ' Tryk "Ret" for at tilføje et link fra Google Maps.') : "") + "</p>";
   }
   // Hotellet: Laderita de Bolnuevo og andelens lejlighed side om side som to kort
   var myAp = myApts(), aptAll = [], aptMain = null;
@@ -2768,7 +2797,7 @@ async function findOnMap() {
   d.keep = d.isNew ? null : { name: d.name, cat: d.cat, subcat: d.subcat, area: d.area };
   d.err = ""; d.info = "Søger…"; render();
   try {
-    var hit = null, gm = coordsFromLink(d.maps) || coordsFromLink(d.link);
+    var hit = null, gm = coordsFromLink(d.maps) || coordsFromLink(d.link) || await coordsFromShortLink(d.maps) || await coordsFromShortLink(d.link);
     if (gm) {
       var rv = await (await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=es&zoom=18&lat=" + gm[0] + "&lon=" + gm[1])).json();
       hit = rv && rv.lat ? rv : { lat: gm[0], lon: gm[1], address: {} };
@@ -3141,7 +3170,7 @@ async function saveDraft() {
     if (isMapsLink(web)) web = ""; if (isMapsLink(link)) link = "";
     // Et nyt eller ændret Google Maps-link med placering vinder over billedernes placering (billederne kan være taget et stykke væk)
     var newMaps = maps && maps !== ((orig && orig.maps_url) || "");
-    if (core && (d.lat == null || newMaps)) { var gc = coordsFromLink(maps); if (gc) { var noPos = d.lat == null; d.lat = +gc[0].toFixed(5); d.lon = +gc[1].toFixed(5); if (noPos && !d.town) d.town = townFor(d.lat, d.lon, {}); } }
+    if (core && (d.lat == null || newMaps)) { var gc = coordsFromLink(maps) || await coordsFromShortLink(maps); if (gc) { var noPos = d.lat == null; d.lat = +gc[0].toFixed(5); d.lon = +gc[1].toFixed(5); if (noPos && !d.town) d.town = townFor(d.lat, d.lon, {}); } }
     // Fakta, som alle må rette
     var row = { link: link || null, website: web || null, maps_url: maps || null, facts: cleanFacts(d), price: d.price, guess: d.guess, updated_at: new Date().toISOString() };
     if (core) {
@@ -3997,7 +4026,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 234;
+var APP_VERSION = 237;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
