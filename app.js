@@ -1394,7 +1394,7 @@ function dayTitle(d) {
 async function loadAkt() {
   if (aktLoading) return; aktLoading = true;
   var from = weekStart(0), to = weekStart(AK_WEEKS);
-  var r = await sb.from("activities").select("*, activity_signups(user_id, andel_id, name, people)").gte("starts_at", from.toISOString()).lt("starts_at", to.toISOString()).order("starts_at");   // denne uge + de næste uger
+  var r = await sb.from("activities").select("*, activity_signups(id, user_id, andel_id, name, people, lejlighed, source)").gte("starts_at", from.toISOString()).lt("starts_at", to.toISOString()).order("starts_at");   // denne uge + de næste uger
   aktLoading = false;
   aktData = { list: r.data || [], err: r.error ? "Aktiviteterne kunne ikke hentes: " + r.error.message : "" };
   if (ui.page === "akt") render();
@@ -1424,7 +1424,7 @@ function aktCard(a) {
   var status = a.cancelled ? '<p class="akst cancel">Aflyst</p>'
     : !a.signup ? '<p class="akst">Ingen tilmelding<span class="akmeet"> – bare mød op</span></p>'
     : '<p class="akst ' + (full ? "full" : "ok") + '">' + (a.max_people ? (full ? "Fuldt booket" : used + " af " + a.max_people + " tilmeldt") : used + " tilmeldt") + "</p>";
-  var who = a.signup && sig.length ? '<p class="akwho">' + sig.map(function (x) { return esc((x.name || "?") + (andelLabels[x.andel_id] ? " (" + andelLabels[x.andel_id].replace(/ m\.fl\.$/, "") + ")" : "")) + (x.people > 1 ? " ×" + x.people : ""); }).join(", ") + "</p>" : "";
+  var who = a.signup && sig.length ? '<p class="akwho">' + sig.map(function (x) { return esc((x.name || "?") + (andelLabels[x.andel_id] ? " (" + andelLabels[x.andel_id].replace(/ m\.fl\.$/, "") + ")" : x.lejlighed ? " (lejl. " + x.lejlighed + ")" : "")) + (x.people > 1 ? " ×" + x.people : ""); }).join(", ") + "</p>" : "";
   var btns = "";
   if (ui.editor && !a.cancelled && !past && a.signup) {
     if (mine) btns += '<button class="btn small" type="button" data-akoff="' + esc(a.id) + '">Afmeld' + (mine.people > 1 ? " (" + mine.people + ")" : "") + "</button>";
@@ -3561,7 +3561,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 209;
+var APP_VERSION = 210;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
