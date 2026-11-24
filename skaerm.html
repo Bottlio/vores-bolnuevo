@@ -70,7 +70,7 @@ footer{display:flex;justify-content:space-between;color:var(--muted);font-size:.
 <footer><span class="demo" id="demo">TESTSIDE – aktiviteter og udlån er eksempler</span><span id="upd"></span></footer>
 <script src="config.js"></script>
 <script>
-var LIVE=/[?&]live=1/.test(location.search);
+var LIVE=!/[?&]demo=1/.test(location.search);   // rigtige aktiviteter fra appen; ?demo=1 viser eksempler
 var DAYS=["Søn","Man","Tir","Ons","Tor","Fre","Lør"], MON=["jan.","feb.","mar.","apr.","maj","jun.","jul.","aug.","sep.","okt.","nov.","dec."];
 // Eksempler (dag 0 = mandag)
 var ACTS=[
@@ -112,6 +112,6 @@ function live(){ // rigtige aktiviteter fra appen (kun titel, tid, sted og antal
    week();}).catch(function(){});}
 function refresh(){if(LIVE){live();}else{week();}weather();var d=new Date();document.getElementById("upd").textContent="Opdateret "+pad(d.getHours())+"."+pad(d.getMinutes())}
 if(LIVE)document.getElementById("demo").textContent="TESTSIDE – aktiviteter fra appen · udlån er eksempler";
-tick();refresh();setInterval(tick,10000);setInterval(refresh,300000);
+tick();refresh();setInterval(tick,10000);setInterval(refresh,60000);
 setTimeout(function(){location.reload()},6*3600000);
 </script></body></html>
