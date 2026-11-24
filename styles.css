@@ -1038,3 +1038,16 @@ footer.foot .footlabel:first-child{margin-top:0}
 .helpmodal.pop .akrow label{margin:6px 0}
 .helpmodal.pop .akcard{border:0;padding:0;box-shadow:none;background:none}
 .helpmodal.pop .bkgrid{margin-bottom:4px}
+@media (max-width:520px){
+  .helpmodal.pop{width:calc(100vw - 20px);padding:16px 16px 14px;max-height:calc(100dvh - 20px)}
+  .helpmodal.pop h2{font-size:1.2rem;margin:0 0 6px}
+  .helpmodal.pop label{margin:5px 0;font-size:.9rem}
+  .helpmodal.pop input,.helpmodal.pop select,.helpmodal.pop textarea{padding:8px 10px;font-size:16px}
+  .helpmodal.pop textarea{min-height:64px}
+  .helpmodal.pop .akrow{grid-template-columns:1fr 1fr;gap:6px}
+  .helpmodal.pop .akrow label:first-child{grid-column:1 / -1}
+  .helpmodal.pop .akcheck{flex-direction:row;align-items:center;gap:8px}
+  .helpmodal.pop .wizfoot{margin-top:10px}
+  .helpmodal.pop .wizfoot .btn{min-height:42px;min-width:0;padding:0 16px}
+  .helpmodal.pop .hclose{top:8px;right:8px}
+}
