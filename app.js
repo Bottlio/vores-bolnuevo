@@ -292,7 +292,8 @@ async function checkUser() {
   var ad = await sb.rpc("am_i_admin");
   me = { andel: row.andel_id, label: row.andele.lejlighed + "-" + row.andele.nummer, role: row.role, name: row.name, admin: ad.data === true,
     others: rows.filter(function (x) { return x !== row; }).map(function (x) { return { id: x.andel_id, label: x.andele.lejlighed + "-" + x.andele.nummer }; }) };
-  ui.member = true; ui.editor = true;
+  me.readonly = !me.admin && rows.every(function (x) { return x.role === "laeser"; });
+  ui.member = true; ui.editor = !me.readonly;
 }
 function authorText(e) {
   var a = e && authors[e.updated_by];
@@ -782,6 +783,7 @@ function renderHome() {
   var html = "";
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
   html += screenNote() + inAppNote();
+  if (me && me.readonly) html += '<p class="notice">Du har læseadgang: du kan se det hele, men ikke ændre noget eller give vurderinger.</p>';
   if (me && me.admin && ui.reportCount) html += '<p class="notice">' + (ui.reportCount === 1 ? "Der er 1 ny anmeldelse." : "Der er " + ui.reportCount + " nye anmeldelser.") + ' <button class="linkbtn" type="button" data-page="admin">Se ' + (ui.reportCount === 1 ? "den" : "dem") + "</button></p>";
   html += hiddenDupHtml();
   html += sinceHtml();
@@ -1325,7 +1327,7 @@ function andelPageHtml() {
   if (!d) { loadAndel(); return h + '<section class="panel"><p>Henter…</p></section>'; }
   function personRow(m) {
     var you = m.user_id === ui.user.id;
-    return "<li><span><strong>" + esc(m.name || m.email) + "</strong> " + (m.role === "ejer" ? "Ejer" : "Gæst") + (you ? " (dig)" : "") + '<br><span class="hint">' + esc(m.email) + (m.user_id ? "" : " · inviteret, har ikke logget ind endnu") + "</span>" + (!m.user_id && owner ? '<br><button class="linkbtn" type="button" data-reinvite="' + esc(m.email) + '" data-rname="' + esc(m.name || "") + '" data-rrole="' + esc(m.role) + '">Send invitationen igen</button>' : "") + "</span>" +
+    return "<li><span><strong>" + esc(m.name || m.email) + "</strong> " + roleName(m.role) + (you ? " (dig)" : "") + '<br><span class="hint">' + esc(m.email) + (m.user_id ? "" : " · inviteret, har ikke logget ind endnu") + "</span>" + (!m.user_id && owner ? '<br><button class="linkbtn" type="button" data-reinvite="' + esc(m.email) + '" data-rname="' + esc(m.name || "") + '" data-rrole="' + esc(m.role) + '">Send invitationen igen</button>' : "") + "</span>" +
       (owner && !you ? '<button class="btn small danger" type="button" data-rmmember="' + esc(m.email) + '">' + (ui.confirmRm === m.email ? "Tryk igen for at fjerne" : "Fjern adgang") + "</button>" : "") + "</li>";
   }
   var owners = d.members.filter(function (m) { return m.role === "ejer"; }), guests = d.members.filter(function (m) { return m.role !== "ejer"; });
@@ -1408,8 +1410,13 @@ function andelSwitchHtml() {
 function listDa(a) { return a.length > 1 ? a.slice(0, -1).join(", ") + " og " + a[a.length - 1] : a[0] || ""; }
 function myAndelTxt() { return me ? listDa(me.allLabels && me.allLabels.length ? me.allLabels : [me.label]) : ""; }
 function myLendTxt() { var a = me && me.apts && me.apts.length ? me.apts : []; return a.length > 1 ? "en af lejlighederne " + listDa(a) : a.length ? "lejlighed " + a[0] : "lejligheden"; }
-function inviteMsg(name, email, andel, lend) {
-  return "Hej" + (name ? " " + name : "") + ".\n\n" + (lend
+var READ_LEJL = "901";   // lejlighed 901 = læseadgang: kan se alt, men ikke ændre noget
+function isReadAndel(d, id) { var a = (d.andele || []).filter(function (x) { return x.id === id; })[0]; return !!a && a.lejlighed === READ_LEJL; }
+function roleName(r) { return r === "ejer" ? "Ejer" : r === "laeser" ? "Læseadgang" : "Gæst"; }
+function inviteMsg(name, email, andel, lend, readOnly) {
+  return "Hej" + (name ? " " + name : "") + ".\n\n" + (readOnly
+    ? "Du har fået læseadgang til Laderita de Bolnuevo guide – en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer. Du kan se det hele, men ikke ændre noget eller give vurderinger."
+    : lend
     ? "Du er inviteret til Laderita de Bolnuevo guide, fordi du skal låne " + lend + ". Guiden viser steder i området omkring hotellet med billeder og andelshavernes kommentarer."
     : "Du er inviteret til Laderita de Bolnuevo guide – en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer" + (andel ? ". Du er med som ejer af " + (/,| og /.test(andel) ? "andelene " : "andel ") + andel : "") + ".") + "\n\n" +
     "Sådan kommer du i gang:\n" +
@@ -1606,7 +1613,7 @@ function andelshaverListHtml(d) {
         return '<div class="aperson' + (resetBox ? " aedit" : "") + '"><div><strong>' + esc(k.navn || "–") + '</strong><span class="hint">' + esc([k.mail, k.tlf].filter(Boolean).join(" · ")) + '</span><span class="ast st-' + st + '">' + STATUS_TXT[st] + '</span> <button class="linkbtn" type="button" data-editk="' + esc(k.id) + '">Ret</button>' + (st === "adgang" || st === "inviteret" ? ' · <button class="linkbtn" type="button" data-resetk="' + esc(k.id) + '">Nulstil</button>' : "") + "</div>" + resetBox +
           (st === "nomail" ? '<button class="btn small primary" type="button" data-editk="' + esc(k.id) + '" data-andinv="1">Invitér</button>' : st === "ikke" ? '<button class="btn small primary" type="button" data-adminvite="' + esc(k.id) + '">Invitér</button>' : st === "inviteret" ? '<button class="btn small" type="button" data-adminvite="' + esc(k.id) + '">Send igen</button>' : "") + "</div>";
       }).join("") +
-      (extraMembers.length ? '<p class="hint">Også med: ' + esc(extraMembers.map(function (m) { return (m.name || m.email) + (m.role === "ejer" ? " (ejer)" : " (gæst)") + (m.user_id ? "" : " – inviteret"); }).join(", ")) + "</p>" : "") +
+      (extraMembers.length ? '<p class="hint">Også med: ' + esc(extraMembers.map(function (m) { return (m.name || m.email) + " (" + roleName(m.role).toLowerCase() + ")" + (m.user_id ? "" : " – inviteret"); }).join(", ")) + "</p>" : "") +
       '<div class="ahh-foot"><button class="linkbtn" type="button" data-sold="' + esc(a.id) + '">' + (ui.confirmSold === a.id ? "Tryk igen: andelen er solgt" : "Marker som solgt") + "</button></div></div>";
     var who = [ks.map(function (k) { return [k.navn, k.mail, k.tlf, k.bynavn].join(" "); }).join(" "), ms.map(function (m) { return m.name + " " + m.email; }).join(" ")].join(" ").toLowerCase();
     nums.filter(function (x) { return x.l !== "999"; }).forEach(function (x) {
@@ -1688,12 +1695,12 @@ async function adminInvite(kid) {
   var ml = k.mail.toLowerCase(), aids = (d.contacts || []).filter(function (x) { return (x.mail || "").toLowerCase() === ml; }).map(function (x) { return x.andel_id; }).filter(function (id, i, arr) { return arr.indexOf(id) === i; });
   for (var i = 0; i < aids.length; i++) {
     if (d.members.some(function (m) { return m.andel_id === aids[i] && (m.email || "").toLowerCase() === ml; })) continue;
-    var r = await sb.from("members").insert({ andel_id: aids[i], email: ml, name: first, role: "ejer", invited_by: ui.user.id });
+    var r = await sb.from("members").insert({ andel_id: aids[i], email: ml, name: first, role: isReadAndel(d, aids[i]) ? "laeser" : "ejer", invited_by: ui.user.id });
     if (r.error && !/duplicate|unique/i.test(r.error.message)) { d.err = "Invitationen blev ikke gemt: " + r.error.message; render(); return; }
   }
   var nums = []; aids.forEach(function (id) { var aa = d.andele.filter(function (x) { return x.id === id && x.aktiv; })[0]; if (aa) hhNums(d, aa).forEach(function (x) { if (x.l !== "999") nums.push(x.l + "-" + x.n); }); });
   nums.sort(function (p, q) { return p.localeCompare(q, "da", { numeric: true }); });
-  ui.inviteText = inviteMsg(first, k.mail, listDa(nums));
+  ui.inviteText = isReadAndel(d, k.andel_id) ? inviteMsg(first, k.mail, "", "", true) : inviteMsg(first, k.mail, listDa(nums));
   ui.inviteTo = k.mail; ui.inviteName = first; ui.invitePhone = (k.tlf || "").replace(/\D/g, "");
   openInvite(); ui.invitePhone = "";
   var q = (document.getElementById("adm-q") || {}).value || "";
@@ -3256,7 +3263,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 189;
+var APP_VERSION = 190;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
