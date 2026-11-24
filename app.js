@@ -757,6 +757,16 @@ function areaMini(kind, name, extraHtml) {
 function wishItems() {
   return places.filter(function (p) { return p.fav; }).sort(function (a, b) { return scoreOf(b) - scoreOf(a); }).slice(0, 10).map(function (p) { return miniCard(p); });
 }
+/* Åbnet inde i Messenger/Facebook/Instagram o.l.: der kan guiden ikke lægges på hjemmeskærmen */
+var IN_APP = /FBAN|FBAV|FB_IAB|FBIOS|Messenger|Instagram|Line\/|Snapchat|LinkedInApp/i.test(navigator.userAgent || "");
+var IS_ANDROID = /Android/i.test(navigator.userAgent || "");
+function inAppNote() {
+  if (!IN_APP || ui.inAppHide) return "";
+  return '<div class="notice inappnote"><p><strong>Du har åbnet guiden inde i en anden app</strong> (fx Messenger). Herfra kan den ikke lægges på hjemmeskærmen.</p>' +
+    '<p>Tryk på de tre prikker <strong>•••</strong> øverst til højre og vælg <strong>' + (IS_ANDROID ? "Åbn i browser" : "Åbn i Safari") + '</strong>. ' +
+    (IS_ANDROID ? 'Tryk så på de tre prikker i Chrome og vælg <strong>Føj til startskærm</strong>.' : 'Tryk så på Del-knappen og vælg <strong>Føj til hjemmeskærm</strong>.') + '</p>' +
+    '<button class="linkbtn" type="button" id="inapp-hide">Skjul</button></div>';
+}
 function renderHome() {
   var spots = places.filter(function (p) { return !isApt(p.cat); });
   var hotel = places.filter(function (p) { return p.cat === "lejligheden" && p.photos && p.photos.length; })[0];
@@ -765,6 +775,7 @@ function renderHome() {
   toolbar(true);
   var html = "";
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
+  html += inAppNote();
   if (me && me.admin && ui.reportCount) html += '<p class="notice">' + (ui.reportCount === 1 ? "Der er 1 ny anmeldelse." : "Der er " + ui.reportCount + " nye anmeldelser.") + ' <button class="linkbtn" type="button" data-page="admin">Se ' + (ui.reportCount === 1 ? "den" : "dem") + "</button></p>";
   html += hiddenDupHtml();
   html += sinceHtml();
@@ -1266,6 +1277,7 @@ function renderGate() {
   setTop(headerHtml()); toolbar(false);
   var html = "";
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
+  html += inAppNote();
   if (ui.recovery) { if (!ui.login || ui.login.mode !== "newpw") ui.login = { mode: "newpw" }; html += loginHtml(); }
   else if (ui.checking) html += '<p class="loading">Henter…</p>';
   else if (ui.page === "regler") html += pageBack() + RULES_HTML;
@@ -2860,6 +2872,7 @@ var HELP_FAQ = [
     ["Hvordan logger jeg ind første gang?", "<ol><li>Åbn linket fra den invitation, du har fået.</li><li>Tryk på <strong>Første gang: opret adgangskode</strong>.</li><li>Skriv den mail, du er inviteret med, og vælg en adgangskode (mindst 8 tegn).</li><li>Du får en mail. Den er på engelsk og hedder <em>Confirm your signup</em>. Tryk på linket <em>Confirm your mail</em> i mailen.</li><li>Kom tilbage til guiden og log ind med mail og adgangskode.</li></ol>"],
     ["Jeg har glemt min adgangskode", "<ol><li>Tryk på <strong>Glemt adgangskode?</strong> under feltet til adgangskoden på log ind-siden.</li><li>Skriv din mail og tryk <strong>Send link</strong>.</li><li>Åbn mailen. Den er på engelsk og hedder <em>Reset your password</em>. Tryk på linket <em>Reset password</em>. Kan du ikke finde mailen, så kig i uønsket post (spam).</li><li>Skriv din nye adgangskode to gange og tryk <strong>Gem ny adgangskode</strong>.</li></ol><p>Så er du logget ind igen.</p>"],
     ["Hvordan får jeg guiden som \"app\" på min telefon?", "<p>Guiden er ikke en app, du henter i App Store eller Google Play. Det er en hjemmeside. Men du kan lægge den på telefonens hjemmeskærm med sit eget ikon. Så åbner den med ét tryk og ser ud og opfører sig som en app – og du skal ikke logge ind hver gang.</p>" +
+      "<p><strong>Åbnede du linket fra Messenger, Facebook eller en mail-app?</strong> Så åbner guiden inde i den app, og der kan den ikke lægges på hjemmeskærmen. Tryk først på de tre prikker øverst og vælg <strong>Åbn i browser</strong> (Android) eller <strong>Åbn i Safari</strong> (iPhone).</p>" +
       "<p><strong>iPhone og iPad</strong> – åbn guiden i <strong>Safari</strong>:</p><ol><li>Tryk på Del-knappen " + DEMO.share + " nederst (på iPad øverst).</li><li>Rul lidt ned og tryk <strong>Føj til hjemmeskærm</strong> " + DEMO.addhome + ".</li><li>Tryk <strong>Tilføj</strong> øverst til højre.</li></ol>" +
       "<p><strong>Android</strong> – åbn guiden i <strong>Chrome</strong>:</p><ol><li>Tryk på de tre prikker " + DEMO.dots + " øverst til højre.</li><li>Tryk <strong>Føj til startskærm</strong> (eller <strong>Installer app</strong>).</li><li>Tryk <strong>Tilføj</strong>.</li></ol><p>Nu ligger guiden som et ikon sammen med dine andre apps.</p>"],
     ["Hvordan kommer jeg tilbage?", "<p>" + DEMO.back + " øverst til højre går et skridt tilbage.</p><p>" + DEMO.home + " går til forsiden.</p>"],
@@ -3140,6 +3153,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.adminvite) { adminInvite(t.dataset.adminvite); return; }
   if (t.dataset.resetk != null) { ui.resetK = t.dataset.resetk || null; ui.resetMsg = ""; ui.confirmStart = null; rerenderAdmin(); return; }
   if (t.dataset.rpw) { adminResetPw(t.dataset.rpw); return; }
+  if (t.id === "inapp-hide") { ui.inAppHide = true; render(); return; }
   if (t.dataset.rstart) { if (ui.confirmStart !== t.dataset.rstart) { ui.confirmStart = t.dataset.rstart; rerenderAdmin(); return; } adminStartOver(t.dataset.rstart); return; }
   if (t.dataset.editk != null) { ui.editK = t.dataset.editk || null; ui.editKInv = !!t.dataset.andinv; var q0 = (document.getElementById("adm-q") || {}).value || ""; render(); var qi0 = document.getElementById("adm-q"); if (qi0) { qi0.value = q0; filterAdmList(); } return; }
   if (t.dataset.legend) { ui.mapFocus = ui.mapFocus === t.dataset.legend ? null : t.dataset.legend; applyMapFocus(); return; }
@@ -3235,7 +3249,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 187;
+var APP_VERSION = 188;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
