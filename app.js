@@ -1350,11 +1350,11 @@ var ICON_BOOK = licon('<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><pat
 var ICON_BIKE = licon('<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9 8.5 6H7M15 9l-3 7"/>');
 var ICON_MENU = licon('<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>');
 var MENU = [
-  ["ahbooking", ICON_KEYBED, "AHbooking", "Book uger i lejlighederne, point og år-rul"],
   ["akt", ICON_CAL, "Fælles aktiviteter", "Se hvad der sker, og tilmeld dig"],
   ["udstyr", ICON_BIKE, "Booking af udstyr", "Cykler, golfsæt og andet, der kan lånes"],
   ["guide", ICON_COMPASS, "Guide til området", "Spisesteder, strande, udflugter og andelshavernes tips"],
-  ["sortbog", ICON_BOOK, "Den sorte bog", "Er noget gået i stykker, eller mangler der noget?"]
+  ["sortbog", ICON_BOOK, "Den sorte bog", "Er noget gået i stykker, eller mangler der noget?"],
+  ["ahbooking", ICON_KEYBED, "AHbooking", "Book uger i lejlighederne, point og år-rul"]
 ];
 function renderMenu() {
   setTop(headerHtml() + heroHtml()); toolbar(false);
@@ -3561,7 +3561,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 208;
+var APP_VERSION = 209;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
