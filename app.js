@@ -1408,13 +1408,25 @@ function akGoWeek(dir) {
   var w = Math.max(0, Math.min(AK_WEEKS - 1, (ui.akWeek || 0) + dir)); if (w === (ui.akWeek || 0)) return;
   ui.akWeek = w; var d = weekStart(w); if (w === 0) d = new Date(); ui.akDay = dayKey(d); render();
 }
+// Næste/forrige dag – går over i næste/forrige uge, når det er nødvendigt
+function akGoDay(dir) {
+  var k0 = ui.akShown || ui.akDay, cur = k0 ? new Date(k0 + "T12:00") : new Date(); cur.setDate(cur.getDate() + dir); cur.setHours(0, 0, 0, 0);
+  var w = Math.floor((cur - weekStart(0)) / (7 * 86400000));
+  if (w < 0 || w > AK_WEEKS - 1) return;
+  ui.akWeek = w; ui.akDay = dayKey(cur); render();
+}
 // Swipe til venstre/højre på ugevisningen skifter uge
 (function () {
+  // På selve dagen (timerne) skifter et swipe dag – oppe i ugebjælken og dagsstrimlen skifter det uge
   var sx = 0, sy = 0, on = false;
-  document.addEventListener("touchstart", function (e) { on = !!(e.target.closest && e.target.closest(".akswipe")) && !e.target.closest(".akcols"); if (on) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; } }, { passive: true });
+  document.addEventListener("touchstart", function (e) {
+    var w = e.target.closest && e.target.closest(".akswipe"); on = false;
+    if (w && !e.target.closest(".akcols") && !e.target.closest(".wizwrap")) { on = e.target.closest(".akone") ? "day" : "week"; sx = e.touches[0].clientX; sy = e.touches[0].clientY; }
+  }, { passive: true });
   document.addEventListener("touchend", function (e) {
-    if (!on) return; on = false; var t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) akGoWeek(dx < 0 ? 1 : -1);
+    if (!on) return; var mode = on; on = false; var t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (!(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5)) return;
+    if (mode === "week") akGoWeek(dx < 0 ? 1 : -1); else akGoDay(dx < 0 ? 1 : -1);
   }, { passive: true });
 })();
 function aktUsed(a) { return (a.activity_signups || []).reduce(function (s, x) { return s + (x.people || 1); }, 0); }
@@ -1475,6 +1487,7 @@ function weekBlockHtml(list, card, emptyTxt, grid) {   // grid: tegn dagene som 
   list.forEach(function (a) { var k = dayKey(new Date(a.starts_at)); days.forEach(function (x) { if (x.k === k) x.items.push(a); }); });
   // Valgt dag: den man har trykket på – ellers første dag fra i dag med noget på programmet
   var sel = days.filter(function (x) { return x.k === ui.akDay; })[0] || days.filter(function (x) { return x.k >= todayK && x.items.length; })[0] || days.filter(function (x) { return x.k === todayK; })[0] || days[0];
+  ui.akShown = sel.k;
   var wlabel = ws.getMonth() === we.getMonth() ? ws.getDate() + ".–" + we.getDate() + ". " + DA_MON[we.getMonth()] : ws.getDate() + ". " + DA_MON[ws.getMonth()] + " – " + we.getDate() + ". " + DA_MON[we.getMonth()];
   h += '<div class="akswipe">' +
     '<div class="akweekbar"><button class="iconbtn" type="button" data-akwk="-1" aria-label="Forrige uge"' + (wk <= 0 ? " disabled" : "") + '>‹</button>' +
@@ -3957,7 +3970,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 229;
+var APP_VERSION = 230;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
