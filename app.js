@@ -1460,7 +1460,9 @@ function aktPageHtml() {
   h += '<p class="notice">Test: aktiviteter, du opretter her, er rigtige og kan ses af alle andre testere.</p>';
   if (aktData.err) h += '<p class="error">' + esc(aktData.err) + "</p>";
   if (ui.akForm) h += aktFormHtml();
-  h += weekBlockHtml(aktData.list, aktCard, "Intet planlagt");
+  var pick = ui.akPick && aktData.list.filter(function (a) { return a.id === ui.akPick; })[0];
+  if (pick) h += '<section class="panel akpick">' + aktCard(pick) + '<div class="row"><button class="btn" type="button" data-akpick="">Luk</button></div></section>';
+  h += weekBlockHtml(aktData.list, aktCard, "Intet planlagt", aktGrid);
   return h;
 }
 // Ugevisning (fælles for aktiviteter og udstyr): dagene fra venstre mod højre, pile eller swipe mellem ugerne
@@ -1569,33 +1571,65 @@ function lanes(rows) {
   });
   flush();
 }
-// Tidsskema som på skærmen: tiderne ude til venstre, en kolonne pr. dag, bookingerne som blokke
-function bkGrid(days, todayK) {
-  var span = BK_H1 - BK_H0, now = new Date(), nowH = now.getHours() + now.getMinutes() / 60;
+// Tidsskema som på skærmen: tiderne ude til venstre, en kolonne pr. dag, blokke for hver booking/aktivitet.
+// rowsFor(dag, d0, d1) giver blokke {a, z (timer), html(stil)}; overlappende blokke lægges i spor ved siden af hinanden.
+function tgGrid(days, todayK, h0, h1, rowsFor) {
+  var span = h1 - h0, now = new Date(), nowH = now.getHours() + now.getMinutes() / 60;
   var ax = '<div class="tgax"><div class="tgh">&nbsp;</div><div class="tgbody">';
-  for (var t = BK_H0; t <= BK_H1; t += 2) ax += '<span style="top:' + ((t - BK_H0) / span * 100) + '%">' + p2(t) + "</span>";
+  for (var t = h0; t <= h1; t += 2) ax += '<span style="top:' + ((t - h0) / span * 100) + '%">' + p2(t) + "</span>";
   ax += "</div></div>";
   // Timestreger som rigtige streger (en baggrundsgradient tabte nogle af dem ved afrunding)
   var hourLines = "";
-  for (var h = BK_H0 + 1; h < BK_H1; h++) hourLines += '<i class="tgl" style="top:' + ((h - BK_H0) / span * 100) + '%"></i>';
+  for (var h = h0 + 1; h < h1; h++) hourLines += '<i class="tgl" style="top:' + ((h - h0) / span * 100) + '%"></i>';
   return '<div class="tgwrap" style="--n:' + days.length + '">' + ax + days.map(function (x) {
     var d0 = new Date(x.d), d1 = new Date(x.d); d1.setDate(d1.getDate() + 1);
+    var rows = rowsFor(x, d0, d1).map(function (r) { r.a = Math.max(h0, r.a); r.z = Math.min(h1, r.z); return r; }).filter(function (r) { return r.z > r.a; });
+    lanes(rows);
+    var blocks = rows.map(function (r) {
+      return r.html('top:' + ((r.a - h0) / span * 100) + "%;height:" + ((r.z - r.a) / span * 100) + "%;left:calc(" + (r.k / r.n * 100) + "% + 2px);width:calc(" + (100 / r.n) + "% - 4px)");
+    }).join("");
+    var nowLine = x.k === todayK && nowH >= h0 && nowH <= h1 ? '<span class="tgnow" style="top:' + ((nowH - h0) / span * 100) + '%"></span>' : "";
+    return '<div class="tgday' + (x.k === todayK ? " today" : "") + '"><div class="tgh"><b>' + (x.k === todayK ? "I dag" : DA_DAY[x.d.getDay()].slice(0, 3)) + "</b> <span>" + x.d.getDate() + ". " + DA_MON[x.d.getMonth()] + '</span></div><div class="tgbody">' + hourLines + blocks + nowLine + "</div></div>";
+  }).join("") + "</div>";
+}
+function hOf(d, d0, d1, edge) { return d < d0 ? 0 : d >= d1 ? 24 : d.getHours() + d.getMinutes() / 60; }
+function bkGrid(days, todayK) {
+  return tgGrid(days, todayK, BK_H0, BK_H1, function (x, d0, d1) {
     // Samme person, samme tidsrum = én blok (fx "2 cykler + golfsæt")
     var groups = {};
     bkData.list.filter(function (b) { return new Date(b.starts_at) < d1 && new Date(b.ends_at) > d0; }).forEach(function (b) { var k = bkKey(b); (groups[k] = groups[k] || []).push(b); });
-    var rows = Object.keys(groups).map(function (k) {
-      var g = groups[k], b = g[0], st = new Date(b.starts_at), en = new Date(b.ends_at);
-      return { key: k, g: g, b: b, a: Math.max(BK_H0, st < d0 ? 0 : st.getHours() + st.getMinutes() / 60), z: Math.min(BK_H1, en >= d1 ? 24 : en.getHours() + en.getMinutes() / 60) };
-    }).filter(function (r) { return r.z > r.a; });
-    lanes(rows);
-    var blocks = rows.map(function (r) {
-      var mine = ui.user && r.b.user_id === ui.user.id, kinds = r.g.map(function (b) { return (b.equipment || {}).kind; });
-      var kind = kinds.every(function (k) { return k === "golf"; }) ? "golf" : kinds.every(function (k) { return k === "cykel"; }) ? "cykel" : "mix";
-      return '<button type="button" class="tgb ' + kind + (mine ? " mine" : "") + '" data-bkpick="' + esc(r.key) + '" style="top:' + ((r.a - BK_H0) / span * 100) + "%;height:" + ((r.z - r.a) / span * 100) + "%;left:calc(" + (r.k / r.n * 100) + "% + 2px);width:calc(" + (100 / r.n) + '% - 4px)"><b>' + esc(bkLabel(r.b) || r.b.name || "") + "</b>" + esc(bkWhat(r.g)) + "</button>";
-    }).join("");
-    var nowLine = x.k === todayK && nowH >= BK_H0 && nowH <= BK_H1 ? '<span class="tgnow" style="top:' + ((nowH - BK_H0) / span * 100) + '%"></span>' : "";
-    return '<div class="tgday' + (x.k === todayK ? " today" : "") + '"><div class="tgh"><b>' + (x.k === todayK ? "I dag" : DA_DAY[x.d.getDay()].slice(0, 3)) + "</b> <span>" + x.d.getDate() + ". " + DA_MON[x.d.getMonth()] + '</span></div><div class="tgbody">' + hourLines + blocks + nowLine + "</div></div>";
-  }).join("") + "</div>";
+    return Object.keys(groups).map(function (k) {
+      var g = groups[k], b = g[0];
+      var mine = ui.user && b.user_id === ui.user.id, kinds = g.map(function (y) { return (y.equipment || {}).kind; });
+      var kind = kinds.every(function (q) { return q === "golf"; }) ? "golf" : kinds.every(function (q) { return q === "cykel"; }) ? "cykel" : "mix";
+      return { a: hOf(new Date(b.starts_at), d0, d1), z: hOf(new Date(b.ends_at), d0, d1), html: function (st) {
+        return '<button type="button" class="tgb ' + kind + (mine ? " mine" : "") + '" data-bkpick="' + esc(k) + '" style="' + st + '"><b>' + esc(bkLabel(b) || b.name || "") + "</b>" + esc(bkWhat(g)) + "</button>"; } };
+    });
+  });
+}
+// Aktiviteter uden sluttid vises som 1½ time. Skemaet går fra kl. 8 til 20 – længere, hvis en aktivitet ligger uden for
+var AK_LEN = 1.5;
+function akEnd(a) { return a.ends_at ? new Date(a.ends_at) : new Date(new Date(a.starts_at).getTime() + AK_LEN * 3600000); }
+function akHours() {
+  var h0 = 8, h1 = 20;
+  (aktData ? aktData.list : []).forEach(function (a) {
+    var st = new Date(a.starts_at), en = akEnd(a), sh = st.getHours(), eh = en.getHours() + (en.getMinutes() ? 1 : 0);
+    if (dayKey(en) !== dayKey(st)) eh = 24;
+    h0 = Math.min(h0, sh); h1 = Math.max(h1, eh);
+  });
+  return [h0, Math.min(24, h1)];
+}
+function aktGrid(days, todayK) {
+  var hr = akHours();
+  return tgGrid(days, todayK, hr[0], hr[1], function (x) {
+    return x.items.map(function (a) {
+      var st = new Date(a.starts_at), en = akEnd(a), a0 = st.getHours() + st.getMinutes() / 60, z = dayKey(en) !== dayKey(st) ? 24 : en.getHours() + en.getMinutes() / 60;
+      var sig = a.signup ? aktUsed(a) : 0, mine = ui.user && (a.activity_signups || []).some(function (y) { return y.user_id === ui.user.id; });
+      return { a: a0, z: Math.max(z, a0 + 0.75), html: function (stl) {
+        return '<button type="button" class="tgb akt' + (a.cancelled ? " cancel" : "") + (mine ? " mine" : "") + '" data-akpick="' + esc(a.id) + '" style="' + stl + '"><b>' + esc(a.title) + "</b>" +
+          (a.cancelled ? "Aflyst" : esc(a.place || "")) + (a.signup && !a.cancelled ? '<small>' + sig + (a.max_people ? "/" + a.max_people : "") + " tilmeldt</small>" : "") + "</button>"; } };
+    });
+  });
 }
 function bkFormHtml() {
   ui.bkSel = (ui.bkSel || []).filter(bkIsFree);
@@ -3577,6 +3611,7 @@ document.addEventListener("click", async function (e) {
     render(); window.scrollTo({ top: 0 }); return;
   }
   if (t.dataset.bkpick != null) { ui.bkPick = t.dataset.bkpick || null; ui.bkDelConfirm = null; render(); if (ui.bkPick) { var pe = document.querySelector(".bkpick"); if (pe) pe.scrollIntoView({ block: "center", behavior: "smooth" }); } return; }
+  if (t.dataset.akpick != null) { ui.akPick = t.dataset.akpick || null; ui.akDelConfirm = null; ui.akConfirm = null; render(); if (ui.akPick) { var pe = document.querySelector(".akpick"); if (pe) pe.scrollIntoView({ block: "center", behavior: "smooth" }); } return; }
   if (t.dataset.bkclose) { ui.bkForm = false; ui.bkErr = ""; render(); return; }
   if (t.dataset.bksel) { var bi = (ui.bkSel || []).indexOf(t.dataset.bksel); if (bi >= 0) ui.bkSel.splice(bi, 1); else ui.bkSel.push(t.dataset.bksel); ui.bkErr = ""; render(); return; }
   if (t.dataset.bkdel) { if (ui.bkDelConfirm !== t.dataset.bkdel) { ui.bkDelConfirm = t.dataset.bkdel; render(); return; } bkDelete(t.dataset.bkdel); return; }
@@ -3701,7 +3736,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 217;
+var APP_VERSION = 218;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

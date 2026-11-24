@@ -996,3 +996,8 @@ footer.foot .footlabel:first-child{margin-top:0}
 .bkpick p{margin:0 0 10px}
 .tgb{display:flex;flex-direction:column;justify-content:flex-start;align-items:flex-start}
 .tgb.mix{background:#3e6b57}
+/* Fælles aktiviteter som tidsskema */
+.tgb.akt{background:var(--sea)}
+.tgb.akt.cancel{background:#9aa3a4;text-decoration:line-through}
+.tgb small{display:block;margin-top:auto;opacity:.85;font-size:.95em}
+.akpick .akcard{border:0;padding:0;box-shadow:none}
