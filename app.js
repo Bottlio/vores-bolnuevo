@@ -1370,12 +1370,28 @@ function dayTitle(d) {
 }
 async function loadAkt() {
   if (aktLoading) return; aktLoading = true;
-  var from = new Date(); from.setHours(0, 0, 0, 0);
-  var r = await sb.from("activities").select("*, activity_signups(user_id, andel_id, name, people)").gte("starts_at", from.toISOString()).lt("starts_at", new Date(from.getTime() + 28 * 86400000).toISOString()).order("starts_at");   // de næste 4 uger
+  var from = weekStart(0), to = weekStart(AK_WEEKS);
+  var r = await sb.from("activities").select("*, activity_signups(user_id, andel_id, name, people)").gte("starts_at", from.toISOString()).lt("starts_at", to.toISOString()).order("starts_at");   // denne uge + de næste uger
   aktLoading = false;
   aktData = { list: r.data || [], err: r.error ? "Aktiviteterne kunne ikke hentes: " + r.error.message : "" };
   if (ui.page === "akt") render();
 }
+var AK_WEEKS = 9;   // denne uge + 8 frem
+function weekStart(off) { var d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + 7 * (off || 0)); return d; }
+function isoWeek(d) { var t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); var n = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - n); var y = new Date(Date.UTC(t.getUTCFullYear(), 0, 1)); return Math.ceil(((t - y) / 86400000 + 1) / 7); }
+function akGoWeek(dir) {
+  var w = Math.max(0, Math.min(AK_WEEKS - 1, (ui.akWeek || 0) + dir)); if (w === (ui.akWeek || 0)) return;
+  ui.akWeek = w; var d = weekStart(w); if (w === 0) d = new Date(); ui.akDay = dayKey(d); render();
+}
+// Swipe til venstre/højre på ugevisningen skifter uge
+(function () {
+  var sx = 0, sy = 0, on = false;
+  document.addEventListener("touchstart", function (e) { on = !!(e.target.closest && e.target.closest(".akswipe")) && !e.target.closest(".akcols"); if (on) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; } }, { passive: true });
+  document.addEventListener("touchend", function (e) {
+    if (!on) return; on = false; var t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) akGoWeek(dx < 0 ? 1 : -1);
+  }, { passive: true });
+})();
 function aktUsed(a) { return (a.activity_signups || []).reduce(function (s, x) { return s + (x.people || 1); }, 0); }
 function aktCard(a) {
   var st = new Date(a.starts_at), en = a.ends_at ? new Date(a.ends_at) : null;
@@ -1383,7 +1399,7 @@ function aktCard(a) {
   var used = aktUsed(a), full = a.max_people && used >= a.max_people, past = (en || st) < new Date();
   var canEdit = ui.user && (a.created_by === ui.user.id || (me && me.admin));
   var status = a.cancelled ? '<p class="akst cancel">Aflyst</p>'
-    : !a.signup ? '<p class="akst">Ingen tilmelding – bare mød op</p>'
+    : !a.signup ? '<p class="akst">Ingen tilmelding<span class="akmeet"> – bare mød op</span></p>'
     : '<p class="akst ' + (full ? "full" : "ok") + '">' + (a.max_people ? (full ? "Fuldt booket" : used + " af " + a.max_people + " tilmeldt") : used + " tilmeldt") + "</p>";
   var who = a.signup && sig.length ? '<p class="akwho">' + sig.map(function (x) { return esc((x.name || "?") + (andelLabels[x.andel_id] ? " (" + andelLabels[x.andel_id].replace(/ m\.fl\.$/, "") + ")" : "")) + (x.people > 1 ? " ×" + x.people : ""); }).join(", ") + "</p>" : "";
   var btns = "";
@@ -1419,10 +1435,28 @@ function aktPageHtml() {
   h += '<p class="notice">Test: aktiviteter, du opretter her, er rigtige og kan ses af alle andre testere.</p>';
   if (aktData.err) h += '<p class="error">' + esc(aktData.err) + "</p>";
   if (ui.akForm) h += aktFormHtml();
-  var list = aktData.list, groups = [], cur = null;
-  list.forEach(function (a) { var k = dayKey(new Date(a.starts_at)); if (!cur || cur.k !== k) { cur = { k: k, d: new Date(a.starts_at), items: [] }; groups.push(cur); } cur.items.push(a); });
-  if (!groups.length) h += '<p class="hint">Der er ingen aktiviteter endnu. ' + (ui.editor ? "Tryk på \"Opret aktivitet\" for at lave den første." : "") + "</p>";
-  groups.forEach(function (g) { h += '<h3 class="akday">' + dayTitle(g.d) + '</h3><div class="aklist">' + g.items.map(aktCard).join("") + "</div>"; });
+  // Ugevisning: dagene fra venstre mod højre, pile eller swipe mellem ugerne
+  var wk = ui.akWeek || 0, ws = weekStart(wk), we = new Date(ws); we.setDate(ws.getDate() + 6);
+  var days = [], todayK = dayKey(new Date());
+  for (var i = 0; i < 7; i++) { var d = new Date(ws); d.setDate(ws.getDate() + i); days.push({ d: d, k: dayKey(d), items: [] }); }
+  aktData.list.forEach(function (a) { var k = dayKey(new Date(a.starts_at)); days.forEach(function (x) { if (x.k === k) x.items.push(a); }); });
+  // Valgt dag: den man har trykket på – ellers første dag fra i dag med noget på programmet
+  var sel = days.filter(function (x) { return x.k === ui.akDay; })[0] || days.filter(function (x) { return x.k >= todayK && x.items.length; })[0] || days.filter(function (x) { return x.k === todayK; })[0] || days[0];
+  var wlabel = ws.getMonth() === we.getMonth() ? ws.getDate() + ".–" + we.getDate() + ". " + DA_MON[we.getMonth()] : ws.getDate() + ". " + DA_MON[ws.getMonth()] + " – " + we.getDate() + ". " + DA_MON[we.getMonth()];
+  h += '<div class="akswipe">' +
+    '<div class="akweekbar"><button class="iconbtn" type="button" data-akwk="-1" aria-label="Forrige uge"' + (wk <= 0 ? " disabled" : "") + '>‹</button>' +
+    '<div class="akwl"><strong>' + (wk === 0 ? "Denne uge" : wk === 1 ? "Næste uge" : "Uge " + isoWeek(ws)) + "</strong><span>" + wlabel + "</span></div>" +
+    '<button class="iconbtn" type="button" data-akwk="1" aria-label="Næste uge"' + (wk >= AK_WEEKS - 1 ? " disabled" : "") + ">›</button></div>" +
+    '<div class="akstrip" role="tablist">' + days.map(function (x) {
+      return '<button type="button" role="tab" class="akdaybtn' + (x === sel ? " on" : "") + (x.k === todayK ? " today" : "") + '" data-akday="' + x.k + '" aria-selected="' + (x === sel) + '"><span class="dn">' + DA_DAY[x.d.getDay()].slice(0, 3) + '</span><span class="dd">' + x.d.getDate() + '</span><span class="dc">' + (x.items.length ? x.items.filter(function (a) { return !a.cancelled; }).map(function () { return "•"; }).join("").slice(0, 4) : "&nbsp;") + "</span></button>";
+    }).join("") + "</div>" +
+    // Telefon: den valgte dag under strimlen
+    '<div class="akone"><h3 class="akday">' + dayTitle(sel.d) + "</h3>" + (sel.items.length ? '<div class="aklist">' + sel.items.map(aktCard).join("") + "</div>" : '<p class="hint">Intet planlagt.</p>') + "</div>" +
+    // Bred skærm: hele ugen i kolonner
+    '<div class="akcols">' + days.map(function (x) {
+      return '<div class="akcol' + (x.k === todayK ? " today" : "") + '"><p class="akch"><b>' + (x.k === todayK ? "I dag" : DA_DAY[x.d.getDay()].slice(0, 3)) + "</b> <span>" + x.d.getDate() + ". " + DA_MON[x.d.getMonth()] + "</span></p>" +
+        (x.items.length ? x.items.map(aktCard).join("") : '<p class="hint">Intet planlagt</p>') + "</div>";
+    }).join("") + "</div></div>";
   return h + '<div class="row akback"><button class="btn" type="button" data-menu="menu">Tilbage til menuen</button></div>';
 }
 async function saveAkt(f) {
@@ -1436,6 +1470,9 @@ async function saveAkt(f) {
     signup: f.elements.signup.checked, max_people: f.elements.signup.checked && max > 0 ? max : null };
   var r = ui.akEdit ? await sb.from("activities").update(row).eq("id", ui.akEdit) : await sb.from("activities").insert(Object.assign(row, { andel_id: me && me.andel }));
   if (r.error) { ui.aktErr = "Det blev ikke gemt: " + r.error.message; render(); return; }
+  // Vis den uge og dag, aktiviteten ligger på
+  var off = Math.floor((new Date(st.getFullYear(), st.getMonth(), st.getDate()) - weekStart(0)) / (7 * 86400000));
+  ui.akWeek = Math.max(0, Math.min(AK_WEEKS - 1, off)); ui.akDay = dayKey(st);
   ui.akForm = false; ui.akEdit = null; ui.aktErr = ""; aktData = null; render(); window.scrollTo({ top: 0 });
 }
 async function aktSignup(id, on) {
@@ -3333,6 +3370,8 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.adminvite) { adminInvite(t.dataset.adminvite); return; }
   if (t.dataset.resetk != null) { ui.resetK = t.dataset.resetk || null; ui.resetMsg = ""; ui.confirmStart = null; rerenderAdmin(); return; }
   if (t.dataset.rpw) { adminResetPw(t.dataset.rpw); return; }
+  if (t.dataset.akwk) { akGoWeek(parseInt(t.dataset.akwk, 10)); return; }
+  if (t.dataset.akday) { ui.akDay = t.dataset.akday; render(); return; }
   if (t.dataset.aknew) { ui.akForm = true; ui.akEdit = null; ui.aktErr = ""; ui.msg = ""; render(); window.scrollTo({ top: 0 }); return; }
   if (t.dataset.akedit) { ui.akForm = true; ui.akEdit = t.dataset.akedit; ui.aktErr = ""; ui.msg = ""; render(); window.scrollTo({ top: 0 }); return; }
   if (t.dataset.akclose) { ui.akForm = false; ui.akEdit = null; ui.aktErr = ""; render(); return; }
@@ -3340,7 +3379,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.akoff) { aktSignup(t.dataset.akoff, false); return; }
   if (t.dataset.akcancel) { if (ui.akConfirm !== t.dataset.akcancel) { ui.akConfirm = t.dataset.akcancel; render(); return; } aktCancel(t.dataset.akcancel); return; }
   if (t.dataset.menu) {
-    var mk = t.dataset.menu; ui.msg = ""; if (mk === "akt") { aktData = null; ui.akForm = false; }
+    var mk = t.dataset.menu; ui.msg = ""; if (mk === "akt") { aktData = null; ui.akForm = false; ui.akWeek = 0; ui.akDay = null; }
     leaveDraft(function () {
       if (mk === "menu") { nav(function () { ui.menu = true; ui.page = null; ui.place = null; ui.cat = "hjem"; ui.q = ""; }); return; }
       nav(function () { ui.menu = false; ui.place = null; ui.cat = "hjem"; ui.page = mk === "guide" ? null : mk; });
@@ -3445,7 +3484,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 199;
+var APP_VERSION = 200;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

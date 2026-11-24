@@ -922,3 +922,34 @@ footer.foot .footlabel:first-child{margin-top:0}
 .akcheck{display:flex;align-items:center;gap:8px}
 .akback{margin-top:22px}
 .akfast{margin:0 0 2px;font-size:.85rem;color:var(--sea);font-weight:700}
+/* Fælles aktiviteter – ugevisning */
+.akweekbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 10px}
+.akweekbar .iconbtn{font-size:1.6rem;line-height:1}
+.akweekbar .iconbtn[disabled]{opacity:.3}
+.akwl{text-align:center;display:flex;flex-direction:column}
+.akwl strong{font-family:var(--display);font-size:1.15rem}
+.akwl span{color:var(--muted);font-size:.92rem}
+.akstrip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.akdaybtn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 6px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font:inherit;cursor:pointer}
+.akdaybtn .dn{font-size:.78rem;color:var(--muted)}
+.akdaybtn .dd{font-family:var(--display);font-weight:700;font-size:1.15rem}
+.akdaybtn .dc{color:var(--sea);font-size:.9rem;line-height:.8;letter-spacing:1px;min-height:.8em}
+.akdaybtn.today{border-color:var(--sea)}
+.akdaybtn.on{background:var(--sea);border-color:var(--sea);color:#fff}
+.akdaybtn.on .dn,.akdaybtn.on .dc{color:#fff}
+.akone .aklist{grid-template-columns:1fr}
+.akcols{display:none}
+@media (min-width:900px){
+  .akstrip,.akone{display:none}
+  .akcols{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;align-items:start}
+  .akcol{border:1px solid var(--line);border-radius:12px;padding:8px;min-height:200px;display:flex;flex-direction:column;gap:8px}
+  .akcol.today{border-color:var(--sea)}
+  .akch{margin:0 0 2px;display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .akch span{color:var(--muted);font-size:.85rem}
+  .akcol .akcard{padding:10px}
+  .akcol .akcard h3{font-size:1rem}
+  .akcol .akdesc{display:none}
+  .akcol .akbtns{gap:6px}
+  .akcol .akppl{max-width:100%}
+}
+@media (min-width:900px){.akcol .akmeet{display:none}.akcol .akst{font-size:.9rem}.akcol .akplace{font-size:.92rem}}
