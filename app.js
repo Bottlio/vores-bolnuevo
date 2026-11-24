@@ -1330,11 +1330,18 @@ function renderMenu() {
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
   html += screenNote() + inAppNote();
   html += '<section class="menuhead"><h2>Hej' + (me && me.name ? " " + esc(me.name) : "") + "</h2>" + (me ? '<p class="hint">Andel ' + esc(me.label) + "</p>" : "") + "</section>";
+  var now = new Date(), MDA = ["jan.", "feb.", "mar.", "apr.", "maj", "jun.", "jul.", "aug.", "sep.", "okt.", "nov.", "dec."], WDA = ["søn", "man", "tir", "ons", "tor", "fre", "lør"];
+  var deco = {
+    ahbooking: '<img class="mlogo" src="logo-ah.png" alt="">',
+    akt: '<span class="mcal" aria-hidden="true"><span class="mcal-m">' + MDA[now.getMonth()] + '</span><span class="mcal-d">' + now.getDate() + '</span><span class="mcal-w">' + WDA[now.getDay()] + "</span></span>",
+    guide: '<span class="mrate" aria-hidden="true"><span class="mstars">★★★★★</span><span class="mpair"><span class="mb mb-v">' + visitSvg(true) + '</span><span class="mb mb-h">' + heartSvg(true) + "</span></span></span>",
+    sortbog: ""
+  };
   html += '<nav class="menugrid" aria-label="Startmenu">' + MENU.map(function (m) {
-    var inner = '<span class="micon">' + m[1] + '</span><span class="mtext"><span class="mtitle">' + m[2] + (m[0] === "ahbooking" ? ' <span class="mext" aria-hidden="true">↗</span>' : "") + '</span><span class="msub">' + m[3] + "</span></span>";
+    var inner = '<span class="micon">' + m[1] + '</span><span class="mtext"><span class="mtitle">' + m[2] + (m[0] === "ahbooking" ? ' <span class="mext" aria-hidden="true">↗</span>' : "") + '</span><span class="msub">' + m[3] + "</span></span>" + (deco[m[0]] ? '<span class="mdeco">' + deco[m[0]] + "</span>" : "");
     return m[0] === "ahbooking"
-      ? '<a class="mtile" href="https://ahbooking.dk/" target="_blank" rel="noopener">' + inner + "</a>"
-      : '<button class="mtile" type="button" data-menu="' + m[0] + '">' + inner + "</button>";
+      ? '<a class="mtile m-ah" href="https://ahbooking.dk/" target="_blank" rel="noopener">' + inner + "</a>"
+      : '<button class="mtile m-' + m[0] + '" type="button" data-menu="' + m[0] + '">' + inner + "</button>";
   }).join("") + "</nav>";
   html += '<p class="hint menunote">AHbooking er Andelshotellets eget system og har sit eget login.</p>';
   html += ui.loaded ? footerHtml() : "";
@@ -3326,7 +3333,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 193;
+var APP_VERSION = 194;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
