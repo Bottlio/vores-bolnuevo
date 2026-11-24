@@ -36,8 +36,9 @@ var ui = { checking: true, view: "liste", scope: "alle", cat: "hjem", status: "t
 var isApp = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
 var h = (location.hash || "").slice(1); if ((CATNAME[h] || h === "byer" || h === "dagsture" || h === "alle") && (!isApp || /[?&]v=/.test(location.search))) ui.cat = h;
 if (/^sted\//.test(h)) ui.place = decodeURIComponent(h.slice(5));
-// Startmenuen er forsiden – undtagen når et link peger direkte ind i guiden
-ui.menu = ui.cat === "hjem" && !ui.place;
+// Startmenuen er under test: vises kun via QR-koden på skærmen (?fra=skaerm) eller ?menu=test – ellers er guiden forsiden som før
+var TEST_MENU = /[?&](fra=skaerm|menu=test)/.test(location.search);
+ui.menu = TEST_MENU && ui.cat === "hjem" && !ui.place;
 var root = document.getElementById("root");
 var newInput = document.getElementById("new-photos");
 
@@ -1263,7 +1264,7 @@ function wireCarousels() {
 function navBtns() {
   if (!ui.member) return "";
   if (ui.menu && !ui.page) return "";
-  return '<button class="iconbtn" type="button" data-menu="menu" aria-label="Menu" title="Menu">' + ICON_MENU + "</button>" + (navStack.length ? '<button class="iconbtn" type="button" data-nav="back" aria-label="Tilbage" title="Tilbage">' + ICON_BACK + "</button>" : "") +
+  return (TEST_MENU ? '<button class="iconbtn" type="button" data-menu="menu" aria-label="Menu" title="Menu">' + ICON_MENU + "</button>" : "") + (navStack.length ? '<button class="iconbtn" type="button" data-nav="back" aria-label="Tilbage" title="Tilbage">' + ICON_BACK + "</button>" : "") +
     (!atStart() ? '<button class="iconbtn" type="button" data-nav="home" aria-label="Til forsiden" title="Til forsiden">' + ICON_HOME + "</button>" : "");
 }
 function headerHtml() {
@@ -3325,7 +3326,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 192;
+var APP_VERSION = 193;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -3338,7 +3339,7 @@ var hiddenAt = 0;
 function resetToStart(toMenu) {
   if (ui.draft || ui.areaDraft || ui.busy || (window.BOL && window.BOL.importing)) return;
   ui.cat = "hjem"; ui.view = "liste"; ui.town = null; ui.region = null; ui.ftown = null; ui.subcat = null; ui.sub = null; ui.place = null;
-  ui.fOpen = ui.fSun = ui.fEarly = ui.fLunch = false; ui.minRating = 0; ui.q = ""; ui.msg = ""; ui.page = null; navStack = []; ui.menu = !!toMenu;
+  ui.fOpen = ui.fSun = ui.fEarly = ui.fLunch = false; ui.minRating = 0; ui.q = ""; ui.msg = ""; ui.page = null; navStack = []; ui.menu = !!toMenu && TEST_MENU;
   try { history.replaceState(null, "", location.pathname); } catch (e) {}
   render(); window.scrollTo({ top: 0 });
 }
