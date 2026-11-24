@@ -1698,8 +1698,39 @@ function adminPageHtml() {
     '<div class="grid"><label>Ejerens fornavn<input id="n-name" required></label><label>Ejerens mail<input id="n-email" type="email" required></label></div><button class="btn primary" type="submit">Opret andel</button></form>' +
     '<p class="hint">"Marker som solgt" (under Andelshavere) lukker andelens adgang. Deres private indhold følger ikke med til køberen, som får en ny andel med samme nummer.</p>';
   h += foldBox("adm-new", "<strong>Opret ny andel</strong>", "Ny andel og invitation til første ejer – fx ved salg", newandel);
+  h += foldBox("adm-notes", "<strong>Opslag på skærmen</strong>", "Korte beskeder i receptionen, fx \"Poolen er lukket torsdag\"", noticesAdminHtml());
   return h;
 }
+/* ---------- Opslag til skærmen i receptionen (kun administratoren skriver dem) ---------- */
+var noticeData = null;
+async function loadNotices() {
+  var r = await sb.from("notices").select("*").order("created_at", { ascending: false });
+  noticeData = { list: r.data || [], err: r.error ? r.error.message : "" }; render();
+}
+function noticesAdminHtml() {
+  if (!noticeData) { loadNotices(); return '<p class="hint">Henter…</p>'; }
+  var today = dayKey(new Date());
+  var list = noticeData.list.map(function (n) {
+    var gone = n.show_until && n.show_until < today;
+    return '<li class="nitem' + (gone ? " gone" : "") + '"><div><strong>' + esc(n.title) + "</strong>" + (n.body ? '<p class="hint">' + esc(n.body) + "</p>" : "") +
+      '<p class="hint">' + (n.show_until ? (gone ? "Udløbet " : "Vises til og med ") + esc(n.show_until.split("-").reverse().join(".")) : "Vises indtil det slettes") + "</p></div>" +
+      '<button class="linkbtn danger-t" type="button" data-ndel="' + esc(n.id) + '">' + (ui.nDelConfirm === n.id ? "Tryk igen for at slette" : "Slet") + "</button></li>";
+  }).join("");
+  return (noticeData.err ? '<p class="err">' + esc(noticeData.err) + "</p>" : "") +
+    '<form id="notice-form" class="invite"><label>Overskrift<input name="title" required maxlength="70" placeholder="Fx Poolen er lukket torsdag"></label>' +
+    '<label>Tekst (valgfri)<textarea name="body" rows="2" maxlength="240" placeholder="Fx på grund af rengøring – åbner igen fredag kl. 9."></textarea></label>' +
+    '<label>Vis til og med (valgfri)<input type="date" name="until"></label><button class="btn primary" type="submit">Sæt opslag op</button></form>' +
+    (list ? '<ul class="nlist">' + list + "</ul>" : '<p class="hint">Ingen opslag endnu.</p>') +
+    '<p class="hint">Opslag vises på skærmen i receptionen inden for 2 minutter. De nyeste står øverst.</p>';
+}
+async function saveNotice(f) {
+  var g = function (n) { return (f.elements[n].value || "").trim(); };
+  if (!g("title")) return;
+  var r = await sb.from("notices").insert({ title: g("title"), body: g("body") || null, show_until: g("until") || null });
+  if (r.error) { noticeData.err = "Opslaget blev ikke gemt: " + r.error.message; render(); return; }
+  noticeData = null; rerenderAdmin();
+}
+async function delNotice(id) { await sb.from("notices").delete().eq("id", id); ui.nDelConfirm = null; noticeData = null; rerenderAdmin(); }
 /* ---------- Ændringer: alt der oprettes, rettes og slettes (logges af databasen) ---------- */
 var LOG_FIELDS = { name: "navn", town: "by", area: "område", cat: "kategori", subcat: "type", lat: "placering", lon: "placering", visibility: "synlighed", facts: "fakta", website: "hjemmeside", link: "link", maps_url: "Google Maps-link", lejlighed: "lejlighed", guess: "navn ikke bekræftet", region: "område", note: "kommentar", visits: "besøg", last_visit: "besøg", ratings: "stjerner", rating_score: "stjerner", favorite: "hjerte", visited: "besøgt", role: "rolle", user_id: "login", aktiv: "aktiv", rul: "rul", handled: "behandlet", reason: "begrundelse", path: "fil", credit: "kilde" };
 var VIS_TXT = { alle: "Alle", andel: "Vores andel", mig: "Kun mig", lejlighed: "Lejligheden" };
@@ -3386,6 +3417,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.adminvite) { adminInvite(t.dataset.adminvite); return; }
   if (t.dataset.resetk != null) { ui.resetK = t.dataset.resetk || null; ui.resetMsg = ""; ui.confirmStart = null; rerenderAdmin(); return; }
   if (t.dataset.rpw) { adminResetPw(t.dataset.rpw); return; }
+  if (t.dataset.ndel) { if (ui.nDelConfirm !== t.dataset.ndel) { ui.nDelConfirm = t.dataset.ndel; rerenderAdmin(); return; } delNotice(t.dataset.ndel); return; }
   if (t.dataset.akdel) { if (ui.akDelConfirm !== t.dataset.akdel) { ui.akDelConfirm = t.dataset.akdel; ui.akConfirm = null; render(); return; } aktDelete(t.dataset.akdel); return; }
   if (t.dataset.akwk) { akGoWeek(parseInt(t.dataset.akwk, 10)); return; }
   if (t.dataset.akday) { ui.akDay = t.dataset.akday; render(); return; }
@@ -3462,6 +3494,7 @@ root.addEventListener("submit", function (e) {
   if (e.target.dataset && e.target.dataset.kmail) { e.preventDefault(); adminChangeMail(e.target); return; }
   e.preventDefault();
   if (e.target.id === "akt-form") { saveAkt(e.target); return; }
+  if (e.target.id === "notice-form") { saveNotice(e.target); return; }
   if (e.target.id === "editor") saveDraft();
   if (e.target.id === "cmtform") saveComment();
   if (e.target.id === "addnum-form") addAndelNum();
@@ -3501,7 +3534,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 203;
+var APP_VERSION = 204;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
