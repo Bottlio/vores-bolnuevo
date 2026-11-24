@@ -66,6 +66,8 @@ aside{display:flex;flex-direction:column;gap:1.1vw;min-height:0}
 aside .box{flex:none}
 aside .box.gcard{flex:1 1 auto;min-height:0;padding:0;overflow:hidden;position:relative;background:#1b2b2e;border:0}
 #guide{position:absolute;inset:0}
+.gslide{position:absolute;inset:0;opacity:0;transition:opacity 1.2s ease}.gslide.in{opacity:1}
+@media (prefers-reduced-motion:reduce){.gslide{transition:none}}
 .gbg{position:absolute;inset:-24px;background:center/cover no-repeat;filter:blur(20px) brightness(.7);transform:scale(1.1)}
 #guide img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #guide img.fit{object-fit:contain}
@@ -213,12 +215,21 @@ function guide(){var C=window.BOLNUEVO||{};fetch(C.supabaseUrl+"/functions/v1/sc
  .then(function(r){return r.json()}).then(function(rows){if(!Array.isArray(rows))return;GUIDE=rows.filter(function(x){return x.img&&x.score}).slice(0,8);GI=0;showGuide();}).catch(function(){});}
 function stars(v){var n=Math.round(v||0);return "★★★★★".slice(0,n)+'<span style="opacity:.35">'+"★★★★★".slice(n)+'</span>';}
 function showGuide(){var el=document.getElementById("guide");if(!GUIDE.length){el.innerHTML='<p class="ghead">Nyt i guiden</p>';return;}
- var g=GUIDE[GI%GUIDE.length];
- el.innerHTML='<div class="gbg" style="background-image:url(&quot;'+E(g.img)+'&quot;)"></div><img src="'+E(g.img)+'" alt="">'+
+ var g=GUIDE[GI%GUIDE.length],sl=document.createElement("div");sl.className="gslide";
+ sl.innerHTML='<div class="gbg" style="background-image:url(&quot;'+E(g.img)+'&quot;)"></div><img alt="">'+
   '<p class="ghead">Nyt i guiden</p>'+
   '<div class="gtxt"><b>'+E(g.name)+'</b><span class="gt">'+E([CATN[g.cat]||"",g.town||""].filter(Boolean).join(" · "))+'</span><p class="gs"><span class="gn">'+String(g.score).replace(".",",")+'</span> '+stars(g.score)+'</p></div>'+
   '<div class="gdots">'+GUIDE.map(function(x,i){return '<i class="'+(i===GI%GUIDE.length?'on':'')+'"></i>'}).join("")+'</div>';
- var im=el.querySelector("img");im.onload=function(){var r=im.naturalWidth/im.naturalHeight,b=el.clientWidth/el.clientHeight;if(Math.abs(Math.log(r/b))>0.75)im.classList.add("fit");};}
+ var im=sl.querySelector("img");
+ im.onload=function(){var r=im.naturalWidth/im.naturalHeight,b=el.clientWidth/el.clientHeight;if(Math.abs(Math.log(r/b))>0.75)im.classList.add("fit");
+  // tones ind oven på det forrige billede, som fjernes bagefter
+  el.querySelectorAll("p.ghead:not(.gslide p)").forEach(function(x){x.remove()});
+  el.appendChild(sl);requestAnimationFrame(function(){requestAnimationFrame(function(){sl.classList.add("in")})});
+  setTimeout(function(){var old=el.querySelectorAll(".gslide");for(var i=0;i<old.length-1;i++)old[i].remove();},1400);};
+ im.onerror=function(){GI++;};
+ im.src=g.img;
+ // hent næste billede i forvejen, så skiftet ikke venter på nettet
+ var nx=GUIDE[(GI+1)%GUIDE.length];if(nx&&nx.img){var pre=new Image();pre.src=nx.img;}}
 setInterval(function(){GI++;showGuide();},10000);
 tick();refresh();notes();guide();setInterval(notes,120000);setInterval(guide,300000);setInterval(tick,10000);setInterval(refresh,60000);
 setTimeout(function(){location.reload()},6*3600000);
