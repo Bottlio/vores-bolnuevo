@@ -298,9 +298,10 @@ async function checkUser() {
   var pick = null; try { pick = localStorage.getItem("bol_andel_" + ui.user.id); } catch (x) {}
   var row = rows.filter(function (x) { return x.andel_id === pick; })[0] || rows[0];
   if (!row) return;
-  var ad = await sb.rpc("am_i_admin");
+  var ad = await sb.rpc("am_i_admin"), cp = await sb.rpc("can_post_notices");
   me = { andel: row.andel_id, label: row.andele.lejlighed + "-" + row.andele.nummer, role: row.role, name: row.name, admin: ad.data === true,
     others: rows.filter(function (x) { return x !== row; }).map(function (x) { return { id: x.andel_id, label: x.andele.lejlighed + "-" + x.andele.nummer }; }) };
+  me.canPost = cp.data === true;
   me.readonly = !me.admin && rows.every(function (x) { return x.role === "laeser"; });
   ui.member = true; ui.editor = !me.readonly;
 }
@@ -1291,6 +1292,7 @@ function footerHtml() {
   var tile = function (attr, icon, text, sub, cls) { return '<button class="ftile' + (cls ? " " + cls : "") + '" type="button" ' + attr + ">" + icon + '<span class="ftext">' + text + "</span>" + (sub ? '<span class="fsub">' + sub + "</span>" : "") + "</button>"; };
   var h = '<footer class="foot"><p class="footlabel">Indstillinger og hjælp</p><div class="ftiles">';
   if (me) h += tile('data-page="andel"', ICON_GEAR, me.allLabels && me.allLabels.length > 1 ? "Vores andele" : "Vores andel", esc(me.label), "fmain");
+  if (me && me.canPost && !me.admin) h += tile('data-page="opslag"', ICON_BOOK, "Opslag på skærmen");
   h += tile('data-page="hjaelp"', ICON_HELP, "Hjælp") + tile('data-page="regler"', ICON_SHIELD, "Regler og privatliv") + "</div>";
   // Kun administratoren
   if (me && me.admin) h += '<p class="footlabel">Kun for administrator</p><div class="ftiles f2">' + tile('data-page="admin"', ICON_ADMIN, "Administration") + tile('id="open-import"', ICON_UPLOAD, "Importér billeder") + "</div>";
@@ -1314,6 +1316,7 @@ function renderGate() {
   else if (ui.page === "andel" && ui.member) html += pageBack() + andelPageHtml();
   else if (ui.page === "admin" && me && me.admin) html += pageBack() + adminPageHtml();
   else if (ui.page === "akt" && ui.member) html += aktPageHtml();
+  else if (ui.page === "opslag" && me && me.canPost) html += '<h2 class="pagetitle">Opslag på skærmen</h2><section class="panel">' + noticesAdminHtml() + "</section>";
   else if ((ui.page === "udstyr" || ui.page === "sortbog") && ui.member) html += soonHtml(ui.page);
   else if (!ui.user) {
     html += '<section class="welcome"><p class="lead">Andelshavernes egne tips til lokalområdet: spisesteder, strande, udsigtspunkter, dagsture og det praktiske. Adgang kun via invitation fra en andelshaver.</p></section>';
@@ -1698,11 +1701,22 @@ function adminPageHtml() {
     '<div class="grid"><label>Ejerens fornavn<input id="n-name" required></label><label>Ejerens mail<input id="n-email" type="email" required></label></div><button class="btn primary" type="submit">Opret andel</button></form>' +
     '<p class="hint">"Marker som solgt" (under Andelshavere) lukker andelens adgang. Deres private indhold følger ikke med til køberen, som får en ny andel med samme nummer.</p>';
   h += foldBox("adm-new", "<strong>Opret ny andel</strong>", "Ny andel og invitation til første ejer – fx ved salg", newandel);
-  h += foldBox("adm-notes", "<strong>Opslag på skærmen</strong>", "Korte beskeder i receptionen, fx \"Poolen er lukket torsdag\"", noticesAdminHtml());
+  h += foldBox("adm-notes", "<strong>Opslag på skærmen</strong>", "Korte beskeder i receptionen, fx \"Poolen er lukket torsdag\" – og hvem der må skrive dem", editorsHtml(d) + noticesAdminHtml());
   return h;
 }
-/* ---------- Opslag til skærmen i receptionen (kun administratoren skriver dem) ---------- */
-var noticeData = null;
+/* ---------- Opslag til skærmen i receptionen (administratoren og udvalgte personer skriver dem) ---------- */
+var noticeData = null, editorData = null;
+async function loadEditors() { var r = await sb.from("notice_editors").select("email"); editorData = (r.data || []).map(function (x) { return x.email; }); rerenderAdmin(); }
+function editorsHtml(d) {
+  if (!editorData) { loadEditors(); return ""; }
+  var byMail = {}; (d.members || []).forEach(function (m) { var k = (m.email || "").toLowerCase(); if (k && !byMail[k]) byMail[k] = m.name || k; });
+  var opts = Object.keys(byMail).filter(function (k) { return editorData.indexOf(k) < 0; }).sort(function (a, b) { return byMail[a].localeCompare(byMail[b], "da"); });
+  return '<h3>Hvem må skrive opslag?</h3><p class="hint">Du kan altid selv. Udvalgte personer får feltet "Opslag på skærmen" nederst i appen.</p>' +
+    (editorData.length ? '<ul class="nlist">' + editorData.map(function (e) { return '<li class="nitem"><span>' + esc(byMail[e] || e) + ' <span class="hint">' + esc(e) + '</span></span><button class="linkbtn danger-t" type="button" data-edrm="' + esc(e) + '">Fjern</button></li>'; }).join("") + "</ul>" : '<p class="hint">Ingen andre endnu.</p>') +
+    '<form id="editor-form" class="invite"><label>Giv adgang til<select name="email" required><option value="">Vælg person …</option>' + opts.map(function (k) { return '<option value="' + esc(k) + '">' + esc(byMail[k]) + " – " + esc(k) + "</option>"; }).join("") + '</select></label><button class="btn" type="submit">Giv adgang</button></form><h3>Opslag</h3>';
+}
+async function addEditor(f) { var e = f.elements.email.value; if (!e) return; await sb.from("notice_editors").insert({ email: e.toLowerCase() }); editorData = null; rerenderAdmin(); }
+async function rmEditor(e) { await sb.from("notice_editors").delete().eq("email", e); editorData = null; rerenderAdmin(); }
 async function loadNotices() {
   var r = await sb.from("notices").select("*").order("created_at", { ascending: false });
   noticeData = { list: r.data || [], err: r.error ? r.error.message : "" }; render();
@@ -3417,6 +3431,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.adminvite) { adminInvite(t.dataset.adminvite); return; }
   if (t.dataset.resetk != null) { ui.resetK = t.dataset.resetk || null; ui.resetMsg = ""; ui.confirmStart = null; rerenderAdmin(); return; }
   if (t.dataset.rpw) { adminResetPw(t.dataset.rpw); return; }
+  if (t.dataset.edrm) { rmEditor(t.dataset.edrm); return; }
   if (t.dataset.ndel) { if (ui.nDelConfirm !== t.dataset.ndel) { ui.nDelConfirm = t.dataset.ndel; rerenderAdmin(); return; } delNotice(t.dataset.ndel); return; }
   if (t.dataset.akdel) { if (ui.akDelConfirm !== t.dataset.akdel) { ui.akDelConfirm = t.dataset.akdel; ui.akConfirm = null; render(); return; } aktDelete(t.dataset.akdel); return; }
   if (t.dataset.akwk) { akGoWeek(parseInt(t.dataset.akwk, 10)); return; }
@@ -3495,6 +3510,7 @@ root.addEventListener("submit", function (e) {
   e.preventDefault();
   if (e.target.id === "akt-form") { saveAkt(e.target); return; }
   if (e.target.id === "notice-form") { saveNotice(e.target); return; }
+  if (e.target.id === "editor-form") { addEditor(e.target); return; }
   if (e.target.id === "editor") saveDraft();
   if (e.target.id === "cmtform") saveComment();
   if (e.target.id === "addnum-form") addAndelNum();
@@ -3534,7 +3550,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 204;
+var APP_VERSION = 205;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
