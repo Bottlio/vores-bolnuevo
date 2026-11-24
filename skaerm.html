@@ -131,6 +131,13 @@ ul.lend li:last-child{border-bottom:0}
 .crchips{display:flex;flex-wrap:wrap;gap:.35em;margin-top:.35em}.crchips button{font:inherit;font-size:.9em;padding:.3em .8em;border-radius:999px;border:1px solid var(--line);background:var(--surface);cursor:pointer}
 .crtog{display:flex;gap:.35em}.crtog button{font:inherit;padding:.45em .9em;border-radius:8px;border:1px solid var(--line);background:var(--surface);cursor:pointer}.crtog button.on{background:var(--sea);color:#fff;border-color:var(--sea)}
 .ov.kb{place-items:start center}.ov.kb .ovbox{max-height:46vh;overflow:auto;margin-top:2vh}
+.bkitems{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.35em}
+.bkitems button{font:inherit;padding:.55em .3em;border-radius:8px;border:1px solid var(--line);background:var(--surface);cursor:pointer;line-height:1.2}
+.bkitems button.on{background:var(--sea);border-color:var(--sea);color:#fff}
+.bkitems button.golf.on{background:var(--ochre);border-color:var(--ochre)}
+.bkitems button[disabled]{opacity:.4;cursor:default;text-decoration:line-through}
+.bkitems small{display:block;font-size:.75em;color:inherit;opacity:.8}
+.hb[data-bk]{cursor:pointer}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:10}
 .ov[hidden]{display:none}
 .ovbox{background:var(--surface);border-radius:16px;padding:2vw 2.4vw;max-width:44vw;text-align:center}
@@ -184,9 +191,10 @@ var ACTS=[
 ];
 var ITEMS=["Cykel 1","Cykel 2","Cykel 3","Cykel 4","Golfsæt (herre)","Golfsæt (dame)"];
 // Eksempler på udlån i denne uge (dag 0 = mandag): ting, lejlighed, dag, fra kl., til kl.
-var LOANS=[["Cykel 2","103",0,9,13],["Cykel 4","206",1,10,16],["Cykel 2","103",1,9,12],["Golfsæt (dame)","104",2,8,12],["Golfsæt (herre)","105",2,13,18],["Cykel 1","202",3,9,11],["Cykel 3","105",3,14,17],["Cykel 2","103",4,10,12],["Cykel 1","202",5,9,13],["Cykel 2","202",5,9,13],["Golfsæt (herre)","206",6,8,13]];
+var LOANS=LIVE?[]:[["Cykel 2","103",0,9,13],["Cykel 4","206",1,10,16],["Cykel 2","103",1,9,12],["Golfsæt (dame)","104",2,8,12],["Golfsæt (herre)","105",2,13,18],["Cykel 1","202",3,9,11],["Cykel 3","105",3,14,17],["Cykel 2","103",4,10,12],["Cykel 1","202",5,9,13],["Cykel 2","202",5,9,13],["Golfsæt (herre)","206",6,8,13]];
 var H0=8,H1=20,VIEW="akt",IDLE=null,WOFF=0;
 function E(x){return String(x==null?"":x).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})}
+function hm(x){var h=Math.floor(x),m=Math.round((x-h)*60);return pad(h)+(m?'.'+pad(m):'');}
 function pad(n){return n<10?"0"+n:n}
 function tick(){var d=new Date();var mc=document.getElementById("mcal");if(mc){mc.children[0].textContent=MON[d.getMonth()];mc.children[1].textContent=d.getDate();mc.children[2].textContent=DAYS[d.getDay()].toLowerCase();}document.getElementById("clock").textContent=pad(d.getHours())+"."+pad(d.getMinutes());
  document.getElementById("date").textContent=["Søndag","Mandag","Tirsdag","Onsdag","Torsdag","Fredag","Lørdag"][d.getDay()]+" "+d.getDate()+". "+MON[d.getMonth()]}
@@ -203,9 +211,9 @@ function week(){var now=new Date(),wd=(now.getDay()+6)%7,mon=new Date(now);mon.s
  hh+='</div></div>';
  for(var j=0;j<7;j++){var dj=new Date(mon);dj.setDate(mon.getDate()+j);
   hh+='<div class="hday'+(j===TW?' today':'')+'"><div class="hdh"><b>'+(j===TW?"I dag":DAYS[dj.getDay()])+'</b><span>'+dj.getDate()+'. '+MON[dj.getMonth()]+'</span></div><div class="hgrid">';
-  LOANS.filter(function(l){return WOFF===0&&l[2]===j}).forEach(function(l,ix,arr){
+  LOANS.filter(function(l){return (LIVE||WOFF===0)&&l[2]===j}).forEach(function(l,ix,arr){
    var same=arr.filter(function(x){return x[3]<l[4]&&x[4]>l[3]}),k=same.indexOf(l),n=same.length;
-   hh+='<div class="hb'+(/golf/i.test(l[0])?' golf':'')+'" style="top:'+((l[3]-H0)/(H1-H0)*100)+'%;height:'+((l[4]-l[3])/(H1-H0)*100)+'%;left:calc('+(k/n*100)+'% + 3px);right:auto;width:calc('+(100/n)+'% - 6px)"><b>'+E(l[0])+'</b>'+E(l[1])+' · '+pad(l[3])+'–'+pad(l[4])+'</div>'});
+   hh+='<div class="hb'+(/golf/i.test(l[0])?' golf':'')+'"'+(l[5]?' data-bk="'+E(l[5])+'" data-src="'+E(l[6])+'" data-inf="'+E(l[0]+' · '+l[1]+' · '+hm(l[3])+'–'+hm(l[4]))+'"':'')+' style="top:'+((l[3]-H0)/(H1-H0)*100)+'%;height:'+((l[4]-l[3])/(H1-H0)*100)+'%;left:calc('+(k/n*100)+'% + 3px);right:auto;width:calc('+(100/n)+'% - 6px)"><b>'+E(l[0])+'</b>'+E(l[1])+' · '+hm(l[3])+'–'+hm(l[4])+'</div>'});
   if(j===TW&&nowH>=H0&&nowH<=H1)hh+='<div class="hnow" style="top:'+((nowH-H0)/(H1-H0)*100)+'%"></div>';
   hh+='</div></div>'}
  document.getElementById("hweek").innerHTML=hh;
@@ -216,16 +224,23 @@ function weather(){try{fetch("https://api.open-meteo.com/v1/forecast?latitude=37
 function live(){ // rigtige aktiviteter fra appen (kun titel, tid, sted og antal)
  var now=new Date(),wd=(now.getDay()+6)%7,mon=new Date(now);mon.setHours(0,0,0,0);mon.setDate(now.getDate()-wd+7*WOFF);var sun=new Date(mon);sun.setDate(mon.getDate()+7);
  var C=window.BOLNUEVO||{};
- return fetch(C.supabaseUrl+"/rest/v1/rpc/screen_activities",{method:"POST",headers:{"apikey":C.supabaseKey,"Authorization":"Bearer "+C.supabaseKey,"Content-Type":"application/json"},body:JSON.stringify({p_from:mon.toISOString(),p_to:sun.toISOString()})})
+ fetch(C.supabaseUrl+"/rest/v1/rpc/screen_activities",{method:"POST",headers:{"apikey":C.supabaseKey,"Authorization":"Bearer "+C.supabaseKey,"Content-Type":"application/json"},body:JSON.stringify({p_from:mon.toISOString(),p_to:sun.toISOString()})})
   .then(function(r){return r.json()}).then(function(rows){ if(!Array.isArray(rows))return;
    ACTS=rows.map(function(a){var st=new Date(a.starts_at),en=a.ends_at?new Date(a.ends_at):null;
     return {id:a.id,d:(st.getDay()+6)%7,t:pad(st.getHours())+"."+pad(st.getMinutes())+(en?"–"+pad(en.getHours())+"."+pad(en.getMinutes()):""),n:a.title,w:a.place||"",nt:!a.signup,c:a.people,m:a.max_people||0}});
-   week();}).catch(function(){});}
+   week();}).catch(function(){});
+ fetch(C.supabaseUrl+"/rest/v1/rpc/screen_bookings",{method:"POST",headers:{"apikey":C.supabaseKey,"Authorization":"Bearer "+C.supabaseKey,"Content-Type":"application/json"},body:JSON.stringify({p_from:mon.toISOString(),p_to:sun.toISOString()})})
+  .then(function(r){return r.json()}).then(function(rows){if(!Array.isArray(rows))return;var L=[];
+   rows.forEach(function(b){var st=new Date(b.starts_at),en=new Date(b.ends_at);
+    for(var dd=0;dd<7;dd++){var d0=new Date(mon);d0.setDate(mon.getDate()+dd);var d1=new Date(d0);d1.setDate(d0.getDate()+1);if(st>=d1||en<=d0)continue;
+     var a=Math.max(H0,st<d0?0:st.getHours()+st.getMinutes()/60),z=Math.min(H1,en>=d1?24:en.getHours()+en.getMinutes()/60);if(z<=a)continue;
+     L.push([b.equipment,b.lejl||"",dd,a,z,b.id,b.source]);}});
+   LOANS=L;week();}).catch(function(){});}
 function refresh(){if(LIVE){live();}else{week();}weather();var d=new Date();document.getElementById("upd").textContent="Opdateret "+pad(d.getHours())+"."+pad(d.getMinutes())}
-if(LIVE)document.getElementById("demo").textContent="TESTSIDE – aktiviteter fra appen · udlån er eksempler";
+if(LIVE)document.getElementById("demo").textContent="TESTSIDE";
 
 var OVT=null,NAMES={akt:"Opret eller tilmeld dig en aktivitet",udstyr:"Book udstyr",guide:"Guide til området",sortbog:"Den sorte bog"};
-document.querySelector(".acts").addEventListener("click",function(e){var b=e.target.closest(".ab");if(!b)return;if(b.dataset.k==="akt"){crOpen();return;}document.getElementById("ovh").textContent=NAMES[b.dataset.k];document.getElementById("ov").hidden=false;clearTimeout(OVT);OVT=setTimeout(closeOv,20000);});
+document.querySelector(".acts").addEventListener("click",function(e){var b=e.target.closest(".ab");if(!b)return;if(b.dataset.k==="akt"){crOpen();return;}if(b.dataset.k==="udstyr"){bkOpen();return;}document.getElementById("ovh").textContent=NAMES[b.dataset.k];document.getElementById("ov").hidden=false;clearTimeout(OVT);OVT=setTimeout(closeOv,20000);});
 function closeOv(){document.getElementById("ov").hidden=true;}
 document.getElementById("ov").addEventListener("click",function(e){if(e.target.id==="ov"||e.target.id==="ovclose")closeOv();});
 function wlabel(mon){var sun=new Date(mon);sun.setDate(mon.getDate()+6);var el=document.getElementById("wl");if(!el)return;
@@ -273,7 +288,7 @@ var SV={id:null,lejl:null,ppl:1,lejls:null,busy:false},SVT=null;
 function fn(body){var C=window.BOLNUEVO||{};return fetch(C.supabaseUrl+"/functions/v1/screen-signup",{method:"POST",headers:{"apikey":C.supabaseKey,"Content-Type":"application/json"},body:JSON.stringify(body)}).then(function(r){return r.json()});}
 function sv_kb(){return document.getElementById("sv").classList.contains("kb")||Date.now()-(window.KBAT||0)<1500;}
 function svIdle(){clearTimeout(SVT);SVT=setTimeout(svClose,60000);}
-function svClose(){document.getElementById("sv").hidden=true;SV.id=null;clearTimeout(SVT);if(typeof CR!=="undefined")CR=null;}
+function svClose(){document.getElementById("sv").hidden=true;SV.id=null;clearTimeout(SVT);if(typeof CR!=="undefined")CR=null;if(typeof BK!=="undefined")BK=null;}
 function svOpen(id){CR=null;SV={id:id,lejl:null,ppl:1,lejls:SV.lejls,busy:false,msg:"",err:""};document.getElementById("sv").hidden=false;document.getElementById("svbody").innerHTML='<p>Henter…</p>';svIdle();
  var p=[fn({action:"get",activity_id:id})];if(!SV.lejls)p.push(fn({action:"lejl"}));
  Promise.all(p).then(function(r){if(r[1])SV.lejls=r[1].list||[];SV.data=r[0];svDraw();}).catch(function(){document.getElementById("svbody").innerHTML='<p class="sverr">Kunne ikke hente aktiviteten.</p>';});}
@@ -292,7 +307,7 @@ function svDraw(){var d=SV.data;if(!d||!d.activity){document.getElementById("svb
  document.getElementById("svbody").innerHTML=h;}
 document.getElementById("week").addEventListener("click",function(e){var c=e.target.closest(".act.tap");if(c)svOpen(c.dataset.id);});
 document.getElementById("sv").addEventListener("input",function(e){svIdle();if(e.target.id==="svname"){SV.name=e.target.value;}});
-document.getElementById("sv").addEventListener("click",function(e){svIdle();if(CR)return;var t=e.target;
+document.getElementById("sv").addEventListener("click",function(e){svIdle();var t=e.target;if(t.id==="svclose"||(t.id==="sv"&&!sv_kb())){svClose();return;}if(CR||BK||!SV.id)return;
  if(t.id==="svclose"||(t.id==="sv"&&!sv_kb())){svClose();return;}
  if(t.dataset.lj){SV.lejl=t.dataset.lj;SV.err="";svDraw();return;}
  if(t.dataset.pp){SV.ppl=+t.dataset.pp;svDraw();return;}
@@ -350,6 +365,54 @@ function weekStartNow(){var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate
  sv.addEventListener("focusout",function(){T=setTimeout(function(){var a=document.activeElement;if(!a||a.tagName!=="INPUT"||!sv.contains(a))sv.classList.remove("kb");},250);});
  if(window.visualViewport)visualViewport.addEventListener("resize",function(){var a=document.activeElement;if(a&&a.tagName==="INPUT"&&sv.contains(a))a.scrollIntoView({block:"center"});});
 })();
+
+// Booking af udstyr direkte på skærmen
+var BK=null,EQUIP=null,HOURS=[];for(var hx=8;hx<=20;hx++)HOURS.push(hx);
+function rpc(name,body){var C=window.BOLNUEVO||{};return fetch(C.supabaseUrl+"/rest/v1/rpc/"+name,{method:"POST",headers:{"apikey":C.supabaseKey,"Authorization":"Bearer "+C.supabaseKey,"Content-Type":"application/json"},body:JSON.stringify(body||{})}).then(function(r){return r.json()});}
+function bkDayStart(){var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+BK.day);return d;}
+function bkLoadDay(){var d0=bkDayStart(),d1=new Date(d0);d1.setDate(d0.getDate()+1);
+ rpc("screen_bookings",{p_from:d0.toISOString(),p_to:d1.toISOString()}).then(function(r){if(!BK)return;BK.busyRows=Array.isArray(r)?r:[];bkDraw();});}
+function bkOpen(){CR=null;BK={day:0,from:Math.min(20,Math.max(8,new Date().getHours()+1)),to:0,items:[],lejl:null,name:"",err:"",busy:false,busyRows:[]};BK.to=Math.min(20,BK.from+3);
+ document.getElementById("sv").hidden=false;svIdle();
+ var p=[];if(!EQUIP)p.push(rpc("screen_equipment").then(function(r){EQUIP=Array.isArray(r)?r:[];}));if(!SV.lejls)p.push(fn({action:"lejl"}).then(function(r){SV.lejls=r.list||[];}));
+ Promise.all(p).then(function(){bkLoadDay();});bkDraw();}
+function bkFree(id){var d0=bkDayStart(),st=new Date(d0),en=new Date(d0);st.setHours(BK.from);en.setHours(BK.to);
+ return !BK.busyRows.some(function(b){return b.equipment_id===id&&new Date(b.starts_at)<en&&new Date(b.ends_at)>st;});}
+function bkDraw(){if(!BK)return;var t0=new Date();t0.setHours(0,0,0,0);
+ var days="";for(var i=0;i<14;i++){var d=new Date(t0);d.setDate(t0.getDate()+i);days+='<button type="button" data-bd="'+i+'"'+(BK.day===i?' class="on"':'')+'><b>'+(i===0?"I dag":i===1?"I morgen":DAYS[d.getDay()])+'</b><small>'+d.getDate()+'. '+MON[d.getMonth()]+'</small></button>';}
+ BK.items=BK.items.filter(bkFree);
+ var items=(EQUIP||[]).map(function(e){var free=bkFree(e.id);return '<button type="button" class="'+e.kind+(BK.items.indexOf(e.id)>=0?' on':'')+'" data-bi="'+e.id+'"'+(free?'':' disabled')+'>'+E(e.name.replace("Golfsæt ",""))+'<small>'+(e.kind==="golf"?"golfsæt":"")+(free?'':' optaget')+'</small></button>'}).join("");
+ var hsel=function(id,v,min){return '<select class="crsel" id="'+id+'">'+HOURS.filter(function(h){return h>=min}).map(function(h){return '<option value="'+h+'"'+(h===v?' selected':'')+'>'+pad(h)+'.00</option>'}).join("")+'</select>';};
+ var h='<h2>Book udstyr</h2>'+
+  '<p class="svlab">Hvilken dag?</p><div class="crdays">'+days+'</div>'+
+  '<div class="svrow"><span class="svlab" style="margin:0">Fra kl.</span>'+hsel("bkfrom",BK.from,8)+'<span class="svlab" style="margin:0">Til kl.</span>'+hsel("bkto",BK.to,BK.from+1)+'</div>'+
+  '<p class="svlab">Hvad vil du låne? (vælg gerne flere)</p><div class="bkitems">'+(EQUIP?items:'<p>Henter…</p>')+'</div>'+
+  '<p class="svlab">Vælg jeres lejlighed</p><div class="svlejl">'+(SV.lejls||[]).map(function(l){return '<button type="button" data-bl="'+E(l)+'"'+(BK.lejl===l?' class="on"':'')+'>'+E(l)+'</button>'}).join("")+'</div>'+
+  '<div class="svrow"><span class="svlab" style="margin:0">Dit fornavn</span><input id="bkname" maxlength="30" autocomplete="off" value="'+E(BK.name)+'"></div>'+
+  (BK.err?'<p class="sverr">'+E(BK.err)+'</p>':'')+(BK.ok?'<p class="svok">'+E(BK.ok)+'</p>':'<button type="button" class="svgo" id="bkgo">'+(BK.busy?'Booker…':'Book')+'</button>');
+ document.getElementById("svbody").innerHTML=h;}
+function bkSync(){var n=document.getElementById("bkname");if(n)BK.name=n.value;var f=document.getElementById("bkfrom"),t=document.getElementById("bkto");if(f)BK.from=+f.value;if(t)BK.to=+t.value;if(BK.to<=BK.from)BK.to=Math.min(20,BK.from+1);}
+document.getElementById("sv").addEventListener("change",function(e){if(!BK)return;if(e.target.id==="bkfrom"||e.target.id==="bkto"){bkSync();bkDraw();}});
+document.getElementById("sv").addEventListener("click",function(e){if(!BK)return;var t=e.target.closest("button")||e.target;
+ if(t.id==="svclose"||(t.id==="sv"&&!sv_kb())){svClose();BK=null;return;}
+ if(t.dataset.bd!=null){bkSync();BK.day=+t.dataset.bd;BK.busyRows=[];bkDraw();bkLoadDay();return;}
+ if(t.dataset.bi){bkSync();var i=BK.items.indexOf(t.dataset.bi);if(i>=0)BK.items.splice(i,1);else BK.items.push(t.dataset.bi);BK.err="";bkDraw();return;}
+ if(t.dataset.bl){bkSync();BK.lejl=t.dataset.bl;BK.err="";bkDraw();return;}
+ if(t.id==="bkgo"&&!BK.busy){bkSync();
+  if(!BK.items.length){BK.err="Vælg hvad du vil låne.";bkDraw();return;} if(!BK.lejl){BK.err="Vælg jeres lejlighed.";bkDraw();return;} if(!BK.name.trim()){BK.err="Skriv dit fornavn.";bkDraw();return;}
+  var d0=bkDayStart(),st=new Date(d0),en=new Date(d0);st.setHours(BK.from);en.setHours(BK.to);
+  if(en<new Date()){BK.err="Tidsrummet er allerede passeret.";bkDraw();return;}
+  BK.busy=true;BK.err="";bkDraw();
+  fn({action:"book",items:BK.items,starts_at:st.toISOString(),ends_at:en.toISOString(),lejlighed:BK.lejl,name:BK.name}).then(function(r){BK.busy=false;
+   if(r.ok){BK.ok=(r.n===1?"Booket":r.n+" ting er booket")+" – god tur!";bkDraw();var off=Math.floor((st-weekStartNow())/(7*864e5));WOFF=Math.max(0,Math.min(8,off));setView("udl");refresh();setTimeout(function(){if(BK&&BK.ok){svClose();BK=null;}},4000);}
+   else{BK.err=r.error||"Det lykkedes ikke.";bkDraw();bkLoadDay();}}).catch(function(){BK.busy=false;BK.err="Ingen forbindelse – prøv igen.";bkDraw();});}
+});
+// Tryk på en booking i timeoversigten: se den – og aflys, hvis den er lavet på skærmen
+document.getElementById("hweek").addEventListener("click",function(e){var c=e.target.closest(".hb[data-bk]");if(!c)return;CR=null;BK=null;
+ SV.id=null;document.getElementById("sv").hidden=false;svIdle();
+ document.getElementById("svbody").innerHTML='<h2>Booking</h2><p class="svw" style="font-size:1.2em">'+E(c.dataset.inf)+'</p>'+(c.dataset.src==="skaerm"?'<button type="button" class="svgo" data-unbk="'+E(c.dataset.bk)+'" style="background:var(--red)">Aflys bookingen</button>':'<p class="svw">Bookingen er lavet i appen og kan aflyses dér.</p>');});
+document.getElementById("sv").addEventListener("click",function(e){var t=e.target;if(!t.dataset||!t.dataset.unbk)return;
+ fn({action:"unbook",booking_id:t.dataset.unbk}).then(function(r){document.getElementById("svbody").innerHTML=r.ok?'<p class="svok">Bookingen er aflyst.</p>':'<p class="sverr">'+E(r.error||"Det lykkedes ikke.")+'</p>';refresh();setTimeout(svClose,2500);});});
 tick();refresh();notes();guide();setInterval(notes,120000);setInterval(guide,300000);setInterval(tick,10000);setInterval(refresh,60000);
 setTimeout(function(){location.reload()},6*3600000);
 </script></body></html>
