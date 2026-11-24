@@ -2962,7 +2962,19 @@ function welcomeKey() { return "bol_welcome_" + (ui.user ? ui.user.id : ""); }
 function maybeWelcome() {
   if (!ui.user || !ui.member || ui.page || welcomeBox && !welcomeBox.hidden) return;
   var seen = true; try { seen = !!localStorage.getItem(welcomeKey()); } catch (x) { seen = true; }
-  if (!seen) openWelcome();
+  if (seen) { saveWelcomed(); return; }
+  // Set på en anden enhed eller i en anden browser (fx hjemmeskærm-appen)? Så spring den over her også
+  var uid = ui.user.id;
+  sb.from("user_state").select("welcomed").eq("user_id", uid).maybeSingle().then(function (r) {
+    if (!ui.user || ui.user.id !== uid) return;
+    if (r.data && r.data.welcomed) { try { localStorage.setItem(welcomeKey(), "1"); } catch (x) {} return; }
+    if (!ui.page && !(welcomeBox && !welcomeBox.hidden)) openWelcome();
+  });
+}
+var welcomedSaved = false;
+function saveWelcomed() {
+  if (welcomedSaved || !ui.user) return; welcomedSaved = true;
+  sb.from("user_state").upsert({ user_id: ui.user.id, welcomed: true }, { onConflict: "user_id" }).then(function () {});
 }
 function openWelcome() {
   welcomeStep = 0;
@@ -2980,6 +2992,7 @@ function drawWelcome() {
 }
 function closeWelcome() {
   try { localStorage.setItem(welcomeKey(), "1"); } catch (x) {}
+  saveWelcomed();
   if (welcomeBox) { welcomeBox.hidden = true; welcomeBox.innerHTML = ""; }
   document.body.classList.remove("modal-open");
 }
@@ -3263,7 +3276,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 190;
+var APP_VERSION = 191;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
