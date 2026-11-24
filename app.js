@@ -2853,6 +2853,32 @@ async function findOnMap() {
   keepCore(d); render();
 }
 
+/* "Sæt nålen på kortet": et lille kort, hvor man trykker der, hvor stedet ligger */
+var pickObj = null;
+function pickMapHtml(f) {
+  if (!f.pick) return "";
+  return '<div class="wizwrap"><div class="rback"></div><div class="helpmodal wiz pop pickbox" role="dialog" aria-modal="true"><button type="button" class="hclose" id="pick-cancel" aria-label="Luk">×</button>' +
+    "<h2>Sæt nålen på kortet</h2><p class=\"hint\">Zoom ind, og tryk der, hvor " + esc(f.name || "stedet") + " ligger. Du kan flytte nålen ved at trykke et andet sted.</p>" +
+    '<div id="pickmap"></div><div class="row wizfoot"><button type="button" class="btn" id="pick-cancel2">Annuller</button><button type="button" class="btn primary" id="pick-ok"' + (f.pickAt ? "" : " disabled") + ">Brug placeringen</button></div></div></div>";
+}
+function initPickMap() {
+  var d = ui.draft, el = document.getElementById("pickmap");
+  if (!d || !d.pick || !el || !window.L) { if (pickObj && !el) { pickObj.remove(); pickObj = null; } return; }
+  if (pickObj && pickObj._container === el) return;
+  if (pickObj) { pickObj.remove(); pickObj = null; }
+  var c = d.pickAt || (d.lat != null ? [d.lat, d.lon] : [CFG.hotel.lat, CFG.hotel.lon]);
+  var m = pickObj = L.map(el, { scrollWheelZoom: true, tap: true }).setView(c, d.pickAt || d.lat != null ? 17 : 13);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }).addTo(m);
+  var mk = d.pickAt ? L.marker(d.pickAt).addTo(m) : null;
+  m.on("click", function (e) {
+    d.pickAt = [+e.latlng.lat.toFixed(5), +e.latlng.lng.toFixed(5)];
+    if (mk) mk.setLatLng(e.latlng); else mk = L.marker(e.latlng).addTo(m);
+    var ok = document.getElementById("pick-ok"); if (ok) ok.disabled = false;
+  });
+  setTimeout(function () { m.invalidateSize(); }, 60);
+}
+// Kortvinduet sættes op efter hver tegning af siden
+(function () { var r0 = render; render = function () { var out = r0.apply(this, arguments); initPickMap(); return out; }; })();
 async function applyChoice(d, x) {
   d.choices = null; d.lat = +x.lat.toFixed(5); d.lon = +x.lon.toFixed(5);
   var addr = {};
@@ -2892,10 +2918,9 @@ function formHtml(f) {
   var core = canEditCore(f.isNew ? null : raw.places.filter(function (x) { return x.id === f.id; })[0]), dis = core ? "" : " disabled";
   if (f.isNew && !f.more) return quickHtml(f);
   var adv = !!f.adv || f.isNew;
-  var posTxt = f.lat != null ? "Placeringen er fundet automatisk (" + (+f.lat).toFixed(4).replace(".", ",") + " / " + (+f.lon).toFixed(4).replace(".", ",") + ")." : "Stedet har ingen placering endnu.";
+  var posTxt = f.lat != null ? "Stedet har en placering (" + (+f.lat).toFixed(4).replace(".", ",") + " / " + (+f.lon).toFixed(4).replace(".", ",") + ")." : "Stedet har ingen placering endnu.";
   return '<form class="panel" id="editor"><h2>' + (f.isNew ? "Nyt sted" : esc(f.name)) + "</h2>" +
-    (f.finding ? '<p class="finding" role="status"><span class="spin" aria-hidden="true"></span>Finder stedet ud fra billederne …</p>' : "") + (f.info ? '<p class="hint">' + esc(f.info) + "</p>" : "") +
-    (f.choices ? '<div class="choices">' + f.choices.map(function (x, i) { return '<button class="btn" type="button" data-choose="' + i + '"><strong>' + esc(x.name) + "</strong> " + esc([x.addr, x.km != null ? Math.round(x.km) + " km fra hotellet" : ""].filter(Boolean).join(" · ")) + "</button>"; }).join("") + "</div>" : "") +
+    (f.finding ? '<p class="finding" role="status"><span class="spin" aria-hidden="true"></span>Finder stedet ud fra billederne …</p>' : "") + (f.info && !core ? '<p class="hint">' + esc(f.info) + "</p>" : "") +
     '<label>Kommentar<textarea id="f-note" placeholder="' + esc(notePh(f.cat)) + '">' + esc(f.note) + "</textarea></label>" +
     '<button type="button" class="favtoggle' + (f.fav ? " on" : "") + '" id="f-favbtn" aria-pressed="' + !!f.fav + '">' + heartSvg(f.fav) + ' Tilføj som favorit</button>' +
     '<div><p class="hint" style="margin-bottom:8px">Jeres billeder (det første vises først). Tryk på mærket på et billede for at vælge, hvem der kan se det.' + (f.otherPhotos ? " Stedet har også " + f.otherPhotos + " billeder fra andre andele." : "") + '</p><div class="photos">' + ph + "</div>" +
@@ -2913,13 +2938,15 @@ function formHtml(f) {
     (core ? '<label>Hvem kan se stedet?<select id="f-vis">' + (f.cat === "vores" ? ["lejlighed", "andel", "mig"] : ["alle", "andel", "mig"]).map(function (v) { return '<option value="' + v + '"' + ((f.vis || "alle") === v ? " selected" : "") + ">" + VIS_NAMES[v] + "</option>"; }).join("") + "</select></label>" : "") + "</div>" +
       linkFields(f) +
       '<label>Vi har besøgt (fx 2025-02, 2026-07)<input id="f-visits" value="' + esc((f.visits || []).join(", ")) + '"><span class="hint">Kommer automatisk fra datoen på de billeder, I lægger ind. Her kan I tilføje eller rette.</span></label>' +
-      '<div><p class="hint" style="margin:0 0 6px">' + esc(posTxt) + " Den findes automatisk fra billedernes placering, et link fra Google Maps eller stedets navn.</p>" +
-        (core ? '<div class="row"><button class="btn small" type="button" id="find-map">' + (f.lat != null ? "Find igen ud fra navnet" : "Find på kortet ud fra navnet") + '</button><button class="btn small" type="button" id="my-loc">Brug min placering</button></div>' : "") + "</div>" +
+      '<div><p class="hint" style="margin:0 0 6px">' + esc(posTxt) + " Den kan findes fra billedernes placering, et link fra Google Maps eller stedets navn – eller sættes med en nål på kortet.</p>" +
+        (core ? '<div class="row"><button class="btn small" type="button" id="pick-map">' + ICON_PIN + " Sæt nålen på kortet</button>" + '<button class="btn small" type="button" id="find-map">' + (f.lat != null ? "Find igen ud fra navnet" : "Find ud fra navnet") + '</button><button class="btn small" type="button" id="my-loc">Brug min placering</button></div>' +
+          (f.info ? '<p class="hint" role="status" style="margin-top:6px">' + esc(f.info) + "</p>" : "") +
+          (f.choices ? '<div class="choices">' + f.choices.map(function (x, i) { return '<button class="btn" type="button" data-choose="' + i + '"><strong>' + esc(x.name) + "</strong> " + esc([x.addr, x.km != null ? Math.round(x.km) + " km fra hotellet" : ""].filter(Boolean).join(" · ")) + "</button>"; }).join("") + "</div>" : "") : "") + "</div>" +
       '<label class="inline"><input type="checkbox" id="f-guess"' + (f.guess ? " checked" : "") + "> Navnet er ikke bekræftet</label>" +
       (!f.isNew && core ? '<div><button class="btn danger" type="button" id="del-place">' + (f.confirmDel ? "Tryk igen for at slette stedet" : "Slet sted") + "</button></div>" : "") +
       "</div>" : "") +
     dupHtml(f) + (f.err ? '<p class="err" role="alert">' + esc(f.err) + "</p>" : "") +
-    '<div class="row savebar"><button class="btn primary" type="submit"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + '</button><button class="btn" type="button" id="cancel">Annuller</button></div></form>';
+    '<div class="row savebar"><button class="btn primary" type="submit"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem") + '</button><button class="btn" type="button" id="cancel">Annuller</button></div></form>' + pickMapHtml(f);
 }
 /* Gæster må kun ændre synlighed på (og slette) deres egne billeder – ejernes billeder kan de kun se */
 function canSetVis(own) { return !!own || !me || me.role === "ejer" || !!me.admin; }
@@ -3844,6 +3871,9 @@ document.addEventListener("click", async function (e) {
     render(); scrollToForm(); return;
   }
   if (t.id === "find-map") { syncDraft(); findOnMap(); return; }
+  if (t.id === "pick-map") { syncDraft(); ui.draft.pick = true; ui.draft.pickAt = null; render(); return; }
+  if (t.id === "pick-cancel" || t.id === "pick-cancel2") { ui.draft.pick = false; render(); return; }
+  if (t.id === "pick-ok" && ui.draft && ui.draft.pickAt) { var dd = ui.draft, pa = dd.pickAt; dd.pick = false; dd.pickAt = null; applyChoice(dd, { lat: pa[0], lon: pa[1], name: dd.name, addr: dd.area || "" }).then(function () { dd.info = "Placeringen er sat på kortet. Husk at trykke Gem."; keepCore(dd); render(); }); return; }
   if (t.dataset.choose != null && ui.draft && ui.draft.choices) { syncDraft(); applyChoice(ui.draft, ui.draft.choices[+t.dataset.choose]); return; }
   if (t.dataset.comment) { ui.commentFor = { kind: t.dataset.comment, key: t.dataset.key }; ui.commentErr = ""; render(); var cn = document.getElementById("c-note"); if (cn) { cn.focus(); cn.setSelectionRange(cn.value.length, cn.value.length); } return; }
   if (t.dataset.cmt === "close") { ui.commentFor = null; render(); return; }
@@ -4026,7 +4056,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 237;
+var APP_VERSION = 238;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

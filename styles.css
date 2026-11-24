@@ -1081,3 +1081,7 @@ footer.foot .footlabel:first-child{margin-top:0}
 .car.fit .phw img{width:auto;height:auto;max-width:100%;max-height:var(--h,72vh);border-radius:10px;object-fit:fill}
 /* Lille mellemrum mellem billederne, så de ikke flyder sammen, når man swiper */
 .car.fit .slide{padding:0 4px;box-sizing:border-box}
+/* Sæt nålen på kortet */
+.pickbox #pickmap{height:min(60vh,460px);border-radius:10px;margin-top:6px}
+.helpmodal.pickbox{width:min(720px,calc(100vw - 20px))}
+#pick-map .licon{width:16px;height:16px;vertical-align:-3px;margin-right:4px}
