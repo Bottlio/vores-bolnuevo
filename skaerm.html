@@ -45,7 +45,7 @@ h2 span{font-family:var(--body);font-size:.62em;color:var(--muted);font-weight:4
 .haxg{position:relative;flex:1 1 auto}
 .haxg span{position:absolute;right:.3em;transform:translateY(-50%);font-size:.75em;color:var(--muted);font-variant-numeric:tabular-nums}
 .hb{position:absolute;left:3px;right:3px;border-radius:6px;padding:.15em .35em;font-size:.78em;line-height:1.2;overflow:hidden;color:#fff;background:var(--sea)}
-.hb.golf{background:var(--ochre)}
+.hb.golf{background:var(--ochre)}.hb.mix{background:#3e6b57}
 .hb b{display:block;font-weight:700}
 .hnow{position:absolute;left:0;right:0;height:2px;background:var(--red);z-index:2}
 .day{border:1px solid var(--line);border-radius:10px;padding:.55vw;display:flex;flex-direction:column;gap:.45vw;min-height:0;overflow:hidden}
@@ -194,6 +194,8 @@ var ITEMS=["Cykel 1","Cykel 2","Cykel 3","Cykel 4","Golfsæt (herre)","Golfsæt 
 var LOANS=LIVE?[]:[["Cykel 2","103",0,9,13],["Cykel 4","206",1,10,16],["Cykel 2","103",1,9,12],["Golfsæt (dame)","104",2,8,12],["Golfsæt (herre)","105",2,13,18],["Cykel 1","202",3,9,11],["Cykel 3","105",3,14,17],["Cykel 2","103",4,10,12],["Cykel 1","202",5,9,13],["Cykel 2","202",5,9,13],["Golfsæt (herre)","206",6,8,13]];
 var H0=8,H1=20,VIEW="akt",IDLE=null,WOFF=0;
 function E(x){return String(x==null?"":x).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]})}
+function lanesS(rows){rows.sort(function(a,b){return a.a-b.a||b.z-a.z});var cl=[],end=-1,le=[];function fl(){var n=le.length||1;cl.forEach(function(r){r.n=n});cl=[];le=[];}
+ rows.forEach(function(r){if(r.a>=end)fl();var k=-1;for(var i=0;i<le.length;i++)if(le[i]<=r.a){k=i;break;}if(k<0){k=le.length;le.push(r.z);}else le[k]=r.z;r.k=k;cl.push(r);end=Math.max(end,r.z);});fl();}
 function hm(x){var h=Math.floor(x),m=Math.round((x-h)*60);return pad(h)+(m?'.'+pad(m):'');}
 function pad(n){return n<10?"0"+n:n}
 function tick(){var d=new Date();var mc=document.getElementById("mcal");if(mc){mc.children[0].textContent=MON[d.getMonth()];mc.children[1].textContent=d.getDate();mc.children[2].textContent=DAYS[d.getDay()].toLowerCase();}document.getElementById("clock").textContent=pad(d.getHours())+"."+pad(d.getMinutes());
@@ -211,9 +213,9 @@ function week(){var now=new Date(),wd=(now.getDay()+6)%7,mon=new Date(now);mon.s
  hh+='</div></div>';
  for(var j=0;j<7;j++){var dj=new Date(mon);dj.setDate(mon.getDate()+j);
   hh+='<div class="hday'+(j===TW?' today':'')+'"><div class="hdh"><b>'+(j===TW?"I dag":DAYS[dj.getDay()])+'</b><span>'+dj.getDate()+'. '+MON[dj.getMonth()]+'</span></div><div class="hgrid">';
-  LOANS.filter(function(l){return (LIVE||WOFF===0)&&l[2]===j}).forEach(function(l,ix,arr){
-   var same=arr.filter(function(x){return x[3]<l[4]&&x[4]>l[3]}),k=same.indexOf(l),n=same.length;
-   hh+='<div class="hb'+(/golf/i.test(l[0])?' golf':'')+'"'+(l[5]?' data-bk="'+E(l[5])+'" data-src="'+E(l[6])+'" data-inf="'+E(l[0]+' · '+l[1]+' · '+hm(l[3])+'–'+hm(l[4]))+'"':'')+' style="top:'+((l[3]-H0)/(H1-H0)*100)+'%;height:'+((l[4]-l[3])/(H1-H0)*100)+'%;left:calc('+(k/n*100)+'% + 3px);right:auto;width:calc('+(100/n)+'% - 6px)"><b>'+E(l[0])+'</b>'+E(l[1])+' · '+hm(l[3])+'–'+hm(l[4])+'</div>'});
+  var dayL=LOANS.filter(function(l){return (LIVE||WOFF===0)&&l[2]===j}).map(function(l){return {l:l,a:l[3],z:l[4]}});lanesS(dayL);
+  dayL.forEach(function(o){var l=o.l,k=o.k,n=o.n;
+   hh+='<div class="hb'+(l[7]?' '+l[7]:(/golf/i.test(l[0])?' golf':''))+'"'+(l[5]?' data-bk="'+E(l[5])+'" data-src="'+E(l[6])+'" data-inf="'+E((l[8]||l[0])+' · lejl. '+l[1]+' · '+hm(l[3])+'–'+hm(l[4]))+'"':'')+' style="top:'+((l[3]-H0)/(H1-H0)*100)+'%;height:'+((l[4]-l[3])/(H1-H0)*100)+'%;left:calc('+(k/n*100)+'% + 3px);right:auto;width:calc('+(100/n)+'% - 6px)"><b>'+E(l[1]?"Lejl. "+l[1]:"")+'</b>'+E(l[0])+'</div>'});
   if(j===TW&&nowH>=H0&&nowH<=H1)hh+='<div class="hnow" style="top:'+((nowH-H0)/(H1-H0)*100)+'%"></div>';
   hh+='</div></div>'}
  document.getElementById("hweek").innerHTML=hh;
@@ -231,10 +233,13 @@ function live(){ // rigtige aktiviteter fra appen (kun titel, tid, sted og antal
    week();}).catch(function(){});
  fetch(C.supabaseUrl+"/rest/v1/rpc/screen_bookings",{method:"POST",headers:{"apikey":C.supabaseKey,"Authorization":"Bearer "+C.supabaseKey,"Content-Type":"application/json"},body:JSON.stringify({p_from:mon.toISOString(),p_to:sun.toISOString()})})
   .then(function(r){return r.json()}).then(function(rows){if(!Array.isArray(rows))return;var L=[];
-   rows.forEach(function(b){var st=new Date(b.starts_at),en=new Date(b.ends_at);
+   var G={};rows.forEach(function(b){var k=b.starts_at+"|"+b.ends_at+"|"+(b.lejl||"")+"|"+b.source;(G[k]=G[k]||[]).push(b);});
+   Object.keys(G).forEach(function(k){var g=G[k],b=g[0],st=new Date(b.starts_at),en=new Date(b.ends_at);
+    var c=g.filter(function(x){return x.kind==="cykel"}).length,gl=g.length-c,what=g.length===1?b.equipment.replace("Golfsæt ","Golf "):[c?(c===1?"1 cykel":c+" cykler"):"",gl?(gl===1?"1 golfsæt":gl+" golfsæt"):""].filter(Boolean).join(", ");
+    var kind=gl&&!c?"golf":c&&!gl?"cykel":"mix",items=g.map(function(x){return x.equipment}).join(", "),ids=g.map(function(x){return x.id}).join(",");
     for(var dd=0;dd<7;dd++){var d0=new Date(mon);d0.setDate(mon.getDate()+dd);var d1=new Date(d0);d1.setDate(d0.getDate()+1);if(st>=d1||en<=d0)continue;
      var a=Math.max(H0,st<d0?0:st.getHours()+st.getMinutes()/60),z=Math.min(H1,en>=d1?24:en.getHours()+en.getMinutes()/60);if(z<=a)continue;
-     L.push([b.equipment,b.lejl||"",dd,a,z,b.id,b.source]);}});
+     L.push([what,b.lejl||"",dd,a,z,ids,b.source,kind,items]);}});
    LOANS=L;week();}).catch(function(){});}
 function refresh(){if(LIVE){live();}else{week();}weather();var d=new Date();document.getElementById("upd").textContent="Opdateret "+pad(d.getHours())+"."+pad(d.getMinutes())}
 if(LIVE)document.getElementById("demo").textContent="TESTSIDE";
@@ -412,7 +417,7 @@ document.getElementById("hweek").addEventListener("click",function(e){var c=e.ta
  SV.id=null;document.getElementById("sv").hidden=false;svIdle();
  document.getElementById("svbody").innerHTML='<h2>Booking</h2><p class="svw" style="font-size:1.2em">'+E(c.dataset.inf)+'</p>'+(c.dataset.src==="skaerm"?'<button type="button" class="svgo" data-unbk="'+E(c.dataset.bk)+'" style="background:var(--red)">Aflys bookingen</button>':'<p class="svw">Bookingen er lavet i appen og kan aflyses dér.</p>');});
 document.getElementById("sv").addEventListener("click",function(e){var t=e.target;if(!t.dataset||!t.dataset.unbk)return;
- fn({action:"unbook",booking_id:t.dataset.unbk}).then(function(r){document.getElementById("svbody").innerHTML=r.ok?'<p class="svok">Bookingen er aflyst.</p>':'<p class="sverr">'+E(r.error||"Det lykkedes ikke.")+'</p>';refresh();setTimeout(svClose,2500);});});
+ Promise.all(t.dataset.unbk.split(",").map(function(id){return fn({action:"unbook",booking_id:id})})).then(function(rs){return rs.every(function(x){return x.ok})?{ok:true}:rs.filter(function(x){return !x.ok})[0]}).then(function(r){document.getElementById("svbody").innerHTML=r.ok?'<p class="svok">Bookingen er aflyst.</p>':'<p class="sverr">'+E(r.error||"Det lykkedes ikke.")+'</p>';refresh();setTimeout(svClose,2500);});});
 tick();refresh();notes();guide();setInterval(notes,120000);setInterval(guide,300000);setInterval(tick,10000);setInterval(refresh,60000);
 setTimeout(function(){location.reload()},6*3600000);
 </script></body></html>

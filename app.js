@@ -1549,6 +1549,26 @@ function bkCard(b) {
   return '<article class="akcard bkcard ' + (e.kind || "") + '"><p class="aktime">' + hhmm(st) + "–" + hhmm(en) + "</p><h3>" + esc(e.name || "Udstyr") + '</h3><p class="akplace">' + esc([b.name, bkLabel(b) ? "lejl. " + bkLabel(b) : ""].filter(Boolean).join(" · ")) + (b.source === "skaerm" ? " · booket på skærmen" : "") + "</p>" +
     (can && !past ? '<div class="akbtns"><button class="linkbtn danger-t" type="button" data-bkdel="' + esc(b.id) + '">' + (ui.bkDelConfirm === b.id ? "Tryk igen for at aflyse" : "Aflys") + "</button></div>" : "") + "</article>";
 }
+function bkKey(b) { return [b.starts_at, b.ends_at, b.user_id || "", b.lejlighed || "", b.name || ""].join("|"); }
+// Kort tekst for en gruppe: "Cykel 3" – eller "2 cykler, golf herre 2"
+function bkWhat(g) {
+  if (g.length === 1) return String((g[0].equipment || {}).name || "").replace("Golfsæt ", "Golf ");
+  var c = g.filter(function (b) { return (b.equipment || {}).kind === "cykel"; }).length, gl = g.length - c, out = [];
+  if (c) out.push(c === 1 ? "1 cykel" : c + " cykler"); if (gl) out.push(gl === 1 ? "1 golfsæt" : gl + " golfsæt");
+  return out.join(", ");
+}
+// Fordel blokke, der overlapper, i spor ved siden af hinanden (kun så smalle, som nødvendigt)
+function lanes(rows) {
+  rows.sort(function (a, b) { return a.a - b.a || b.z - a.z; });
+  var cluster = [], end = -1, laneEnd = [];
+  var flush = function () { var n = laneEnd.length || 1; cluster.forEach(function (r) { r.n = n; }); cluster = []; laneEnd = []; };
+  rows.forEach(function (r) {
+    if (r.a >= end) flush();
+    var k = laneEnd.findIndex(function (e) { return e <= r.a; }); if (k < 0) { k = laneEnd.length; laneEnd.push(r.z); } else laneEnd[k] = r.z;
+    r.k = k; cluster.push(r); end = Math.max(end, r.z);
+  });
+  flush();
+}
 // Tidsskema som på skærmen: tiderne ude til venstre, en kolonne pr. dag, bookingerne som blokke
 function bkGrid(days, todayK) {
   var span = BK_H1 - BK_H0, now = new Date(), nowH = now.getHours() + now.getMinutes() / 60;
@@ -1557,14 +1577,18 @@ function bkGrid(days, todayK) {
   ax += "</div></div>";
   return '<div class="tgwrap" style="--n:' + days.length + '">' + ax + days.map(function (x) {
     var d0 = new Date(x.d), d1 = new Date(x.d); d1.setDate(d1.getDate() + 1);
-    var rows = bkData.list.filter(function (b) { return new Date(b.starts_at) < d1 && new Date(b.ends_at) > d0; }).map(function (b) {
-      var st = new Date(b.starts_at), en = new Date(b.ends_at);
-      return { b: b, a: Math.max(BK_H0, st < d0 ? 0 : st.getHours() + st.getMinutes() / 60), z: Math.min(BK_H1, en >= d1 ? 24 : en.getHours() + en.getMinutes() / 60) };
+    // Samme person, samme tidsrum = én blok (fx "2 cykler + golfsæt")
+    var groups = {};
+    bkData.list.filter(function (b) { return new Date(b.starts_at) < d1 && new Date(b.ends_at) > d0; }).forEach(function (b) { var k = bkKey(b); (groups[k] = groups[k] || []).push(b); });
+    var rows = Object.keys(groups).map(function (k) {
+      var g = groups[k], b = g[0], st = new Date(b.starts_at), en = new Date(b.ends_at);
+      return { key: k, g: g, b: b, a: Math.max(BK_H0, st < d0 ? 0 : st.getHours() + st.getMinutes() / 60), z: Math.min(BK_H1, en >= d1 ? 24 : en.getHours() + en.getMinutes() / 60) };
     }).filter(function (r) { return r.z > r.a; });
+    lanes(rows);
     var blocks = rows.map(function (r) {
-      var same = rows.filter(function (o) { return o.a < r.z && o.z > r.a; }), k = same.indexOf(r), n = same.length, e = r.b.equipment || {};
-      var mine = ui.user && r.b.user_id === ui.user.id;
-      return '<button type="button" class="tgb ' + (e.kind || "") + (mine ? " mine" : "") + '" data-bkpick="' + esc(r.b.id) + '" style="top:' + ((r.a - BK_H0) / span * 100) + "%;height:" + ((r.z - r.a) / span * 100) + "%;left:calc(" + (k / n * 100) + "% + 2px);width:calc(" + (100 / n) + '% - 4px)"><b>' + esc(String(e.name || "").replace("Golfsæt ", "Golf ")) + "</b>" + esc(bkLabel(r.b)) + "</button>";
+      var mine = ui.user && r.b.user_id === ui.user.id, kinds = r.g.map(function (b) { return (b.equipment || {}).kind; });
+      var kind = kinds.every(function (k) { return k === "golf"; }) ? "golf" : kinds.every(function (k) { return k === "cykel"; }) ? "cykel" : "mix";
+      return '<button type="button" class="tgb ' + kind + (mine ? " mine" : "") + '" data-bkpick="' + esc(r.key) + '" style="top:' + ((r.a - BK_H0) / span * 100) + "%;height:" + ((r.z - r.a) / span * 100) + "%;left:calc(" + (r.k / r.n * 100) + "% + 2px);width:calc(" + (100 / r.n) + '% - 4px)"><b>' + esc(bkLabel(r.b) || r.b.name || "") + "</b>" + esc(bkWhat(r.g)) + "</button>";
     }).join("");
     var nowLine = x.k === todayK && nowH >= BK_H0 && nowH <= BK_H1 ? '<span class="tgnow" style="top:' + ((nowH - BK_H0) / span * 100) + '%"></span>' : "";
     return '<div class="tgday' + (x.k === todayK ? " today" : "") + '"><div class="tgh"><b>' + (x.k === todayK ? "I dag" : DA_DAY[x.d.getDay()].slice(0, 3)) + "</b> <span>" + x.d.getDate() + ". " + DA_MON[x.d.getMonth()] + '</span></div><div class="tgbody">' + blocks + nowLine + "</div></div>";
@@ -1588,12 +1612,13 @@ function udstyrPageHtml() {
   h += '<p class="notice">Test: bookinger her er rigtige og kan ses på skærmen i receptionen.</p>';
   if (bkData.err) h += '<p class="error">' + esc(bkData.err) + "</p>";
   if (ui.bkForm) h += bkFormHtml();
-  if (ui.bkPick) {   // valgt booking: vis detaljer og evt. Aflys
-    var pb = bkData.list.filter(function (b) { return b.id === ui.bkPick; })[0];
-    if (pb) {
-      var pst = new Date(pb.starts_at), pen = new Date(pb.ends_at), pcan = (ui.user && pb.user_id === ui.user.id) || (me && me.admin);
-      h += '<section class="panel bkpick"><p><strong>' + esc((pb.equipment || {}).name || "Udstyr") + "</strong> · " + dayTitle(pst) + " kl. " + hhmm(pst) + "–" + hhmm(pen) + "<br>" + esc([pb.name, bkLabel(pb) ? "lejl. " + bkLabel(pb) : ""].filter(Boolean).join(" · ")) + (pb.source === "skaerm" ? " · booket på skærmen" : "") + "</p>" +
-        '<div class="row">' + (pcan && pen > new Date() ? '<button class="btn danger" type="button" data-bkdel="' + esc(pb.id) + '">' + (ui.bkDelConfirm === pb.id ? "Tryk igen for at aflyse" : "Aflys bookingen") + "</button>" : "") + '<button class="btn" type="button" data-bkpick="">Luk</button></div></section>';
+  if (ui.bkPick) {   // valgt booking (evt. flere ting booket sammen): vis detaljer og Aflys
+    var grp = bkData.list.filter(function (b) { return bkKey(b) === ui.bkPick; });
+    if (grp.length) {
+      var pb = grp[0], pst = new Date(pb.starts_at), pen = new Date(pb.ends_at), pcan = ((ui.user && pb.user_id === ui.user.id) || (me && me.admin)) && pen > new Date();
+      h += '<section class="panel bkpick"><p><strong>' + dayTitle(pst) + " kl. " + hhmm(pst) + "–" + hhmm(pen) + "</strong><br>" + esc([pb.name, bkLabel(pb) ? "lejl. " + bkLabel(pb) : ""].filter(Boolean).join(" · ")) + (pb.source === "skaerm" ? " · booket på skærmen" : "") + "</p>" +
+        '<ul class="nlist">' + grp.map(function (b) { return '<li class="nitem"><span>' + esc((b.equipment || {}).name || "Udstyr") + "</span>" + (pcan ? '<button class="linkbtn danger-t" type="button" data-bkdel="' + esc(b.id) + '">' + (ui.bkDelConfirm === b.id ? "Tryk igen for at aflyse" : "Aflys") + "</button>" : "") + "</li>"; }).join("") + "</ul>" +
+        '<div class="row"><button class="btn" type="button" data-bkpick="">Luk</button></div></section>';
     }
   }
   h += weekBlockHtml(bkData.list, bkCard, "Intet booket", bkGrid);
@@ -3673,7 +3698,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 215;
+var APP_VERSION = 216;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
