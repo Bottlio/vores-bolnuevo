@@ -1327,7 +1327,8 @@ function renderGate() {
   else if (ui.page === "admin" && me && me.admin) html += pageBack() + adminPageHtml();
   else if (ui.page === "akt" && ui.member) html += aktPageHtml();
   else if (ui.page === "opslag" && me && me.canPost) html += '<h2 class="pagetitle">Opslag på skærmen</h2><section class="panel">' + noticesAdminHtml() + "</section>";
-  else if ((ui.page === "udstyr" || ui.page === "sortbog") && ui.member) html += soonHtml(ui.page);
+  else if (ui.page === "udstyr" && ui.member) html += udstyrPageHtml();
+  else if (ui.page === "sortbog" && ui.member) html += soonHtml(ui.page);
   else if (!ui.user) {
     html += '<section class="welcome"><p class="lead">Andelshavernes egne tips til lokalområdet: spisesteder, strande, udsigtspunkter, dagsture og det praktiske. Adgang kun via invitation fra en andelshaver.</p></section>';
     if (!ui.login) ui.login = { mode: "login" };
@@ -1520,6 +1521,73 @@ async function aktCancel(id) {
   ui.akConfirm = null; ui.msg = r.error ? "Aktiviteten blev ikke aflyst: " + r.error.message : "Aktiviteten er aflyst.";
   aktData = null; render();
 }
+/* ---------- Booking af udstyr: cykler og golfsæt, time for time – samme bookinger som på skærmen ---------- */
+var bkData = null, bkLoading = false, BK_H0 = 8, BK_H1 = 20;
+function bkDay() { var d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + (ui.bkDay || 0)); return d; }
+async function loadBk() {
+  if (bkLoading) return; bkLoading = true;
+  var d0 = bkDay(), d1 = new Date(d0); d1.setDate(d0.getDate() + 1);
+  var r = await Promise.all([
+    sb.from("equipment").select("*").eq("active", true).order("sort"),
+    sb.from("equipment_bookings").select("*").lt("starts_at", d1.toISOString()).gt("ends_at", d0.toISOString()),
+    ui.user ? sb.from("equipment_bookings").select("*, equipment(name)").eq("user_id", ui.user.id).gt("ends_at", new Date().toISOString()).order("starts_at") : Promise.resolve({ data: [] })
+  ]);
+  bkLoading = false;
+  bkData = { equip: r[0].data || [], day: r[1].data || [], mine: r[2].data || [], err: (r[0].error || r[1].error) ? "Kunne ikke hente bookinger." : "" };
+  if (ui.page === "udstyr") render();
+}
+function bkLabel(b) { var a = andelLabels[b.andel_id]; return b.lejlighed || (a ? a.split("-")[0] : ""); }
+function bkRange() { var d = bkDay(), st = new Date(d), en = new Date(d); st.setHours(ui.bkFrom || 10); en.setHours(ui.bkTo || 13); return [st, en]; }
+function bkIsFree(id) { var rg = bkRange(); return !bkData.day.some(function (b) { return b.equipment_id === id && new Date(b.starts_at) < rg[1] && new Date(b.ends_at) > rg[0]; }); }
+function udstyrPageHtml() {
+  if (ui.bkFrom == null) { ui.bkFrom = Math.min(19, Math.max(8, new Date().getHours() + 1)); ui.bkTo = Math.min(20, ui.bkFrom + 3); ui.bkSel = []; }
+  if (!bkData) { loadBk(); return '<section class="akhead"><h2>Booking af udstyr</h2></section><p class="loading">Henter…</p>'; }
+  var d = bkDay(), h = '<section class="akhead"><h2>Booking af udstyr</h2></section><p class="notice">Test: bookinger her er rigtige og kan ses på skærmen i receptionen.</p>';
+  if (bkData.err) h += '<p class="error">' + esc(bkData.err) + "</p>";
+  h += '<div class="akweekbar"><button class="iconbtn" type="button" data-bkday="-1" aria-label="Forrige dag"' + ((ui.bkDay || 0) <= 0 ? " disabled" : "") + '>‹</button><div class="akwl"><strong>' + dayTitle(d) + '</strong><span>Tryk på pilene for at skifte dag</span></div><button class="iconbtn" type="button" data-bkday="1" aria-label="Næste dag"' + ((ui.bkDay || 0) >= 60 ? " disabled" : "") + ">›</button></div>";
+  // Book
+  if (ui.editor) {
+    ui.bkSel = (ui.bkSel || []).filter(bkIsFree);
+    var hs = function (name, v, min, max) { var o = ""; for (var x = min; x <= max; x++) o += '<option value="' + x + '"' + (x === v ? " selected" : "") + ">" + p2(x) + ".00</option>"; return '<select class="akppl" name="' + name + '" data-bkt="' + name + '">' + o + "</select>"; };
+    h += '<section class="panel bkform"><h3>Book</h3><div class="akrow2"><label>Fra kl. ' + hs("from", ui.bkFrom, BK_H0, BK_H1 - 1) + '</label><label>Til kl. ' + hs("to", ui.bkTo, ui.bkFrom + 1, BK_H1) + "</label></div>" +
+      '<p class="hint">Vælg hvad du vil låne – gerne flere:</p><div class="bkgrid">' + bkData.equip.map(function (e) {
+        var free = bkIsFree(e.id), on = ui.bkSel.indexOf(e.id) >= 0;
+        return '<button type="button" class="bkit ' + e.kind + (on ? " on" : "") + '" data-bksel="' + esc(e.id) + '"' + (free ? "" : " disabled") + ">" + esc(e.name) + (free ? "" : '<small>optaget</small>') + "</button>";
+      }).join("") + "</div>" + (ui.bkErr ? '<p class="error">' + esc(ui.bkErr) + "</p>" : "") +
+      '<button class="btn primary" type="button" data-bkgo="1"' + (ui.bkSel.length ? "" : " disabled") + ">Book" + (ui.bkSel.length > 1 ? " " + ui.bkSel.length + " ting" : "") + "</button></section>";
+  }
+  // Dagens oversigt
+  var ticks = ""; for (var t = BK_H0; t <= BK_H1; t += 2) ticks += '<span style="left:' + ((t - BK_H0) / (BK_H1 - BK_H0) * 100) + '%">' + p2(t) + "</span>";
+  h += '<h3 class="akday">Hvad er booket</h3><div class="bkday"><div class="bkrow bkaxis"><span class="bkn"></span><div class="bkline">' + ticks + "</div></div>" + bkData.equip.map(function (e) {
+    var blocks = bkData.day.filter(function (b) { return b.equipment_id === e.id; }).map(function (b) {
+      var st = new Date(b.starts_at), en = new Date(b.ends_at), d0 = bkDay();
+      var a = Math.max(BK_H0, st < d0 ? 0 : st.getHours() + st.getMinutes() / 60), z = Math.min(BK_H1, (en - d0) >= 86400000 ? 24 : en.getHours() + en.getMinutes() / 60);
+      if (z <= a) return "";
+      var mine = ui.user && b.user_id === ui.user.id;
+      return '<span class="bkb ' + e.kind + (mine ? " mine" : "") + '" style="left:' + ((a - BK_H0) / (BK_H1 - BK_H0) * 100) + "%;width:" + ((z - a) / (BK_H1 - BK_H0) * 100) + '%" title="' + esc((b.name || "") + " " + bkLabel(b)) + '">' + esc(bkLabel(b)) + "</span>";
+    }).join("");
+    return '<div class="bkrow"><span class="bkn">' + esc(e.name) + '</span><div class="bkline">' + blocks + "</div></div>";
+  }).join("") + "</div>";
+  // Mine bookinger
+  if (bkData.mine.length) h += '<h3 class="akday">Jeres bookinger</h3><ul class="nlist">' + bkData.mine.map(function (b) {
+    var st = new Date(b.starts_at), en = new Date(b.ends_at);
+    return '<li class="nitem"><span><strong>' + esc((b.equipment && b.equipment.name) || "") + "</strong> " + dayTitle(st) + " kl. " + hhmm(st) + "–" + hhmm(en) + '</span><button class="linkbtn danger-t" type="button" data-bkdel="' + esc(b.id) + '">' + (ui.bkDelConfirm === b.id ? "Tryk igen for at aflyse" : "Aflys") + "</button></li>";
+  }).join("") + "</ul>";
+  return h + '<div class="row akback"><button class="btn" type="button" data-menu="menu">Tilbage til menuen</button></div>';
+}
+async function bkBook() {
+  var rg = bkRange(); if (rg[1] < new Date()) { ui.bkErr = "Tidsrummet er allerede passeret."; render(); return; }
+  var made = [], err = "";
+  for (var i = 0; i < ui.bkSel.length; i++) {
+    var r = await sb.from("equipment_bookings").insert({ equipment_id: ui.bkSel[i], starts_at: rg[0].toISOString(), ends_at: rg[1].toISOString(), andel_id: me && me.andel, name: (me && me.name) || "" }).select("id").single();
+    if (r.error) { var nm = (bkData.equip.filter(function (e) { return e.id === ui.bkSel[i]; })[0] || {}).name || "Udstyret"; err = /dobbeltbooking|exclu|23P01/i.test(r.error.message + (r.error.code || "")) ? nm + " er allerede booket i det tidsrum." : "Bookingen blev ikke gemt: " + r.error.message; break; }
+    made.push(r.data.id);
+  }
+  if (err && made.length) await sb.from("equipment_bookings").delete().in("id", made);
+  ui.bkErr = err; if (!err) { ui.msg = made.length === 1 ? "Booket – god tur!" : made.length + " ting er booket – god tur!"; ui.bkSel = []; }
+  bkData = null; render();
+}
+async function bkDelete(id) { await sb.from("equipment_bookings").delete().eq("id", id); ui.bkDelConfirm = null; ui.msg = "Bookingen er aflyst."; bkData = null; render(); }
 function soonHtml(k) {
   var udst = k === "udstyr";
   return '<section class="panel"><h2>' + (udst ? "Booking af udstyr" : "Den sorte bog") + '</h2><p class="notice">Test – kommer snart.</p><p>' +
@@ -3445,6 +3513,10 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.edrm) { rmEditor(t.dataset.edrm); return; }
   if (t.dataset.ndel) { if (ui.nDelConfirm !== t.dataset.ndel) { ui.nDelConfirm = t.dataset.ndel; rerenderAdmin(); return; } delNotice(t.dataset.ndel); return; }
   if (t.dataset.akdel) { if (ui.akDelConfirm !== t.dataset.akdel) { ui.akDelConfirm = t.dataset.akdel; ui.akConfirm = null; render(); return; } aktDelete(t.dataset.akdel); return; }
+  if (t.dataset.bkday) { ui.bkDay = Math.max(0, Math.min(60, (ui.bkDay || 0) + parseInt(t.dataset.bkday, 10))); ui.bkErr = ""; ui.msg = ""; bkData = null; render(); return; }
+  if (t.dataset.bksel) { var bi = (ui.bkSel || []).indexOf(t.dataset.bksel); if (bi >= 0) ui.bkSel.splice(bi, 1); else ui.bkSel.push(t.dataset.bksel); ui.bkErr = ""; render(); return; }
+  if (t.dataset.bkgo) { bkBook(); return; }
+  if (t.dataset.bkdel) { if (ui.bkDelConfirm !== t.dataset.bkdel) { ui.bkDelConfirm = t.dataset.bkdel; render(); return; } bkDelete(t.dataset.bkdel); return; }
   if (t.dataset.akwk) { akGoWeek(parseInt(t.dataset.akwk, 10)); return; }
   if (t.dataset.akday) { ui.akDay = t.dataset.akday; render(); return; }
   if (t.dataset.aknew) { ui.akForm = true; ui.akEdit = null; ui.aktErr = ""; ui.msg = ""; render(); window.scrollTo({ top: 0 }); return; }
@@ -3454,7 +3526,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.akoff) { aktSignup(t.dataset.akoff, false); return; }
   if (t.dataset.akcancel) { if (ui.akConfirm !== t.dataset.akcancel) { ui.akConfirm = t.dataset.akcancel; render(); return; } aktCancel(t.dataset.akcancel); return; }
   if (t.dataset.menu) {
-    var mk = t.dataset.menu; ui.msg = ""; if (mk === "akt") { aktData = null; ui.akForm = false; ui.akWeek = 0; ui.akDay = null; }
+    var mk = t.dataset.menu; ui.msg = ""; if (mk === "akt") { aktData = null; ui.akForm = false; ui.akWeek = 0; ui.akDay = null; } if (mk === "udstyr") { bkData = null; ui.bkDay = 0; ui.bkErr = ""; }
     leaveDraft(function () {
       if (mk === "menu") { nav(function () { ui.menu = true; ui.page = null; ui.place = null; ui.cat = "hjem"; ui.q = ""; }); return; }
       nav(function () { ui.menu = false; ui.place = null; ui.cat = "hjem"; ui.page = mk === "guide" ? null : mk; });
@@ -3514,7 +3586,10 @@ document.addEventListener("click", async function (e) {
   if (t.id === "logout") { await sb.auth.signOut(); ui.user = null; ui.editor = false; ui.member = false; me = null; ui.draft = null; ui.page = null; places = []; raw = { places: [], towns: [], regions: [], exps: [], photos: [] }; render(); return; }
 });
 root.addEventListener("input", function (e) { if (e.target.id === "adm-q") filterAdmList(); });
-root.addEventListener("change", function (e) { if (e.target.dataset && e.target.dataset.notify) saveNotify(e.target); });
+root.addEventListener("change", function (e) {
+  if (e.target.dataset && e.target.dataset.notify) saveNotify(e.target);
+  if (e.target.dataset && e.target.dataset.bkt) { var v = parseInt(e.target.value, 10); if (e.target.dataset.bkt === "from") { ui.bkFrom = v; if (ui.bkTo <= v) ui.bkTo = Math.min(BK_H1, v + 1); } else ui.bkTo = v; ui.bkErr = ""; render(); }
+});
 root.addEventListener("submit", function (e) {
   if (e.target.dataset && e.target.dataset.kform) { e.preventDefault(); saveContact(e.target); return; }
   if (e.target.dataset && e.target.dataset.kmail) { e.preventDefault(); adminChangeMail(e.target); return; }
@@ -3561,7 +3636,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 211;
+var APP_VERSION = 212;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
