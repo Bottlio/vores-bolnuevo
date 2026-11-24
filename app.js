@@ -760,6 +760,12 @@ function wishItems() {
 /* Åbnet inde i Messenger/Facebook/Instagram o.l.: der kan guiden ikke lægges på hjemmeskærmen */
 var IN_APP = /FBAN|FBAV|FB_IAB|FBIOS|Messenger|Instagram|Line\/|Snapchat|LinkedInApp/i.test(navigator.userAgent || "");
 var IS_ANDROID = /Android/i.test(navigator.userAgent || "");
+var FROM_SCREEN = /[?&]fra=skaerm/.test(location.search);
+function screenNote() {
+  if (!FROM_SCREEN || ui.screenHide) return "";
+  return '<div class="notice"><p><strong>Test:</strong> Du kom hertil fra skærmen i receptionen. Her kommer man snart til at kunne tilmelde sig fælles aktiviteter, booke cykler og golfsæt og skrive i den sorte bog.</p>' +
+    '<button class="linkbtn" type="button" id="screen-hide">Skjul</button></div>';
+}
 function inAppNote() {
   if (!IN_APP || ui.inAppHide) return "";
   return '<div class="notice inappnote"><p><strong>Du har åbnet guiden inde i en anden app</strong> (fx Messenger). Herfra kan den ikke lægges på hjemmeskærmen.</p>' +
@@ -775,7 +781,7 @@ function renderHome() {
   toolbar(true);
   var html = "";
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
-  html += inAppNote();
+  html += screenNote() + inAppNote();
   if (me && me.admin && ui.reportCount) html += '<p class="notice">' + (ui.reportCount === 1 ? "Der er 1 ny anmeldelse." : "Der er " + ui.reportCount + " nye anmeldelser.") + ' <button class="linkbtn" type="button" data-page="admin">Se ' + (ui.reportCount === 1 ? "den" : "dem") + "</button></p>";
   html += hiddenDupHtml();
   html += sinceHtml();
@@ -1277,7 +1283,7 @@ function renderGate() {
   setTop(headerHtml()); toolbar(false);
   var html = "";
   if (ui.msg) html += '<p class="notice" role="status">' + esc(ui.msg) + "</p>";
-  html += inAppNote();
+  html += screenNote() + inAppNote();
   if (ui.recovery) { if (!ui.login || ui.login.mode !== "newpw") ui.login = { mode: "newpw" }; html += loginHtml(); }
   else if (ui.checking) html += '<p class="loading">Henter…</p>';
   else if (ui.page === "regler") html += pageBack() + RULES_HTML;
@@ -3153,6 +3159,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.adminvite) { adminInvite(t.dataset.adminvite); return; }
   if (t.dataset.resetk != null) { ui.resetK = t.dataset.resetk || null; ui.resetMsg = ""; ui.confirmStart = null; rerenderAdmin(); return; }
   if (t.dataset.rpw) { adminResetPw(t.dataset.rpw); return; }
+  if (t.id === "screen-hide") { ui.screenHide = true; render(); return; }
   if (t.id === "inapp-hide") { ui.inAppHide = true; render(); return; }
   if (t.dataset.rstart) { if (ui.confirmStart !== t.dataset.rstart) { ui.confirmStart = t.dataset.rstart; rerenderAdmin(); return; } adminStartOver(t.dataset.rstart); return; }
   if (t.dataset.editk != null) { ui.editK = t.dataset.editk || null; ui.editKInv = !!t.dataset.andinv; var q0 = (document.getElementById("adm-q") || {}).value || ""; render(); var qi0 = document.getElementById("adm-q"); if (qi0) { qi0.value = q0; filterAdmList(); } return; }
@@ -3249,7 +3256,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 188;
+var APP_VERSION = 189;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
