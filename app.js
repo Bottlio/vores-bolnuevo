@@ -1418,6 +1418,7 @@ function aktCard(a) {
   }
   if (canEdit && !past) btns += '<button class="linkbtn" type="button" data-akedit="' + esc(a.id) + '">Ret</button>' +
     (a.cancelled ? "" : '<button class="linkbtn danger-t" type="button" data-akcancel="' + esc(a.id) + '">' + (ui.akConfirm === a.id ? "Tryk igen for at aflyse" : "Aflys") + "</button>");
+  if (canEdit) btns += '<button class="linkbtn danger-t" type="button" data-akdel="' + esc(a.id) + '">' + (ui.akDelConfirm === a.id ? "Tryk igen for at slette helt" : "Slet") + "</button>";
   return '<article class="akcard' + (a.cancelled ? " cancelled" : "") + '"><p class="aktime">' + hhmm(st) + (en ? "–" + hhmm(en) : "") + '</p><h3>' + esc(a.title) + "</h3>" + (a.series_id ? '<p class="akfast">Fast hver uge</p>' : "") +
     (a.place ? '<p class="akplace">' + esc(a.place) + "</p>" : "") + (a.description ? '<p class="akdesc">' + esc(a.description) + "</p>" : "") +
     status + who + (btns ? '<div class="akbtns">' + btns + "</div>" : "") + "</article>";
@@ -1492,6 +1493,12 @@ async function aktSignup(id, on) {
   } else r = await sb.from("activity_signups").delete().eq("activity_id", id).eq("user_id", ui.user.id);
   if (r.error) { ui.msg = /plads|fuldt/i.test(r.error.message) ? "Der er desværre ikke plads længere." : "Det lykkedes ikke: " + r.error.message; }
   else ui.msg = on ? "Du er tilmeldt." : "Du er afmeldt.";
+  aktData = null; render();
+}
+async function aktDelete(id) {
+  var r = await sb.from("activities").delete().eq("id", id).select("id");
+  ui.akDelConfirm = null;
+  ui.msg = r.error ? "Aktiviteten blev ikke slettet: " + r.error.message : !(r.data || []).length ? "Aktiviteten blev ikke slettet – du kan kun slette dine egne." : "Aktiviteten er slettet.";
   aktData = null; render();
 }
 async function aktCancel(id) {
@@ -3379,6 +3386,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.adminvite) { adminInvite(t.dataset.adminvite); return; }
   if (t.dataset.resetk != null) { ui.resetK = t.dataset.resetk || null; ui.resetMsg = ""; ui.confirmStart = null; rerenderAdmin(); return; }
   if (t.dataset.rpw) { adminResetPw(t.dataset.rpw); return; }
+  if (t.dataset.akdel) { if (ui.akDelConfirm !== t.dataset.akdel) { ui.akDelConfirm = t.dataset.akdel; ui.akConfirm = null; render(); return; } aktDelete(t.dataset.akdel); return; }
   if (t.dataset.akwk) { akGoWeek(parseInt(t.dataset.akwk, 10)); return; }
   if (t.dataset.akday) { ui.akDay = t.dataset.akday; render(); return; }
   if (t.dataset.aknew) { ui.akForm = true; ui.akEdit = null; ui.aktErr = ""; ui.msg = ""; render(); window.scrollTo({ top: 0 }); return; }
@@ -3493,7 +3501,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 201;
+var APP_VERSION = 202;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
