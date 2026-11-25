@@ -1162,3 +1162,23 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
   .sbdl{grid-template-columns:96px 1fr}
   .sbpop .pbody{padding:14px 16px}
 }
+/* Den sorte bog: prioritet som farvet venstrekant + ord i farve, forløbslinje (v247) */
+.sbcard.p-rod{border-left:5px solid #b3402f}.sbcard.p-gul{border-left:5px solid #c9961a}.sbcard.p-gron{border-left:5px solid #2e7d4f}
+.sbpw{font-weight:700;font-size:.85rem}
+.sbpw.rod{color:#b3402f}.sbpw.gul{color:#8a6510}.sbpw.gron{color:#2e7d4f}
+@media (prefers-color-scheme:dark){.sbpw.rod{color:#f08b78}.sbpw.gul{color:#e3b54a}.sbpw.gron{color:#6fcf97}}
+.sbtop{flex-wrap:wrap}
+.sbstat{white-space:nowrap}
+.sbstat.venter,.sbstat.hvbestilt,.sbstat.varer,.sbstat.bestilt{color:var(--ochre);border-color:var(--ochre)}
+.sbsteps{list-style:none;display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:14px 0 2px;padding:0}
+.sbsteps li{position:relative;display:flex;flex-direction:column;align-items:flex-start;padding-top:16px;font-size:.85rem;color:var(--muted)}
+.sbsteps li::before{content:"";position:absolute;top:5px;left:0;right:0;height:2px;background:var(--line)}
+.sbsteps li:first-child::before{left:6px}
+.sbsteps li:last-child::before{right:auto;width:6px}
+.sbsteps li.done::before{background:var(--sea)}
+.sbsteps .dot{position:absolute;top:0;left:0;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2px solid var(--line);box-sizing:border-box}
+.sbsteps li.done .dot{background:var(--sea);border-color:var(--sea)}
+.sbsteps li.on .dot{border-color:var(--sea);background:var(--surface);box-shadow:0 0 0 3px var(--sea-soft)}
+.sbsteps li.on b,.sbsteps li.done b{color:var(--fg)}
+.sbsteps small{font-size:.76rem;line-height:1.3;color:var(--muted)}
+.sbsteps li.on small:first-of-type{color:var(--ochre)}

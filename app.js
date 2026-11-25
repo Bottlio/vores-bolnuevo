@@ -1777,7 +1777,10 @@ var sbData = null, sbLoading = false;
 var SB_STEPS = ["Hvor er det?", "Hvad er galt?", "Billeder", "Hvor haster det?"];
 var SB_AREAS = ["Receptionen", "Fællesrummet / spisesalen", "Køkkenet i fællesrummet", "Terrassen", "Poolområdet", "Udendørs brusere", "Trapper og gange", "Garagen / depotrum", "Haven / udearealer", "Andet"];
 var SB_PRIO = { rod: ["Rød", "Haster", "Fx vandskade, noget der er farligt, eller lejligheden kan ikke bruges"], gul: ["Gul", "Bør ordnes snart", "Fx en sprunget pære eller en maskine, der ikke virker ordentligt"], gron: ["Grøn", "Kan vente", "Fx en ridse i gulvet eller noget, der mangler at blive købt"] };
-var SB_STATUS = { ny: "Ny", igang: "I gang", venter: "Venter på håndværker", bestilt: "Bestilt", loest: "Løst" };
+var SB_STATUS = { ny: "Ny", igang: "I gang", venter: "Afventer · Håndværker skal tilkaldes", hvbestilt: "Afventer · Håndværker bestilt", varer: "Afventer · Varer bestilt", bestilt: "Afventer · Bestilt", loest: "Løst" };
+var SB_WAIT = { venter: "Håndværker skal tilkaldes", hvbestilt: "Håndværker bestilt", varer: "Varer bestilt", bestilt: "Bestilt" };
+function sbStep(st) { return st === "ny" ? 0 : st === "igang" ? 1 : st === "loest" ? 3 : 2; }
+function sbPrioWord(p) { var x = SB_PRIO[p]; return x ? '<span class="sbpw ' + p + '">' + x[1] + "</span>" : ""; }
 var SB_FIELDS = { sted: "stedet", hvad: "hvad det drejer sig om", beskrivelse: "beskrivelsen", prioritet: "prioriteten", billeder: "billederne" };
 var SB_EQKIND = { cykel: "Cykler", golf: "Golfsæt" };
 function lvl() { return me ? (me.level != null ? me.level : me.admin ? 5 : 2) : -1; }
@@ -1819,7 +1822,7 @@ function sbIsNew(d) {
 }
 function sbCard(d) {
   var pr = SB_PRIO[d.priority] || ["", ""], pics = sbPics(d.id);
-  return '<article class="sbcard ' + d.status + '" id="sb-' + esc(d.id) + '" data-sbopen="' + esc(d.id) + '" tabindex="0" role="button" aria-label="Åbn sagen ' + esc(sbTitle(d)) + '"><div class="sbtop"><span class="sbprio ' + d.priority + '">' + pr[0] + '</span><span class="sbstat ' + d.status + '">' + SB_STATUS[d.status] + (d.status === "loest" && d.solved_at ? " " + new Date(d.solved_at).toLocaleDateString("da-DK", { day: "numeric", month: "short" }) : "") + "</span>" +
+  return '<article class="sbcard ' + d.status + " p-" + d.priority + '" id="sb-' + esc(d.id) + '" data-sbopen="' + esc(d.id) + '" tabindex="0" role="button" aria-label="Åbn sagen ' + esc(sbTitle(d)) + '"><div class="sbtop">' + sbPrioWord(d.priority) + '<span class="sbstat ' + d.status + '">' + SB_STATUS[d.status] + (d.status === "loest" && d.solved_at ? " " + new Date(d.solved_at).toLocaleDateString("da-DK", { day: "numeric", month: "short" }) : "") + "</span>" +
     (sbIsNew(d) ? '<span class="sbnew">Nyt</span>' : "") + '<span class="sbdate">' + sbDate(d.created_at) + "</span></div>" +
     "<h3>" + esc(sbTitle(d)) + "</h3>" +
     '<p class="sbdesc sbclamp">' + esc(d.description) + "</p>" +
@@ -2018,9 +2021,9 @@ function sbPopHtml() {
   if (adm) {
     var st = d.status;
     if (st === "ny") acts = B("primary", 'data-sbst="igang"', "▶ Påbegynd") + B("", 'data-sbdlg="venter"', "Håndværker skal tilkaldes") + B("", 'data-sbdlg="loest"', "✓ Færdigmeld");
-    else if (st === "igang") acts = B("primary", 'data-sbdlg="loest"', "✓ Færdigmeld") + B("", 'data-sbdlg="venter"', "Håndværker skal tilkaldes");
-    else if (st === "venter") acts = B("primary", 'data-sbst="bestilt"', "Håndværker er bestilt") + B("", 'data-sbdlg="loest"', "✓ Færdigmeld");
-    else if (st === "bestilt") acts = B("primary", 'data-sbdlg="loest"', "✓ Færdigmeld");
+    else if (st === "igang") acts = B("primary", 'data-sbdlg="loest"', "✓ Færdigmeld") + B("", 'data-sbdlg="venter"', "Håndværker skal tilkaldes") + B("", 'data-sbdlg="varer"', "Varer bestilt");
+    else if (st === "venter") acts = B("primary", 'data-sbst="hvbestilt"', "Håndværker er bestilt") + B("", 'data-sbdlg="loest"', "✓ Færdigmeld");
+    else if (st === "hvbestilt" || st === "varer" || st === "bestilt") acts = B("primary", 'data-sbdlg="loest"', "✓ Færdigmeld");
     else acts = B("", 'data-sbst="igang"', "Genåbn sagen");
     links.push(fol ? '<button type="button" class="linkbtn" data-sbfol="0">Følg ikke længere</button>' : '<button type="button" class="linkbtn" data-sbfol="1">Følg</button>');
     links.push('<button type="button" class="linkbtn" data-sbedit="1">Ret sagen</button>');
@@ -2037,8 +2040,9 @@ function sbPopHtml() {
   var T = function (k, long, short, n) { return '<button type="button" role="tab" class="' + (tab === k ? "on" : "") + '" data-sbtab="' + k + '" aria-selected="' + (tab === k) + '"><span class="tlong">' + long + '</span><span class="tshort">' + short + "</span>" + (n ? '<span class="cnt">' + n + "</span>" : "") + "</button>"; };
   var h = '<div class="wizwrap"><div class="rback" data-sbclose="1"></div><section class="helpmodal sbpop" role="dialog" aria-modal="true" aria-label="' + esc(sbTitle(d)) + '">' +
     '<div class="phead"><button type="button" class="hclose" data-sbclose="1" aria-label="Luk">×</button>' +
-    '<div class="sbtop"><span class="sbprio ' + d.priority + '">' + pr[0] + '</span><span class="sbstat ' + d.status + '">' + SB_STATUS[d.status] + "</span></div>" +
+    '<div class="sbtop">' + sbPrioWord(d.priority) + "</div>" +
     "<h2>" + esc(sbTitle(d)) + '</h2><p class="psub">' + (d.source === "regneark" ? "Fra det gamle regneark · skrevet af " + esc(d.reporter_name || "?") + " · " + sbDate(d.created_at) : "Meldt af " + esc(sbWho(d.reporter_name, d.andel_id)) + " · " + sbDate(d.created_at) + " kl. " + p2(new Date(d.created_at).getHours()) + ":" + p2(new Date(d.created_at).getMinutes())) + "</p>" +
+    sbStepsHtml(d) +
     '<div class="pacts">' + acts + (links.length ? '<span class="plinks">' + links.join("") + "</span>" : "") + "</div>" +
     (ui.sbNudge ? sbNudgeHtml("Vil du have besked på telefonen, når der sker noget i sagen?") : "") +
     (ui.sbMsg ? '<p class="hint" role="status">' + esc(ui.sbMsg) + "</p>" : "") + "</div>" +
@@ -2049,6 +2053,21 @@ function sbPopHtml() {
   h += "</section></div>";
   if (ui.sbDlg) h += sbDlgHtml(d);
   return h;
+}
+// Forløbslinje: Meldt → I gang → Afventer → Løst, med dato under hvert nået trin
+function sbStepsHtml(d) {
+  var cur = sbStep(d.status), ev = sbData.comments.filter(function (c) { return c.defect_id === d.id && c.kind === "status"; });
+  var last = function (fn) { var r = ev.filter(fn); return r.length ? r[r.length - 1] : null; };
+  var wait = last(function (c) { return SB_WAIT[c.status]; });
+  var dates = [d.created_at, (last(function (c) { return c.status === "igang"; }) || {}).created_at, wait && wait.created_at,
+    d.status === "loest" ? ((last(function (c) { return c.status === "loest"; }) || {}).created_at || (d.solved_at ? d.solved_at + "T12:00" : null)) : null];
+  var sub = cur === 2 ? SB_WAIT[d.status] : cur > 2 && wait ? SB_WAIT[wait.status] : "";
+  var names = ["Meldt", "I gang", "Afventer", "Løst"];
+  return '<ol class="sbsteps" aria-label="Forløb">' + names.map(function (n, i) {
+    var cls = i < cur ? "done" : i === cur ? "on" : "";
+    var dt = i <= cur && dates[i] ? (function (x) { return x.getDate() + ". " + DA_MON[x.getMonth()]; })(new Date(dates[i])) : "";
+    return '<li class="' + cls + '"><span class="dot"></span><b>' + n + "</b>" + (i === 2 && sub ? "<small>" + esc(sub) + "</small>" : "") + (dt ? "<small>" + dt + "</small>" : "") + "</li>";
+  }).join("") + "</ol>";
 }
 function sbInfoHtml(d) {
   var pr = SB_PRIO[d.priority] || ["", "", ""], pics = sbPics(d.id);
@@ -2090,7 +2109,7 @@ function sbThreadHtml(d) {
         h += '<div class="sbc"><p class="who"><b>' + who + "</b> · " + when + '</p><textarea data-sbcetext="1" maxlength="2000">' + esc(ui.sbCEdit.text) + '</textarea><div class="row"><button type="button" class="btn small" data-sbcedit="">Annuller</button><button type="button" class="btn small primary" data-sbcesave="1">Gem</button></div></div>';
       } else h += '<div class="sbc"><p class="who"><b>' + who + "</b> · " + when + (c.edited_at ? " · rettet" : "") + (tools.length ? '<span class="sbctools">' + tools.join("") + "</span>" : "") + "</p><p>" + esc(c.body) + "</p>" + picHtml + "</div>";
     } else if (c.kind === "status" && c.body) {
-      var head = c.status === "loest" ? who + " færdigmeldte sagen" : c.status === "venter" ? who + ": Håndværker skal tilkaldes" : who + " satte sagen til «" + esc(SB_STATUS[c.status] || c.status) + "»";
+      var head = c.status === "loest" ? who + " færdigmeldte sagen" : SB_WAIT[c.status] ? who + ": " + esc(SB_WAIT[c.status]) : who + " satte sagen til «" + esc(SB_STATUS[c.status] || c.status) + "»";
       h += '<div class="sbc sbstatus"><p class="who"><b>' + head + "</b> · " + when + "</p><p>" + esc(c.body) + "</p>" + picHtml + "</div>";
     } else if (c.kind === "status") h += '<p class="sbev">' + who + " satte sagen til «" + esc(SB_STATUS[c.status] || c.status) + "» · " + when + "</p>";
     else if (c.kind === "edit") h += '<p class="sbev">' + who + " rettede " + esc(joinDa((c.fields || []).map(function (f) { return SB_FIELDS[f] || f; }))) + (c.red ? " – sagen er nu rød" : "") + " · " + when + "</p>";
@@ -2111,14 +2130,14 @@ function sbHistHtml(d, list) {
     '<p class="hint">Tryk på en linje for at åbne sagen.</p>';
 }
 function sbDlgHtml(d) {
-  var g = ui.sbDlg, done = g.kind === "loest";
+  var g = ui.sbDlg, done = g.kind === "loest", varer = g.kind === "varer";
   return '<div class="wizwrap sbdlgwrap"><div class="rback"></div><section class="helpmodal wiz sbdlg" role="dialog" aria-modal="true"><button type="button" class="hclose" data-sbdlg="" aria-label="Luk">×</button>' +
-    "<h2>" + (done ? "Færdigmeld sagen" : "Håndværker skal tilkaldes") + "</h2>" +
-    "<label>" + (done ? 'Hvad blev der gjort? <span class="hint">(skal udfyldes – hjælper næste gang)</span>' : "Hvad skal håndværkeren se på?") + '<textarea data-sbdtext="1" maxlength="2000">' + esc(g.text || "") + "</textarea></label>" +
+    "<h2>" + (done ? "Færdigmeld sagen" : varer ? "Varer bestilt" : "Håndværker skal tilkaldes") + "</h2>" +
+    "<label>" + (done ? 'Hvad blev der gjort? <span class="hint">(skal udfyldes – hjælper næste gang)</span>' : varer ? "Hvad er bestilt, og af hvem?" : "Hvad skal håndværkeren se på?") + '<textarea data-sbdtext="1" maxlength="2000"' + (varer ? ' placeholder="Fx Lili bestiller 6 håndklæder"' : "") + ">" + esc(g.text || "") + "</textarea></label>" +
     (done ? sbFilesHtml(g.files, "dlg") + '<div class="wizrow"><button type="button" class="btn" data-sbpic="cam" data-sbfor="dlg">' + ICON_CAM + 'Tag et billede</button><button type="button" class="btn" data-sbpic="pick" data-sbfor="dlg">' + ICON_CAM + "Vælg billeder</button></div>" : "") +
-    '<p class="hint">' + (done ? "Teksten lægges i Kommentarer, og alle der følger sagen får besked." : "Sendes til den, der bestiller håndværkere. Sagen får status «Venter på håndværker».") + "</p>" +
+    '<p class="hint">' + (done ? "Teksten lægges i Kommentarer, og alle der følger sagen får besked." : varer ? "Sagen får status «Afventer · Varer bestilt». Teksten lægges i Kommentarer." : "Sendes til den, der bestiller håndværkere. Sagen får status «Afventer · Håndværker skal tilkaldes».") + "</p>" +
     (g.err ? '<p class="err" role="alert">' + esc(g.err) + "</p>" : "") +
-    '<div class="row wizfoot"><button type="button" class="btn" data-sbdlg="">Annuller</button><button type="button" class="btn primary" data-sbdsave="1"' + (g.busy ? " disabled" : "") + ">" + (g.busy ? "Gemmer…" : done ? "Luk sagen som løst" : "Send videre") + "</button></div></section></div>";
+    '<div class="row wizfoot"><button type="button" class="btn" data-sbdlg="">Annuller</button><button type="button" class="btn primary" data-sbdsave="1"' + (g.busy ? " disabled" : "") + ">" + (g.busy ? "Gemmer…" : done ? "Luk sagen som løst" : varer ? "Gem" : "Send videre") + "</button></div></section></div>";
 }
 
 /* ---------- Handlinger i popuppen ---------- */
@@ -2140,7 +2159,7 @@ async function sbSetStatus(st, note, files) {
 }
 async function sbDlgSave() {
   var g = ui.sbDlg; if (!g || g.busy) return;
-  if ((g.text || "").trim().length < 3) { g.err = g.kind === "loest" ? "Skriv kort, hvad der blev gjort." : "Skriv kort, hvad håndværkeren skal se på."; render(); return; }
+  if ((g.text || "").trim().length < 3) { g.err = g.kind === "loest" ? "Skriv kort, hvad der blev gjort." : g.kind === "varer" ? "Skriv kort, hvad der er bestilt." : "Skriv kort, hvad håndværkeren skal se på."; render(); return; }
   g.busy = true; g.err = ""; render();
   await sbSetStatus(g.kind, g.text.trim(), g.files);
 }
@@ -4508,7 +4527,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 246;
+var APP_VERSION = 247;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

@@ -2,7 +2,7 @@
 // { action: "pubkey" }          → den offentlige nøgle til push-beskeder (nøglerne laves første gang og gemmes i databasen)
 // { action: "new", id }         → push-besked til drift og administrator, der har slået beskeder til; ved røde sager også en mail (Resend)
 // { action: "event", id }       → en ny linje i sagens tråd (kommentar, statusskift, rettelse): push til dem, der følger sagen
-//                                  · "Venter på håndværker" også til dem, der bestiller håndværkere
+//                                  · "Håndværker skal tilkaldes" også til dem, der bestiller håndværkere
 //                                  · melderens rettelser kun til drift; rettet til rød giver også mail
 // { action: "test" }             → en prøvebesked til den, der kalder
 // Beskeder og mails linker direkte til sagen: APP?menu=test#sortbog-<id>[/kommentarer]
@@ -15,7 +15,7 @@ const APP = "https://bottlio.github.io/vores-bolnuevo/";
 const MAIL_TO = Deno.env.get("SORTBOG_MAIL_TO") || "kontakt@bolnuevo.dk";
 const MAIL_FROM = Deno.env.get("SORTBOG_MAIL_FROM") || "Den sorte bog <sortbog@bottlio.dk>";
 const PRIO: Record<string, string> = { rod: "Rød – haster", gul: "Gul", gron: "Grøn" };
-const STATUS: Record<string, string> = { ny: "Ny", igang: "I gang", venter: "Venter på håndværker", bestilt: "Bestilt", loest: "Løst" };
+const STATUS: Record<string, string> = { ny: "Ny", igang: "I gang", venter: "Afventer · Håndværker skal tilkaldes", hvbestilt: "Afventer · Håndværker bestilt", varer: "Afventer · Varer bestilt", bestilt: "Afventer · Bestilt", loest: "Løst" };
 const FIELDS: Record<string, string> = { sted: "stedet", hvad: "hvad det drejer sig om", beskrivelse: "beskrivelsen", prioritet: "prioriteten", billeder: "billederne" };
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 const caseUrl = (id: unknown, tab = "") => APP + "?menu=test#sortbog-" + String(id) + (tab ? "/" + tab : "");
