@@ -13,7 +13,7 @@ import webpush from "npm:web-push@3.6.7";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const J = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
-const APP = "https://bottlio.github.io/vores-bolnuevo/";
+const APP = "https://bottlio.github.io/vores-laderita/";
 const MAIL_TO = Deno.env.get("SORTBOG_MAIL_TO") || "kontakt@bolnuevo.dk";
 const MAIL_FROM = Deno.env.get("SORTBOG_MAIL_FROM") || "Den sorte bog <sortbog@bottlio.dk>";
 const PRIO: Record<string, string> = { rod: "Rød – haster", gul: "Gul", gron: "Grøn" };
