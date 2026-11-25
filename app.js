@@ -2840,7 +2840,9 @@ function andelshaverListHtml(d) {
           (st === "nomail" ? '<button class="btn small primary" type="button" data-editk="' + esc(k.id) + '" data-andinv="1">Invitér</button>' : st === "ikke" ? '<button class="btn small primary" type="button" data-adminvite="' + esc(k.id) + '">Invitér</button>' : st === "inviteret" ? '<button class="btn small" type="button" data-adminvite="' + esc(k.id) + '">Send igen</button>' : "") + "</div>";
       }).join("") +
       (extraMembers.length ? '<p class="hint">Også med: ' + extraMembers.map(function (m) { return esc((m.name || m.email) + " (" + roleName(m.role).toLowerCase() + ")" + (m.user_id ? "" : " – inviteret")) + lvSelect(m.email, a); }).join(", ") + "</p>" : "") +
-      '<div class="ahh-foot"><button class="linkbtn" type="button" data-sold="' + esc(a.id) + '">' + (ui.confirmSold === a.id ? "Tryk igen: andelen er solgt" : "Marker som solgt") + "</button></div></div>";
+      (ui.addK === a.id ? '<div class="aperson aedit"><form class="kform" data-kadd="' + esc(a.id) + '"><p><strong>Tilføj ejer</strong></p><label>Navn<input name="navn" required></label><label>Mail<input name="mail" type="email" placeholder="navn@mail.dk"></label><label>Telefon<input name="tlf" inputmode="tel" placeholder="12345678"></label>' +
+        '<div class="row"><button class="btn small primary" type="submit">Tilføj</button><button class="btn small" type="button" data-addk="">Annuller</button></div><p class="hint">Personen kommer på listen som «Ikke inviteret». Tryk Invitér bagefter for at sende invitationen.</p></form></div>' : "") +
+      '<div class="ahh-foot">' + (ui.addK === a.id ? "" : '<button class="linkbtn" type="button" data-addk="' + esc(a.id) + '">+ Tilføj ejer</button> · ') + '<button class="linkbtn" type="button" data-sold="' + esc(a.id) + '">' + (ui.confirmSold === a.id ? "Tryk igen: andelen er solgt" : "Marker som solgt") + "</button></div></div>";
     var who = [ks.map(function (k) { return [k.navn, k.mail, k.tlf, k.bynavn].join(" "); }).join(" "), ms.map(function (m) { return m.name + " " + m.email; }).join(" ")].join(" ").toLowerCase();
     nums.filter(function (x) { return x.l !== "999"; }).forEach(function (x) {
       var others = nums.filter(function (y) { return y !== x; }).map(function (y) { return y.l + "-" + y.n; });
@@ -2902,6 +2904,21 @@ async function adminStartOver(id) {
   if (err) { ui.resetMsg = "Det gik ikke: " + err; rerenderAdmin(); return; }
   ui.resetMsg = "Login er slettet. " + (k.navn || "Personen").split(" ")[0] + " skal vælge \"Første gang: opret adgangskode\" med " + k.mail + ". Tryk \"Send igen\" for at sende invitationen igen.";
   await loadAdmin(); rerenderAdmin();
+}
+/* Tilføj en ekstra ejer til en andel (kun administratoren) */
+async function addContact(f) {
+  var aid = f.dataset.kadd, g = function (n) { return (f.elements[n].value || "").trim(); };
+  var navn = g("navn"), mail = g("mail").toLowerCase(), tlf = g("tlf").replace(/[^\d+]/g, "");
+  if (!navn) { adminData.err = "Skriv personens navn."; rerenderAdmin(); return; }
+  if (mail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) { adminData.err = "Mailen ser ikke rigtig ud."; rerenderAdmin(); return; }
+  var ks = (adminData.contacts || []).filter(function (k) { return k.andel_id === aid; });
+  if (mail && ks.some(function (k) { return (k.mail || "").toLowerCase() === mail; })) { adminData.err = "Den mail står allerede på andelen."; rerenderAdmin(); return; }
+  var sort = ks.reduce(function (m, k) { return Math.max(m, k.sort || 0); }, -1) + 1;
+  var r = await sb.from("andel_kontakter").insert({ andel_id: aid, navn: navn, mail: mail || null, tlf: tlf || null, bynavn: ks[0] ? ks[0].bynavn : null, sort: sort });
+  if (r.error) { adminData.err = "Ejeren blev ikke tilføjet: " + r.error.message; rerenderAdmin(); return; }
+  ui.addK = null; adminData.err = "";
+  var q = (document.getElementById("adm-q") || {}).value || "";
+  await loadAdmin(); var qi = document.getElementById("adm-q"); if (qi) { qi.value = q; filterAdmList(); }
 }
 async function saveContact(f) {
   var id = f.dataset.kform, g = function (n) { return (f.elements[n].value || "").trim(); };
@@ -4613,6 +4630,7 @@ document.addEventListener("click", async function (e) {
   if (t.id === "screen-hide") { ui.screenHide = true; render(); return; }
   if (t.id === "inapp-hide") { ui.inAppHide = true; render(); return; }
   if (t.dataset.rstart) { if (ui.confirmStart !== t.dataset.rstart) { ui.confirmStart = t.dataset.rstart; rerenderAdmin(); return; } adminStartOver(t.dataset.rstart); return; }
+  if (t.dataset.addk != null) { ui.addK = t.dataset.addk || null; ui.editK = null; rerenderAdmin(); return; }
   if (t.dataset.editk != null) { ui.editK = t.dataset.editk || null; ui.editKInv = !!t.dataset.andinv; var q0 = (document.getElementById("adm-q") || {}).value || ""; render(); var qi0 = document.getElementById("adm-q"); if (qi0) { qi0.value = q0; filterAdmList(); } return; }
   if (t.dataset.legend) { ui.mapFocus = ui.mapFocus === t.dataset.legend ? null : t.dataset.legend; applyMapFocus(); return; }
   if (t.dataset.fold) { ui.fold = ui.fold || {}; ui.fold[t.dataset.fold] = !ui.fold[t.dataset.fold]; render(); return; }
@@ -4670,6 +4688,7 @@ root.addEventListener("change", function (e) {
 });
 root.addEventListener("submit", function (e) {
   if (e.target.dataset && e.target.dataset.kform) { e.preventDefault(); saveContact(e.target); return; }
+  if (e.target.dataset && e.target.dataset.kadd) { e.preventDefault(); addContact(e.target); return; }
   if (e.target.dataset && e.target.dataset.kmail) { e.preventDefault(); adminChangeMail(e.target); return; }
   e.preventDefault();
   if (e.target.id === "akt-form") { saveAkt(e.target); return; }
@@ -4716,7 +4735,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 276;
+var APP_VERSION = 277;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
