@@ -1972,13 +1972,19 @@ async function sbSave() {
 /* ---------- En sag åbner i en popup med tre faner ---------- */
 function sbOpenPop(id, tab, replace) {
   var was = !!ui.sbOpen;
+  if (was && id === ui.sbOpen) { ui.sbTab = tab || "o"; render(); return; }
+  // Fra en sag videre til en anden: husk den forrige, så man kan gå tilbage
+  if (was && !replace && id !== ui.sbOpen) (ui.sbStack = ui.sbStack || []).push({ id: ui.sbOpen, tab: ui.sbTab });
+  if (!was) ui.sbStack = [];
+  ui.sbMore = false;
   ui.sbOpen = id; ui.sbTab = tab || "o"; ui.sbEdit = null; ui.sbDlg = null; ui.sbC = { text: "", files: [] }; ui.sbCEdit = null; ui.sbHistQ = ""; ui.sbDelConfirm = null;
-  try { if (was || replace) history.replaceState({ sbpop: 1 }, "", location.href); else history.pushState({ sbpop: 1 }, "", location.href); } catch (x) {}
+  try { if (replace) history.replaceState({ sbpop: 1 }, "", location.href); else history.pushState({ sbpop: 1 }, "", location.href); } catch (x) {}
   document.body.classList.add("modal-open");
   sbSeen(id); render();
 }
 function sbClosePop(fromBack) {
-  if (!fromBack && history.state && history.state.sbpop) { try { history.back(); return; } catch (x) {} }
+  if (!fromBack && history.state && history.state.sbpop) { var n = (ui.sbStack || []).length; ui.sbStack = []; try { history.go(-(n + 1)); return; } catch (x) {} }
+  ui.sbStack = []; ui.sbMore = false;
   ui.sbOpen = null; ui.sbEdit = null; ui.sbDlg = null; ui.sbNudge = false;
   if (!ui.sb) document.body.classList.remove("modal-open");
   render();
@@ -2019,16 +2025,22 @@ function sbPopHtml() {
   var folBtn = fol ? B("", 'data-sbfol="0" aria-pressed="true"', "✓ Følger") : B("", 'data-sbfol="1"', "Følg");
   var acts = "", links = [];
   if (adm) {
-    var st = d.status;
-    if (st === "ny") acts = B("primary", 'data-sbst="igang"', "▶ Påbegynd") + B("", 'data-sbdlg="venter"', "Håndværker skal tilkaldes") + B("", 'data-sbdlg="loest"', "✓ Færdigmeld");
-    else if (st === "igang") acts = B("primary", 'data-sbdlg="loest"', "✓ Færdigmeld") + B("", 'data-sbdlg="venter"', "Håndværker skal tilkaldes") + B("", 'data-sbdlg="varer"', "Varer bestilt");
-    else if (st === "venter") acts = B("primary", 'data-sbst="hvbestilt"', "Håndværker er bestilt") + B("", 'data-sbdlg="loest"', "✓ Færdigmeld");
-    else if (st === "hvbestilt" || st === "varer" || st === "bestilt") acts = B("primary", 'data-sbdlg="loest"', "✓ Færdigmeld");
-    else acts = B("", 'data-sbst="igang"', "Genåbn sagen");
-    links.push(fol ? '<button type="button" class="linkbtn" data-sbfol="0">Følg ikke længere</button>' : '<button type="button" class="linkbtn" data-sbfol="1">Følg</button>');
-    links.push('<button type="button" class="linkbtn" data-sbedit="1">Ret sagen</button>');
-    if (!d.sent_limaser) links.push('<button type="button" class="linkbtn" data-sblim="1">Sendt til Limaser</button>');
-    links.push('<button type="button" class="linkbtn danger-t" data-sbdel="' + esc(d.id) + '">' + (ui.sbDelConfirm === d.id ? "Tryk igen for at slette sagen" : "Slet") + "</button>");
+    var st = d.status, main = null, more = [];
+    var M = function (attr, t, sub, cls) { return '<button type="button" class="' + (cls || "") + '" ' + attr + ">" + t + (sub ? "<small>" + sub + "</small>" : "") + "</button>"; };
+    var HV = M('data-sbdlg="venter"', "Håndværker skal tilkaldes", "Sendes til den, der bestiller håndværkere");
+    var FM = M('data-sbdlg="loest"', "✓ Færdigmeld", "Skriv kort, hvad der blev gjort");
+    var VB = M('data-sbdlg="varer"', "Varer bestilt", "Fx håndklæder eller en reservedel");
+    if (st === "ny") { main = B("primary", 'data-sbst="igang"', "▶ Påbegynd"); more = [HV, FM]; }
+    else if (st === "igang") { main = B("primary", 'data-sbdlg="loest"', "✓ Færdigmeld"); more = [HV, VB]; }
+    else if (st === "venter") { main = B("primary", 'data-sbst="hvbestilt"', "Håndværker er bestilt"); more = [FM]; }
+    else if (st === "hvbestilt" || st === "varer" || st === "bestilt") { main = B("primary", 'data-sbdlg="loest"', "✓ Færdigmeld"); }
+    else more = [M('data-sbst="igang"', "Genåbn sagen", "Sagen kommer tilbage på listen over åbne sager")];
+    more.push(fol ? M('data-sbfol="0"', "Følg ikke længere", "Du får ikke længere besked om sagen") : M('data-sbfol="1"', "Følg sagen", "Få besked, når der sker noget"));
+    more.push(M('data-sbedit="1"', "Ret sagen", ""));
+    if (!d.sent_limaser) more.push(M('data-sblim="1"', "Sendt til Limaser", ""));
+    more.push(M('data-sbdel="' + esc(d.id) + '"', ui.sbDelConfirm === d.id ? "Tryk igen for at slette sagen" : "Slet sagen", ui.sbDelConfirm === d.id ? "Kan ikke fortrydes" : "", "danger"));
+    acts = (main || "") + B("sbmorebtn", 'data-sbmore="1" aria-expanded="' + !!ui.sbMore + '"', "Flere ▾");
+    ui._sbMoreHtml = '<div class="sbdim" data-sbmore="0"></div><div class="sbsheet" role="menu"><div class="grab"></div>' + more.join("") + "</div>";
   } else {
     acts = folBtn + (mine && d.status !== "loest" ? B("", 'data-sbedit="1"', "✎ Ret sagen") : "");
     if (mine && d.status === "ny") links.push('<button type="button" class="linkbtn danger-t" data-sbdel="' + esc(d.id) + '">' + (ui.sbDelConfirm === d.id ? "Tryk igen for at slette sagen" : "Slet") + "</button>");
@@ -2039,10 +2051,10 @@ function sbPopHtml() {
   var tab = ui.sbTab || "o";
   var T = function (k, long, short, n) { return '<button type="button" role="tab" class="' + (tab === k ? "on" : "") + '" data-sbtab="' + k + '" aria-selected="' + (tab === k) + '"><span class="tlong">' + long + '</span><span class="tshort">' + short + "</span>" + (n ? '<span class="cnt">' + n + "</span>" : "") + "</button>"; };
   var h = '<div class="wizwrap"><div class="rback" data-sbclose="1"></div><section class="helpmodal sbpop" role="dialog" aria-modal="true" aria-label="' + esc(sbTitle(d)) + '">' +
-    '<div class="phead"><button type="button" class="hclose" data-sbclose="1" aria-label="Luk">×</button>' +
-    '<div class="sbtop">' + sbPrioWord(d.priority) + "</div>" +
+    '<div class="phead"><button type="button" class="hclose" data-sbclose="1" aria-label="Luk">×</button>' + sbBackHtml() +
+    '<div class="sbtop">' + sbPrioWord(d.priority) + '<span class="sbstat ' + d.status + '">' + SB_STATUS[d.status] + "</span></div>" +
     "<h2>" + esc(sbTitle(d)) + '</h2><p class="psub">' + (d.source === "regneark" ? "Fra det gamle regneark · skrevet af " + esc(d.reporter_name || "?") + " · " + sbDate(d.created_at) : "Meldt af " + esc(sbWho(d.reporter_name, d.andel_id)) + " · " + sbDate(d.created_at) + " kl. " + p2(new Date(d.created_at).getHours()) + ":" + p2(new Date(d.created_at).getMinutes())) + "</p>" +
-    sbStepsHtml(d) +
+    sbProgHtml(d) +
     '<div class="pacts">' + acts + (links.length ? '<span class="plinks">' + links.join("") + "</span>" : "") + "</div>" +
     (ui.sbNudge ? sbNudgeHtml("Vil du have besked på telefonen, når der sker noget i sagen?") : "") +
     (ui.sbMsg ? '<p class="hint" role="status">' + esc(ui.sbMsg) + "</p>" : "") + "</div>" +
@@ -2050,11 +2062,20 @@ function sbPopHtml() {
   if (tab === "o") h += '<div class="pbody">' + (ui.sbEdit ? sbEditHtml(d) : sbInfoHtml(d)) + "</div>";
   else if (tab === "k") h += '<div class="pbody" id="sbthread">' + sbThreadHtml(d) + "</div>" + sbComposerHtml(d);
   else h += '<div class="pbody">' + sbHistHtml(d, hist) + "</div>";
+  if (adm && ui.sbMore) h += ui._sbMoreHtml;
   h += "</section></div>";
   if (ui.sbDlg) h += sbDlgHtml(d);
   return h;
 }
-// Forløbslinje: Meldt → I gang → Afventer → Løst, med dato under hvert nået trin
+// Forløb som tynd bjælke i fire dele + én linje: "Trin 3 af 4: Afventer – Håndværker bestilt (27. nov.)"
+function sbProgHtml(d) {
+  var cur = sbStep(d.status), ev = sbData.comments.filter(function (c) { return c.defect_id === d.id && c.kind === "status" && c.status === d.status; });
+  var at = cur === 0 ? d.created_at : ev.length ? ev[ev.length - 1].created_at : d.status === "loest" && d.solved_at ? d.solved_at + "T12:00" : null;
+  var names = ["Meldt", "I gang", "Afventer", "Løst"], dt = at ? (function (x) { return x.getDate() + ". " + DA_MON[x.getMonth()]; })(new Date(at)) : "";
+  var txt = "<b>Trin " + (cur + 1) + " af 4: " + names[cur] + (cur === 2 && SB_WAIT[d.status] ? " – " + esc(SB_WAIT[d.status]) : "") + "</b>" + (dt ? " (" + dt + ")" : "") + (cur < 3 ? " · næste: " + names[cur + 1] : "");
+  return '<div class="sbprog" aria-hidden="true">' + names.map(function (n, i) { return '<span class="' + (i <= cur ? "on" : "") + '"></span>'; }).join("") + '</div><p class="sbprogtxt">' + txt + "</p>";
+}
+// (gammel) Forløbslinje med dato under hvert trin – bruges ikke længere
 function sbStepsHtml(d) {
   var cur = sbStep(d.status), ev = sbData.comments.filter(function (c) { return c.defect_id === d.id && c.kind === "status"; });
   var last = function (fn) { var r = ev.filter(fn); return r.length ? r[r.length - 1] : null; };
@@ -2068,6 +2089,11 @@ function sbStepsHtml(d) {
     var dt = i <= cur && dates[i] ? (function (x) { return x.getDate() + ". " + DA_MON[x.getMonth()]; })(new Date(dates[i])) : "";
     return '<li class="' + cls + '"><span class="dot"></span><b>' + n + "</b>" + (i === 2 && sub ? "<small>" + esc(sub) + "</small>" : "") + (dt ? "<small>" + dt + "</small>" : "") + "</li>";
   }).join("") + "</ol>";
+}
+function sbBackHtml() {
+  var st = ui.sbStack || []; if (!st.length) return "";
+  var p = sbData.list.filter(function (x) { return x.id === st[st.length - 1].id; })[0];
+  return '<button type="button" class="sbback" data-sbback="1">‹ Tilbage til ' + esc(p ? sbTitle(p) : "forrige sag") + "</button>";
 }
 function sbInfoHtml(d) {
   var pr = SB_PRIO[d.priority] || ["", "", ""], pics = sbPics(d.id);
@@ -2310,7 +2336,7 @@ async function sbDelete(id) {
     if (cpics.length) await sb.from("photos").delete().eq("kind", "sbcomment").in("target", cids);
   }
   ui.sbDelConfirm = null; ui.msg = r.error ? "Sagen blev ikke slettet: " + r.error.message : !(r.data || []).length ? "Sagen blev ikke slettet." : "Sagen er slettet.";
-  if (!r.error && (r.data || []).length) { ui.sbOpen = null; document.body.classList.remove("modal-open"); try { if (history.state && history.state.sbpop) history.replaceState(null, "", location.href); } catch (x) {} }
+  if (!r.error && (r.data || []).length) { ui.sbOpen = null; ui.sbStack = []; ui.sbMore = false; document.body.classList.remove("modal-open"); try { if (history.state && history.state.sbpop) history.replaceState(null, "", location.href); } catch (x) {} }
   sbData = null; render();
 }
 // Billeder: kamera eller fra telefonen/computeren – til guiden, en rettelse, en kommentar eller en færdigmelding
@@ -2338,15 +2364,19 @@ document.addEventListener("change", function (e) {
 });
 document.addEventListener("keydown", function (e) {
   if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches("article.sbcard[data-sbopen]")) { e.preventDefault(); sbOpenPop(e.target.dataset.sbopen, "o"); }
+  if (e.key === "Escape" && ui.sbMore) { ui.sbMore = false; render(); return; }
   if (e.key === "Escape" && ui.sbOpen && !ui.sbDlg) sbClosePop();
 });
 // Klik i den sorte bog (kort, popup, faner, knapper)
 document.addEventListener("click", function (e) {
   if (ui.page !== "sortbog") return;
-  var t = e.target.closest("[data-sbopen],[data-sbclose],[data-sbtab],[data-sbfol],[data-sbst],[data-sbdlg],[data-sbdsave],[data-sbedit],[data-sbesave],[data-sblim],[data-sbcsend],[data-sbcedit],[data-sbcesave],[data-sbcdel],[data-sbeqk],[data-sbeq],[data-sbrmold],[data-pushno]");
+  var t = e.target.closest("[data-sbopen],[data-sbclose],[data-sbtab],[data-sbfol],[data-sbst],[data-sbdlg],[data-sbdsave],[data-sbedit],[data-sbesave],[data-sblim],[data-sbcsend],[data-sbcedit],[data-sbcesave],[data-sbcdel],[data-sbeqk],[data-sbeq],[data-sbrmold],[data-pushno],[data-sbback],[data-sbmore],.sbsheet button");
   if (!t) return;
   var ds = t.dataset;
-  if (ds.sbopen) { if (e.target.closest("a")) return; sbOpenPop(ds.sbopen, "o", !!ui.sbOpen); return; }
+  if (ds.sbmore != null) { ui.sbMore = ds.sbmore === "1" ? !ui.sbMore : false; ui.sbDelConfirm = null; render(); return; }
+  if (ui.sbMore && !ds.sbdel) ui.sbMore = false;
+  if (ds.sbback) { try { history.back(); } catch (x) {} return; }
+  if (ds.sbopen) { if (e.target.closest("a")) return; sbOpenPop(ds.sbopen, "o"); return; }
   if (ds.sbclose) { sbClosePop(); return; }
   if (ds.sbtab) { ui.sbTab = ds.sbtab; ui.sbMsg = ""; if (ds.sbtab === "k") { sbSeen(ui.sbOpen); setTimeout(function () { var th = document.getElementById("sbthread"); if (th) th.scrollTop = th.scrollHeight; }, 30); } render(); return; }
   if (ds.sbfol) { sbFollow(ds.sbfol === "1"); return; }
@@ -3936,7 +3966,8 @@ function goHome() {
   navStack = []; ui.page = null; resetToStart();
 }
 window.addEventListener("popstate", function () {
-  // Telefonens tilbage-knap lukker en åben sag i den sorte bog (ikke appen)
+  // Telefonens tilbage-knap: tilbage til den forrige sag, eller luk sagen (ikke appen)
+  if (ui.sbOpen && (ui.sbStack || []).length) { var pv = ui.sbStack.pop(); ui.sbOpen = pv.id; ui.sbTab = pv.tab || "o"; ui.sbEdit = null; ui.sbDlg = null; ui.sbMore = false; ui.sbC = { text: "", files: [] }; ui.sbCEdit = null; ui.sbDelConfirm = null; render(); return; }
   if (ui.sbOpen) { sbClosePop(true); return; }
   // Telefonens egen tilbage mens man retter: bliv på siden, og luk formularen (eller spørg, hvis noget er ændret)
   if (ui.draft || ui.areaDraft) {
@@ -4527,7 +4558,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 247;
+var APP_VERSION = 248;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

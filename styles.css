@@ -1182,3 +1182,23 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 .sbsteps li.on b,.sbsteps li.done b{color:var(--fg)}
 .sbsteps small{font-size:.76rem;line-height:1.3;color:var(--muted)}
 .sbsteps li.on small:first-of-type{color:var(--ochre)}
+/* Den sorte bog: enklere hoved – én hovedknap + Flere, tynd forløbsbjælke, tilbage til forrige sag (v248) */
+.sbpop .phead h2{font-size:1.15rem;line-height:1.25;margin:6px 0 2px}
+.sbpop .phead .sbtop{padding-right:34px}
+.sbprog{display:flex;gap:4px;margin:12px 0 4px}
+.sbprog span{flex:1;height:4px;border-radius:2px;background:var(--line)}
+.sbprog span.on{background:var(--sea)}
+.sbprogtxt{font-size:.84rem;color:var(--muted);margin:0}
+.sbprogtxt b{color:var(--fg);font-weight:700}
+.pacts .btn.primary{flex:1 1 auto;justify-content:center;font-size:.95rem;min-height:44px}
+.pacts .sbmorebtn{min-height:44px}
+.sbback{font:inherit;font-size:.86rem;background:none;border:0;padding:0;margin:0 0 8px;color:var(--sea);cursor:pointer;text-align:left;max-width:calc(100% - 40px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.sbback:hover{text-decoration:underline}
+.sbdim{position:absolute;inset:0;background:rgba(8,20,24,.35);z-index:4}
+.sbsheet{position:absolute;left:0;right:0;bottom:0;max-height:75%;overflow:auto;background:var(--surface);border-top:1px solid var(--line);border-radius:16px 16px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.18);padding:10px 0 14px;z-index:5}
+.sbsheet .grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 6px}
+.sbsheet button{display:block;width:100%;text-align:left;font:inherit;font-size:1rem;background:none;border:0;border-bottom:1px solid var(--line);padding:13px 22px;color:var(--fg);cursor:pointer}
+.sbsheet button:hover{background:var(--bg)}
+.sbsheet button small{display:block;color:var(--muted);font-size:.8rem}
+.sbsheet button.danger{color:var(--danger);border-bottom:0}
+@media (min-width:601px){.pacts .btn.primary{flex:0 1 auto;min-width:220px}}
