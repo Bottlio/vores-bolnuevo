@@ -1844,17 +1844,18 @@ function sortbogPageHtml() {
   if (ui.sbFocus) {
     // Åbnet fra et link i en besked: åbn sagen direkte
     var fd = sbData.list.filter(function (x) { return x.id === ui.sbFocus; })[0]; ui.sbFocus = null;
-    if (fd) { ui.sbFilter = fd.status === "loest" ? "done" : "open"; setTimeout(function () { sbOpenPop(fd.id, ui.sbFocusTab || "o"); ui.sbFocusTab = null; }, 0); }
+    if (fd) { ui.sbFilter = fd.status === "loest" ? "done" : sbStep(fd.status) === 2 ? "wait" : "open"; setTimeout(function () { sbOpenPop(fd.id, ui.sbFocusTab || "o"); ui.sbFocusTab = null; }, 0); }
     else h += '<p class="notice">Sagen fra linket findes ikke længere.</p>';
   }
-  var f = ui.sbFilter || "open", open = sbData.list.filter(function (d) { return d.status !== "loest"; }), done = sbData.list.filter(function (d) { return d.status === "loest"; });
+  // Tre faner: Nye og i gang · Afventer · Løste
+  var f = ui.sbFilter || "open", open = sbData.list.filter(function (d) { return sbStep(d.status) < 2; }), wait = sbData.list.filter(function (d) { return sbStep(d.status) === 2; }), done = sbData.list.filter(function (d) { return d.status === "loest"; });
   var ord = { rod: 0, gul: 1, gron: 2 };
   var srt = ui.sbSort || "date";
   var byDate = function (a, b) { return String(b.created_at).localeCompare(String(a.created_at)); };
-  var list = (f === "open" ? open : done).slice().sort(srt === "prio" ? function (a, b) { return (ord[a.priority] - ord[b.priority]) || byDate(a, b); } : srt === "old" ? function (a, b) { return byDate(b, a); } : byDate);
-  h += '<div class="sbtabs"><button type="button" class="chip' + (f === "open" ? " on" : "") + '" data-sbf="open">Åbne sager (' + open.length + ')</button><button type="button" class="chip' + (f === "done" ? " on" : "") + '" data-sbf="done">Løste (' + done.length + ")</button>" +
+  var list = (f === "open" ? open : f === "wait" ? wait : done).slice().sort(srt === "prio" ? function (a, b) { return (ord[a.priority] - ord[b.priority]) || byDate(a, b); } : srt === "old" ? function (a, b) { return byDate(b, a); } : byDate);
+  h += '<div class="sbtabs"><button type="button" class="chip' + (f === "open" ? " on" : "") + '" data-sbf="open">Nye og i gang (' + open.length + ')</button><button type="button" class="chip' + (f === "wait" ? " on" : "") + '" data-sbf="wait">Afventer (' + wait.length + ')</button><button type="button" class="chip' + (f === "done" ? " on" : "") + '" data-sbf="done">Løste (' + done.length + ")</button>" +
     '<label class="sbsort">Sortér<select data-sbsort="1">' + [["prio", "Prioritet"], ["date", "Nyeste først"], ["old", "Ældste først"]].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === srt ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label></div>";
-  h += list.length ? '<div class="sblist">' + list.map(sbCard).join("") + "</div>" : '<p class="hint">' + (f === "open" ? "Ingen åbne sager." : "Ingen løste sager endnu.") + "</p>";
+  h += list.length ? '<div class="sblist">' + list.map(sbCard).join("") + "</div>" : '<p class="hint">' + (f === "open" ? "Ingen nye sager eller sager i gang." : f === "wait" ? "Ingen sager afventer lige nu." : "Ingen løste sager endnu.") + "</p>";
   if (ui.sbOpen) h += sbPopHtml();
   if (ui.sb) h += sbWizHtml();
   return h;
@@ -4565,7 +4566,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 249;
+var APP_VERSION = 250;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
