@@ -15,7 +15,7 @@ const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers
 const J = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
 const APP = "https://bottlio.github.io/vores-bolnuevo/";
 const MAIL_TO = Deno.env.get("SORTBOG_MAIL_TO") || "kontakt@bolnuevo.dk";
-const MAIL_FROM = Deno.env.get("SORTBOG_MAIL_FROM") || "Den sorte bog <sortbog@bottlio.dk>";
+const MAIL_FROM = Deno.env.get("SORTBOG_MAIL_FROM") || "Den sorte bog <noreply@bottlio.dk>";
 const PRIO: Record<string, string> = { rod: "Rød – haster", gul: "Gul", gron: "Grøn" };
 const STATUS: Record<string, string> = { ny: "Ny", igang: "I gang", venter: "Afventer · Håndværker skal tilkaldes", hvbestilt: "Afventer · Håndværker bestilt", varer: "Afventer · Varer bestilt", bestilt: "Afventer · Bestilt", loest: "Løst" };
 const FIELDS: Record<string, string> = { sted: "stedet", hvad: "hvad det drejer sig om", beskrivelse: "beskrivelsen", prioritet: "prioriteten", billeder: "billederne" };
