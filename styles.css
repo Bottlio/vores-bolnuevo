@@ -1250,3 +1250,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 .hico.hq{font-weight:700;color:var(--sea);font-size:.95rem}
 .hicons{list-style:none;padding:0;margin:0;display:grid;gap:10px}
 .hicons li{display:flex;align-items:center;gap:10px}
+/* Advarsel i bookingen: åben sag i den sorte bog (v260) */
+.bkit .bkwarn{display:block;color:var(--ochre);font-weight:700}
+.bkcase{font-size:.88rem;margin:8px 0 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px}
+.bkcase .linkbtn{font-size:.88rem;margin-left:4px}

@@ -1614,12 +1614,24 @@ async function loadBk() {
   if (bkLoading) return; bkLoading = true;
   var r = await Promise.all([
     sb.from("equipment").select("*").eq("active", true).order("sort"),
-    sb.from("equipment_bookings").select("*, equipment(name, kind, sort)").lt("starts_at", weekStart(AK_WEEKS).toISOString()).gt("ends_at", weekStart(0).toISOString()).order("starts_at")
+    sb.from("equipment_bookings").select("*, equipment(name, kind, sort)").lt("starts_at", weekStart(AK_WEEKS).toISOString()).gt("ends_at", weekStart(0).toISOString()).order("starts_at"),
+    sb.from("defects").select("id, equipment_id, where_text, item, description, priority, status").neq("status", "loest")
   ]);
   bkLoading = false;
   var list = (r[1].data || []).slice().sort(function (a, b) { return String(a.starts_at).localeCompare(String(b.starts_at)) || ((a.equipment || {}).sort || 0) - ((b.equipment || {}).sort || 0); });
-  bkData = { equip: r[0].data || [], list: list, err: (r[0].error || r[1].error) ? "Kunne ikke hente bookinger." : "" };
+  bkData = { equip: r[0].data || [], list: list, cases: r[2].data || [], err: (r[0].error || r[1].error) ? "Kunne ikke hente bookinger." : "" };
   if (ui.page === "udstyr") render();
+}
+// Åbne sager i den sorte bog om et bestemt stykke udstyr (knyttet direkte, eller gamle sager med samme navn)
+function bkCases(eqId) {
+  var e = (bkData.equip || []).filter(function (x) { return x.id === eqId; })[0], nm = e ? String(e.name).toLowerCase() : "";
+  return (bkData.cases || []).filter(function (d) { return d.equipment_id === eqId || (nm && String(d.where_text || "").trim().toLowerCase() === nm); });
+}
+function bkCaseNote(eqId) {
+  return bkCases(eqId).map(function (d) {
+    var e = (bkData.equip || []).filter(function (x) { return x.id === eqId; })[0] || {}, p = SB_PRIO[d.priority] || ["", ""];
+    return '<p class="bkcase">⚠ <strong>' + esc(e.name || "Udstyret") + "</strong> har en åben sag i den sorte bog: " + esc(d.item ? d.item + " – " + sbShort(d.description, 70) : sbShort(d.description, 90)) + " (" + esc(p[1]) + ') <button class="linkbtn" type="button" data-bkcase="' + esc(d.id) + '">Se sagen</button></p>';
+  }).join("");
 }
 function bkLabel(b) { var a = andelLabels[b.andel_id]; return b.lejlighed || (a ? a.split("-")[0] : ""); }
 function bkRange() { var d = new Date((ui.bkDate || dayKey(new Date())) + "T00:00"), st = new Date(d), en = new Date(d); st.setHours(ui.bkFrom); en.setHours(ui.bkTo); return [st, en]; }
@@ -1718,8 +1730,9 @@ function bkFormHtml() {
     '<label>Fra kl.' + hs("from", ui.bkFrom, BK_H0, BK_H1 - 1) + '</label><label>Til kl.' + hs("to", ui.bkTo, ui.bkFrom + 1, BK_H1) + "</label></div>" +
     '<p class="hint">Hvad vil du låne? Vælg gerne flere. Gråt er optaget i det tidsrum.</p><div class="bkgrid">' + bkData.equip.map(function (e) {
       var free = bkIsFree(e.id), on = ui.bkSel.indexOf(e.id) >= 0;
-      return '<button type="button" class="bkit ' + e.kind + (on ? " on" : "") + '" data-bksel="' + esc(e.id) + '"' + (free ? "" : " disabled") + ">" + esc(e.name) + (free ? "" : "<small>optaget</small>") + "</button>";
-    }).join("") + "</div>" + (ui.bkErr ? '<p class="error">' + esc(ui.bkErr) + "</p>" : "") +
+      var cs = bkCases(e.id), hot = cs.some(function (d) { return d.priority === "rod"; });
+      return '<button type="button" class="bkit ' + e.kind + (on ? " on" : "") + '" data-bksel="' + esc(e.id) + '"' + (free ? "" : " disabled") + ">" + esc(e.name) + (free ? "" : "<small>optaget</small>") + (cs.length ? '<small class="bkwarn">⚠ åben sag' + (hot ? " – haster" : "") + "</small>" : "") + "</button>";
+    }).join("") + "</div>" + ui.bkSel.map(bkCaseNote).join("") + (ui.bkErr ? '<p class="error">' + esc(ui.bkErr) + "</p>" : "") +
     '<div class="row wizfoot"><button class="btn" type="button" data-bkclose="1">Annuller</button><button class="btn primary" type="submit"' + (ui.bkSel.length ? "" : " disabled") + ">Book" + (ui.bkSel.length > 1 ? " " + ui.bkSel.length + " ting" : "") + "</button></div></form></div>";
 }
 function udstyrPageHtml() {
@@ -1733,6 +1746,7 @@ function udstyrPageHtml() {
     if (grp.length) {
       var pb = grp[0], pst = new Date(pb.starts_at), pen = new Date(pb.ends_at), pcan = ((ui.user && pb.user_id === ui.user.id) || lvl() >= 4) && pen > new Date();
       h += '<div class="wizwrap"><div class="rback"></div><section class="helpmodal wiz pop bkpick"><button type="button" class="hclose" data-bkpick="" aria-label="Luk">×</button><h2>Booking</h2><p><strong>' + dayTitle(pst) + " kl. " + hhmm(pst) + "–" + hhmm(pen) + "</strong><br>" + esc([pb.name, bkLabel(pb) ? "lejl. " + bkLabel(pb) : ""].filter(Boolean).join(" · ")) + (pb.source === "skaerm" ? " · booket på skærmen" : "") + "</p>" +
+        grp.map(function (b) { return bkCaseNote(b.equipment_id); }).join("") +
         '<ul class="nlist">' + grp.map(function (b) { return '<li class="nitem"><span>' + esc((b.equipment || {}).name || "Udstyr") + "</span>" + (pcan ? '<button class="linkbtn danger-t" type="button" data-bkdel="' + esc(b.id) + '">' + (ui.bkDelConfirm === b.id ? "Tryk igen for at aflyse" : "Aflys") + "</button>" : "") + "</li>"; }).join("") + "</ul>" +
         '<div class="row wizfoot"><span></span><button class="btn" type="button" data-bkpick="">Luk</button></div></section></div>';
     }
@@ -4519,6 +4533,7 @@ document.addEventListener("click", async function (e) {
     render(); return;
   }
   if (t.dataset.bkpick != null) { ui.bkPick = t.dataset.bkpick || null; ui.bkDelConfirm = null; render(); if (ui.bkPick) { var pe = document.querySelector(".bkpick"); if (pe) pe.scrollIntoView({ block: "center", behavior: "smooth" }); } return; }
+  if (t.dataset.bkcase) { var cid = t.dataset.bkcase; ui.bkForm = false; ui.bkPick = null; ui.sbFocus = cid; ui.sbFocusTab = "o"; sbData = null; nav(function () { ui.menu = false; ui.place = null; ui.page = "sortbog"; }); return; }
   if (t.dataset.sbnew) { sbOpen(); return; }
   if (t.dataset.sbxls) { sbExport(); return; }
   if (t.dataset.push) { if (t.dataset.push === "on") pushOn(); else if (t.dataset.push === "off") pushOff(); else pushTest(); return; }
