@@ -1219,3 +1219,5 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 .sbstatbox .now .lbl{display:inline;margin:0;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
 .sbstatbox .now .dt{color:var(--muted)}
 .sbstatbox .sbsteps2{font-size:.86rem}
+/* Markering på kort og i popup, når man følger en sag (v253) */
+.sbfol{font-size:.78rem;font-weight:700;color:var(--sea);white-space:nowrap}

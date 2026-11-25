@@ -1826,7 +1826,7 @@ function sbIsNew(d) {
 function sbCard(d) {
   var pr = SB_PRIO[d.priority] || ["", ""], pics = sbPics(d.id);
   return '<article class="sbcard ' + d.status + " p-" + d.priority + '" id="sb-' + esc(d.id) + '" data-sbopen="' + esc(d.id) + '" tabindex="0" role="button" aria-label="Åbn sagen ' + esc(sbTitle(d)) + '"><div class="sbtop">' + sbPrioWord(d.priority) + '<span class="sbstat ' + d.status + '">' + SB_STATUS[d.status] + (d.status === "loest" && d.solved_at ? " " + new Date(d.solved_at).toLocaleDateString("da-DK", { day: "numeric", month: "short" }) : "") + "</span>" +
-    (sbIsNew(d) ? '<span class="sbnew">Nyt</span>' : "") + '<span class="sbdate">' + sbDate(d.created_at) + "</span></div>" +
+    (sbFollowing(d.id) ? '<span class="sbfol" title="Du følger sagen">✓ Følger</span>' : "") + (sbIsNew(d) ? '<span class="sbnew">Nyt</span>' : "") + '<span class="sbdate">' + sbDate(d.created_at) + "</span></div>" +
     "<h3>" + esc(sbTitle(d)) + "</h3>" +
     '<p class="sbdesc sbclamp">' + esc(d.description) + "</p>" +
     (pics.length ? '<div class="qthumbs sbpics">' + pics.slice(0, 3).map(function (x) { return '<img src="' + esc(photoUrl(x.path, true)) + '" alt="">'; }).join("") + "</div>" : "") +
@@ -2056,7 +2056,7 @@ function sbPopHtml() {
   var T = function (k, long, short, n) { return '<button type="button" role="tab" class="' + (tab === k ? "on" : "") + '" data-sbtab="' + k + '" aria-selected="' + (tab === k) + '"><span class="tlong">' + long + '</span><span class="tshort">' + short + "</span>" + (n ? '<span class="cnt">' + n + "</span>" : "") + "</button>"; };
   var h = '<div class="wizwrap"><div class="rback" data-sbclose="1"></div><section class="helpmodal sbpop" role="dialog" aria-modal="true" aria-label="' + esc(sbTitle(d)) + '">' +
     '<div class="phead"><button type="button" class="hclose" data-sbclose="1" aria-label="Luk">×</button>' + sbBackHtml() +
-    '<div class="sbtop">' + sbPrioWord(d.priority) + "</div>" +
+    '<div class="sbtop">' + sbPrioWord(d.priority) + (fol && adm ? '<span class="sbfol" title="Du følger sagen">✓ Følger</span>' : "") + "</div>" +
     "<h2>" + esc(sbTitleFull(d)) + '</h2><p class="psub">' + (d.source === "regneark" ? "Fra det gamle regneark · skrevet af " + esc(d.reporter_name || "?") + " · " + sbDate(d.created_at) : "Meldt af " + esc(sbWho(d.reporter_name, d.andel_id)) + " · " + sbDate(d.created_at) + " kl. " + p2(new Date(d.created_at).getHours()) + ":" + p2(new Date(d.created_at).getMinutes())) + "</p>" +
     sbProgHtml(d) +
     '<div class="pacts">' + acts + (links.length ? '<span class="plinks">' + links.join("") + "</span>" : "") + "</div>" +
@@ -4568,7 +4568,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 252;
+var APP_VERSION = 253;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
