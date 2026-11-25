@@ -2226,18 +2226,52 @@ function levelsHtml(d) {
     return l.length ? l.map(function (x) { return esc(byMail[x.email] || x.email); }).join(", ") : "Ingen endnu";
   };
   return '<ul class="lvlist">' + LEVELS.map(function (L) { return '<li><b>' + L[0] + " · " + esc(L[1]) + '</b><p class="hint">' + esc(L[2]) + '</p><p class="lvwho">' + who(L[0]) + "</p></li>"; }).join("") + "</ul>" +
-    '<h3>Personale, kommunikation og drift</h3>' +
-    (editorData.length ? '<ul class="nlist">' + editorData.slice().sort(function (a, b) { return b.level - a.level; }).map(function (x) {
-      return '<li class="nitem"><span>' + esc(byMail[x.email] || x.email) + ' <span class="hint">' + esc(x.email) + '</span></span><span class="lvact"><select data-lvset="' + esc(x.email) + '" aria-label="Niveau">' +
-        [1, 3, 4].map(function (n) { return '<option value="' + n + '"' + (x.level === n ? " selected" : "") + ">" + n + " · " + LEVELS[n][1] + "</option>"; }).join("") + '</select><button class="linkbtn danger-t" type="button" data-edrm="' + esc(x.email) + '">Fjern</button></span></li>'; }).join("") + "</ul>" : '<p class="hint">Ingen endnu.</p>') +
-    '<form id="editor-form" class="invite"><div class="grid"><label>Person<select name="email" required><option value="">Vælg person …</option>' + opts.map(function (k) { return '<option value="' + esc(k) + '">' + esc(byMail[k]) + " – " + esc(k) + "</option>"; }).join("") + "</select></label>" +
-    '<label>Niveau<select name="level"><option value="1">1 · Personale</option><option value="3">3 · Kommunikation</option><option value="4">4 · Drift</option></select></label></div><button class="btn" type="submit">Giv adgang</button></form>' +
-    '<p class="hint">Gæster med kun læseadgang (niveau 0) oprettes under Andelshavere på lejlighed 901 ("Læseadgang 1–10").</p>';
+    '<p class="hint">Andelshavere er på niveau 2, til du ændrer det. Niveauet sættes ud for hver person i listen <strong>Andelshavere</strong> ovenfor.</p>' +
+    '<h3>Tilføj personale (niveau 1)</h3><form class="invite" data-addstaff="staff"><div class="grid"><label>Navn<input name="navn" required placeholder="Fx Lili"></label><label>Mail<input name="mail" type="email" required placeholder="navn@mail.dk"></label></div><button class="btn" type="submit">Opret og invitér</button></form>' +
+    '<h3>Tilføj gæst med læseadgang (niveau 0)</h3><form class="invite" data-addstaff="guest"><div class="grid"><label>Navn<input name="navn" required></label><label>Mail<input name="mail" type="email" required placeholder="navn@mail.dk"></label></div><button class="btn" type="submit">Opret og invitér</button></form>';
+}
+// Niveau for en person (kun administratoren ser vælgeren). Standard er 2 · Andelshaver
+function lvOf(mail) { if (!editorData || !mail) return 2; var r = editorData.filter(function (x) { return x.email === mail.toLowerCase(); })[0]; return r ? r.level : 2; }
+function lvSelect(mail, a) {
+  if (!mail || !me || !me.admin || (a && a.lejlighed === READ_LEJL)) return "";
+  if (!editorData) { loadEditors(); return ""; }
+  var cur = lvOf(mail), opts = (a && a.lejlighed === "900" ? [1, 2, 3, 4] : [2, 3, 4]);
+  if (opts.indexOf(cur) < 0) opts.unshift(cur);
+  return '<label class="lvsel">Niveau <select data-lvmail="' + esc(mail.toLowerCase()) + '">' + opts.map(function (n) { return '<option value="' + n + '"' + (n === cur ? " selected" : "") + ">" + n + " · " + LEVELS[n][1] + "</option>"; }).join("") + "</select></label>";
+}
+async function setPersonLevel(mail, n) {
+  var r = n === 2 ? await sb.from("access_levels").delete().eq("email", mail) : await sb.from("access_levels").upsert({ email: mail, level: n }, { onConflict: "email" });
+  if (r.error) adminData.err = "Niveauet blev ikke gemt: " + r.error.message;
+  editorData = null; rerenderAdmin();
+}
+// Personale og gæster er ikke andelshavere: de oprettes her med navn og mail og får en invitation
+async function addStaff(f, kind) {
+  var name = (f.elements.navn.value || "").trim(), email = (f.elements.mail.value || "").trim().toLowerCase(), d = adminData;
+  if (!name || !email) { d.err = "Skriv navn og mail."; render(); return; }
+  if ((d.members || []).some(function (m) { return (m.email || "").toLowerCase() === email; })) { d.err = email + " har allerede adgang eller er inviteret."; render(); return; }
+  var andelId, label;
+  if (kind === "staff") {
+    var nums = d.andele.filter(function (a) { return a.lejlighed === "900"; }).map(function (a) { return parseInt(a.nummer, 10) || 0; });
+    var nr = ("00" + ((nums.length ? Math.max.apply(null, nums) : 0) + 1)).slice(-3);
+    var a = await sb.from("andele").insert({ lejlighed: "900", nummer: nr }).select().single();
+    if (a.error) { d.err = "Personale blev ikke oprettet: " + a.error.message; render(); return; }
+    andelId = a.data.id; label = "900-" + nr;
+  } else {
+    var used = {}; (d.members || []).forEach(function (m) { used[m.andel_id] = 1; });
+    var free = d.andele.filter(function (a) { return a.lejlighed === READ_LEJL && a.aktiv && !used[a.id]; })[0];
+    if (!free) { d.err = "Der er ikke flere ledige pladser til læseadgang (901). Slet en gammel gæst først."; render(); return; }
+    andelId = free.id; label = READ_LEJL + "-" + free.nummer;
+  }
+  var m = await sb.from("members").insert({ andel_id: andelId, email: email, name: name, role: kind === "staff" ? "ejer" : "laeser", invited_by: ui.user.id });
+  if (m.error) { d.err = "Invitationen blev ikke oprettet: " + m.error.message; render(); return; }
+  if (kind === "staff") await sb.from("access_levels").upsert({ email: email, level: 1 }, { onConflict: "email" });
+  ui.inviteText = kind === "staff" ? inviteMsg(name, email, label) : inviteMsg(name, email, "", "", true); ui.inviteTo = email; ui.inviteName = name; openInvite();
+  d.err = ""; editorData = null; await loadAdmin();
 }
 async function addEditor(f) { var e = f.elements.email.value; if (!e) return; var r = await sb.from("access_levels").insert({ email: e.toLowerCase(), level: parseInt(f.elements.level.value, 10) || 3 }); if (r.error) ui.msg = "Det blev ikke gemt: " + r.error.message; editorData = null; rerenderAdmin(); }
 async function rmEditor(e) { await sb.from("access_levels").delete().eq("email", e); editorData = null; rerenderAdmin(); }
 async function setLevel(e, n) { var r = await sb.from("access_levels").update({ level: n }).eq("email", e); if (r.error) ui.msg = "Det blev ikke gemt: " + r.error.message; editorData = null; rerenderAdmin(); }
-document.addEventListener("change", function (e) { var k = e.target.dataset && e.target.dataset.lvset; if (k) setLevel(k, parseInt(e.target.value, 10)); });
+document.addEventListener("change", function (e) { var k = e.target.dataset && e.target.dataset.lvset; if (k) setLevel(k, parseInt(e.target.value, 10)); var lm = e.target.dataset && e.target.dataset.lvmail; if (lm) setPersonLevel(lm, parseInt(e.target.value, 10)); });
 async function loadNotices() {
   var r = await sb.from("notices").select("*").order("created_at", { ascending: false });
   noticeData = { list: r.data || [], err: r.error ? r.error.message : "" }; render();
@@ -2386,10 +2420,10 @@ function andelshaverListHtml(d) {
           '<form class="kform" data-kmail="' + esc(k.id) + '"><label>Ny mail<input name="nm" type="email" placeholder="ny@mail.dk"></label><div class="row"><button class="btn small" type="submit">Skift mail</button></div></form><p class="hint">Mailen skiftes på login, invitation og kontaktoplysninger. Personen logger ind med den nye mail og samme adgangskode.</p>' +
           '<button class="btn small danger" type="button" data-rstart="' + esc(k.id) + '">' + (ui.confirmStart === k.id ? "Tryk igen: slet login og start forfra" : "Start forfra") + '</button><p class="hint">Sletter personens login og adgangskode. Invitationen og alt det, personen har lagt ind, bliver. Personen vælger så "Første gang: opret adgangskode" igen – send evt. invitationen igen bagefter.</p>' +
           (ui.resetMsg ? '<p class="notice" role="status">' + esc(ui.resetMsg) + "</p>" : "") + '<button class="linkbtn" type="button" data-resetk="">Luk</button></div>' : "";
-        return '<div class="aperson' + (resetBox ? " aedit" : "") + '"><div><strong>' + esc(k.navn || "–") + '</strong><span class="hint">' + esc([k.mail, k.tlf].filter(Boolean).join(" · ")) + '</span><span class="ast st-' + st + '">' + STATUS_TXT[st] + '</span> <button class="linkbtn" type="button" data-editk="' + esc(k.id) + '">Ret</button>' + (st === "adgang" || st === "inviteret" ? ' · <button class="linkbtn" type="button" data-resetk="' + esc(k.id) + '">Nulstil</button>' : "") + "</div>" + resetBox +
+        return '<div class="aperson' + (resetBox ? " aedit" : "") + '"><div><strong>' + esc(k.navn || "–") + '</strong><span class="hint">' + esc([k.mail, k.tlf].filter(Boolean).join(" · ")) + '</span><span class="ast st-' + st + '">' + STATUS_TXT[st] + '</span> <button class="linkbtn" type="button" data-editk="' + esc(k.id) + '">Ret</button>' + (st === "adgang" || st === "inviteret" ? ' · <button class="linkbtn" type="button" data-resetk="' + esc(k.id) + '">Nulstil</button>' : "") + lvSelect(k.mail, a) + "</div>" + resetBox +
           (st === "nomail" ? '<button class="btn small primary" type="button" data-editk="' + esc(k.id) + '" data-andinv="1">Invitér</button>' : st === "ikke" ? '<button class="btn small primary" type="button" data-adminvite="' + esc(k.id) + '">Invitér</button>' : st === "inviteret" ? '<button class="btn small" type="button" data-adminvite="' + esc(k.id) + '">Send igen</button>' : "") + "</div>";
       }).join("") +
-      (extraMembers.length ? '<p class="hint">Også med: ' + esc(extraMembers.map(function (m) { return (m.name || m.email) + " (" + roleName(m.role).toLowerCase() + ")" + (m.user_id ? "" : " – inviteret"); }).join(", ")) + "</p>" : "") +
+      (extraMembers.length ? '<p class="hint">Også med: ' + extraMembers.map(function (m) { return esc((m.name || m.email) + " (" + roleName(m.role).toLowerCase() + ")" + (m.user_id ? "" : " – inviteret")) + lvSelect(m.email, a); }).join(", ") + "</p>" : "") +
       '<div class="ahh-foot"><button class="linkbtn" type="button" data-sold="' + esc(a.id) + '">' + (ui.confirmSold === a.id ? "Tryk igen: andelen er solgt" : "Marker som solgt") + "</button></div></div>";
     var who = [ks.map(function (k) { return [k.navn, k.mail, k.tlf, k.bynavn].join(" "); }).join(" "), ms.map(function (m) { return m.name + " " + m.email; }).join(" ")].join(" ").toLowerCase();
     nums.filter(function (x) { return x.l !== "999"; }).forEach(function (x) {
@@ -4101,6 +4135,7 @@ root.addEventListener("submit", function (e) {
   if (e.target.id === "area-editor") saveArea();
   if (e.target.id === "invite-form") invite();
   if (e.target.id === "newandel-form") createAndel();
+  if (e.target.dataset && e.target.dataset.addstaff) { e.preventDefault(); addStaff(e.target, e.target.dataset.addstaff); return; }
 });
 root.addEventListener("change", function (e) {
   if (e.target.id === "a-region") { syncArea(); render(); return; }
@@ -4133,7 +4168,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 241;
+var APP_VERSION = 242;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
