@@ -4288,23 +4288,24 @@ var WELCOME = [
 ];
 var WLI = function (icon, t) { return '<li><span class="wli" aria-hidden="true">' + icon + "</span><span>" + t + "</span></li>"; };
 var WELCOMES = {
-  app: { eyebrow: "Velkommen til Vores Laderita", last: "Kom i gang", screens: [
-    [ICON_MENU4, "Velkommen til Vores Laderita", "Her samler vi alt det, andelshaverne på Laderita de Bolnuevo har brug for i hverdagen:</p><ul class=\"wlist\">" +
-      WLI(ICON_CAL, "<strong>Fælles aktiviteter</strong> – se hvad der sker, tilmeld dig eller opret en aktivitet") + WLI(ICON_BIKE, "<strong>Book udstyr</strong> – lån cykler og golfsæt") +
+  app: { eyebrow: "Velkommen", last: "Kom i gang", screens: [
+    [ICON_MENU4, "Velkommen til Vores Laderita", "Her samler vi alt det, andelshaverne på Laderita de Bolnuevo har brug for i hverdagen – fx:</p><ul class=\"wlist\">" +
+      WLI(ICON_CAL, "<strong>Fælles aktiviteter</strong> – se hvad der sker, tilmeld dig eller opret en aktivitet") + WLI(ICON_BIKE, "<strong>Book udstyr</strong> – lån cykler og golfsæt") + "</ul><p>"],
+    [ICON_PIN, "Og der er mere", "</p><ul class=\"wlist\">" +
       WLI(ICON_PIN, "<strong>Guide til området</strong> – spisesteder, strande og andelshavernes tips") + WLI(ICON_BOOK, "<strong>Den sorte bog</strong> – meld, hvis noget er gået i stykker eller mangler") +
-      WLI(ICON_KEYBED, "<strong>AHbooking</strong> – Andelshotellets eget system til at booke uger") + "</ul><p>Tryk på et felt for at komme ind."],
+      WLI(ICON_KEYBED, "<strong>AHbooking</strong> – Andelshotellets eget system til at booke uger") + "</ul><p>Tryk på et felt på menuen for at komme ind."],
     [ICON_HELP, "Sådan finder du rundt", "</p><ul class=\"wlist\">" + WLI(ICON_MENU4, "<strong>Menuen</strong> – tryk her for at komme tilbage til forsiden, uanset hvor du er.") +
       WLI('<b class="wq">?</b>', "<strong>Hjælp</strong> – tryk her, hvis du er i tvivl. Hjælpen handler altid om det, du står i.") + "</ul><p>Første gang du går ind i en af delene, får du en kort introduktion."]
   ] },
-  akt: { eyebrow: "Velkommen", help: "akt", screens: [[ICON_CAL, "Fælles aktiviteter", "Her kan du se, hvad der sker blandt andelshaverne – og selv sætte noget i gang.</p><ul class=\"wlist plain\">" +
-    "<li><span><strong>Se hvad der sker:</strong> Bladr mellem ugerne med pilene ‹ › og tryk på en dag.</span></li><li><span><strong>Tilmeld dig:</strong> Tryk på en aktivitet, vælg antal personer og tryk <strong>Tilmeld</strong>.</span></li>" +
-    "<li><span><strong>Opret en aktivitet:</strong> Tryk <strong>+ Opret aktivitet</strong> – fx padel, en cykeltur eller kortspil.</span></li></ul><p>Aktiviteterne vises også på skærmen i receptionen."]] },
-  udstyr: { eyebrow: "Velkommen", help: "udstyr", screens: [[ICON_BIKE, "Book udstyr", "Her kan du låne cykler og golfsæt – også hjemmefra, fx to cykler til næste uge.</p><ul class=\"wlist plain\">" +
-    "<li><span><strong>Se hvad der er booket:</strong> Skemaet viser dagens bookinger. Bladr mellem ugerne med pilene ‹ ›.</span></li><li><span><strong>Book:</strong> Tryk <strong>+ Book udstyr</strong>, vælg dag og tidsrum, og tryk på det, du vil låne. Du kan vælge flere ting på én gang.</span></li>" +
-    "<li><span><strong>Aflys:</strong> Tryk på din booking i skemaet og tryk <strong>Aflys</strong>.</span></li></ul><p>Bookingerne er de samme som på skærmen i receptionen."]] },
-  sortbog: { eyebrow: "Velkommen", help: "sortbog", screens: [[ICON_BOOK, "Den sorte bog", "Her melder du, hvis noget er gået i stykker eller mangler – i en lejlighed, på fællesområderne eller ved udstyr, der lånes ud.</p><ul class=\"wlist plain\">" +
-    "<li><span><strong>Meld en fejl:</strong> Tryk <strong>+ Ny sag</strong> og følg de fire trin. Et billede hjælper meget.</span></li><li><span><strong>Følg med:</strong> Du følger automatisk dine egne sager. Under <strong>Kommentarer</strong> kan du se, hvad der sker, og skrive til Drift.</span></li>" +
-    "<li><span><strong>Få besked:</strong> Tryk <strong>Slå beskeder til</strong>, så får du besked på telefonen, når der sker noget.</span></li></ul><p>Haster det, så ring eller skriv også til Stig på +45 20 16 12 17."]] },
+  akt: { eyebrow: "Velkommen", help: "akt", screens: [
+    [ICON_CAL, "Fælles aktiviteter", "Her kan du se, hvad der sker blandt andelshaverne – og selv sætte noget i gang.</p><ul class=\"wlist plain\"><li><span><strong>Se hvad der sker:</strong> Bladr mellem ugerne med pilene ‹ › og tryk på en dag.</span></li></ul><p>"],
+    [ICON_CAL, "Tilmeld dig – eller opret selv", "</p><ul class=\"wlist plain\"><li><span><strong>Tilmeld dig:</strong> Tryk på en aktivitet, vælg antal personer og tryk <strong>Tilmeld</strong>.</span></li><li><span><strong>Opret en aktivitet:</strong> Tryk <strong>+ Opret aktivitet</strong> – fx padel, en cykeltur eller kortspil.</span></li></ul><p>Aktiviteterne vises også på skærmen i receptionen."]] },
+  udstyr: { eyebrow: "Velkommen", help: "udstyr", screens: [
+    [ICON_BIKE, "Book udstyr", "Her kan du låne cykler og golfsæt – også hjemmefra, fx to cykler til næste uge.</p><ul class=\"wlist plain\"><li><span><strong>Se hvad der er booket:</strong> Skemaet viser dagens bookinger. Bladr mellem ugerne med pilene ‹ ›.</span></li></ul><p>"],
+    [ICON_BIKE, "Book og aflys", "</p><ul class=\"wlist plain\"><li><span><strong>Book:</strong> Tryk <strong>+ Book udstyr</strong>, vælg dag og tidsrum, og tryk på det, du vil låne. Du kan vælge flere ting på én gang.</span></li><li><span><strong>Aflys:</strong> Tryk på din booking i skemaet og tryk <strong>Aflys</strong>.</span></li></ul><p>Bookingerne er de samme som på skærmen i receptionen."]] },
+  sortbog: { eyebrow: "Velkommen", help: "sortbog", screens: [
+    [ICON_BOOK, "Den sorte bog", "Her melder du, hvis noget er gået i stykker eller mangler – i en lejlighed, på fællesområderne eller ved udstyr, der lånes ud.</p><ul class=\"wlist plain\"><li><span><strong>Meld en fejl:</strong> Tryk <strong>+ Ny sag</strong> og følg de fire trin. Et billede hjælper meget.</span></li></ul><p>"],
+    [ICON_BOOK, "Følg med i din sag", "</p><ul class=\"wlist plain\"><li><span><strong>Følg med:</strong> Du følger automatisk dine egne sager. Under <strong>Kommentarer</strong> kan du se, hvad der sker, og skrive til Drift.</span></li><li><span><strong>Få besked:</strong> Tryk <strong>Slå beskeder til</strong>, så får du besked på telefonen, når der sker noget.</span></li></ul><p>Haster det, så ring eller skriv også til Stig på +45 20 16 12 17."]] },
   guide: { eyebrow: "", last: "Kom i gang", screens: null }
 };
 var welcomeBox = null, welcomeStep = 0, welcomeKind = "guide";
@@ -4346,7 +4347,7 @@ function drawWelcome() {
   welcomeBox.innerHTML = '<div class="rback"></div><div class="helpmodal welcome-modal" role="dialog" aria-modal="true" aria-labelledby="wb-h">' +
     '<p class="eyebrow">' + esc(eb) + (me && me.name && (welcomeKind === "app" || welcomeKind === "guide") ? ", " + esc(me.name) : "") + '</p><div class="wicon" aria-hidden="true">' + icon + '</div><h2 id="wb-h">' + esc(w[1]) + "</h2><p>" + w[2] + "</p>" +
     (single ? "" : '<div class="wdots" aria-hidden="true">' + list.map(function (x, i) { return '<span class="' + (i === welcomeStep ? "on" : "") + '"></span>'; }).join("") + "</div>") +
-    '<div class="row">' + (single
+    '<div class="row">' + (single || (last && cfg && cfg.help)
       ? '<button type="button" class="btn primary" data-wnext>Forstået</button>' + (cfg && cfg.help ? '<button type="button" class="btn" data-whelp="' + cfg.help + '">Læs mere i hjælpen</button>' : "")
       : '<button type="button" class="btn primary" data-wnext>' + (last ? (cfg && cfg.last) || "Kom i gang" : "Næste") + "</button>" + (last ? "" : '<button type="button" class="btn" data-wskip>Spring over</button>')) + "</div></div>";
   var b = welcomeBox.querySelector(".btn.primary"); if (b) b.focus();
@@ -4694,7 +4695,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 262;
+var APP_VERSION = 263;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
