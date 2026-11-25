@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
 
   if (body.action === "test") {
     const subs = (await sb.from("push_subs").select("endpoint, p256dh, auth").eq("user_id", me.data.user.id)).data || [];
-    const r = await push(sb, subs, { title: "Den sorte bog", body: "Prøvebesked – beskederne virker på denne telefon.", url: APP + "?menu=test#sortbog" });
+    const r = await push(sb, subs, { title: "Den sorte bog", body: "Prøvenotifikation – notifikationerne virker på denne enhed.", url: APP + "?menu=test#sortbog" });
     return J({ ok: true, ...r });
   }
 

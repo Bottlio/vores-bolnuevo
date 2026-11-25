@@ -711,9 +711,13 @@ function notifyOn(k) { var n = ui.notify || {}; return !n.off && n[k] !== false;
 function notifyHtml() {
   var n = ui.notify || {}, many = myApts().length > 1;
   var state = n.off ? "Slået fra" : NOTIFY_TYPES.every(function (t) { return n[t[0]] !== false; }) ? "Alt slået til" : NOTIFY_TYPES.filter(function (t) { return n[t[0]] !== false; }).length + " af 4 slået til";
-  var h = '<section class="panel nbox"><button type="button" class="nhead" data-fold="notify" aria-expanded="' + !!(ui.fold && ui.fold.notify) + '"><span><strong>Notifikationer:</strong> Nyt siden sidst<span class="hint">' + state + '</span></span><span class="sincego" aria-hidden="true">' + (ui.fold && ui.fold.notify ? "⌃" : "›") + "</span></button>";
+  var phone = TEST_MENU ? (pushSupported() && pushState.checked ? (pushState.on ? "Telefon: slået til" : Notification.permission === "denied" ? "Telefon: blokeret" : "Telefon: slået fra") : "") : "";
+  if (TEST_MENU && pushSupported() && !pushState.checked) pushCheck();
+  var h = '<section class="panel nbox"><button type="button" class="nhead" data-fold="notify" aria-expanded="' + !!(ui.fold && ui.fold.notify) + '"><span><strong>Notifikationer</strong><span class="hint">' + (phone ? phone + " · " : "") + "Nyt siden sidst: " + state.toLowerCase() + '</span></span><span class="sincego" aria-hidden="true">' + (ui.fold && ui.fold.notify ? "⌃" : "›") + "</span></button>";
   if (!(ui.fold && ui.fold.notify)) return h + "</section>";
-  return h + '<div class="nbody"><p class="hint">Bestem, hvad der skal stå i "Nyt siden sidst" øverst på forsiden. Gælder kun dig.</p>' +
+  return h + '<div class="nbody">' +
+    (TEST_MENU ? '<h3>På telefonen</h3><p class="hint">Notifikationer fra den sorte bog. De slås til på hver telefon, iPad eller computer for sig.</p>' + pushBoxHtml(lvl() >= 4 ? "drift" : "follow") + '<h3>Nyt siden sidst i guiden</h3>' : "") +
+    '<p class="hint">Bestem, hvad der skal stå i "Nyt siden sidst" øverst på guidens forside. Gælder kun dig.</p>' +
     '<label class="chk nchk"><input type="checkbox" data-notify="off"' + (n.off ? "" : " checked") + "> Vis \"Nyt siden sidst\" på forsiden</label>" +
     (n.off ? "" : '<div class="nlist">' + NOTIFY_TYPES.map(function (t) { return '<label class="chk nchk"><input type="checkbox" data-notify="' + t[0] + '"' + (n[t[0]] === false ? "" : " checked") + "> " + esc(t[0] === "apt" && many ? "Billeder og kommentarer på jeres lejligheder" : t[1]) + "</label>"; }).join("") + "</div>") +
     '<p class="hint" id="notify-msg" role="status"></p></div></section>';
@@ -1854,8 +1858,6 @@ function sortbogPageHtml() {
   h += testNote("Sager her bliver ikke fulgt op – de er kun til afprøvning. Meld fejl og mangler, som I plejer, indtil andet bliver meldt ud. Haster det, så ring til Stig på +45 20 16 12 17.");
   h += '<p class="hint">Er noget gået i stykker, eller mangler der noget? Opret en sag, så den ansvarlige kan følge op. Har du brug for akut hjælp, så ring eller skriv til Stig på WhatsApp/telefon +45 20 16 12 17.</p>';
   if (sbData.err) h += '<p class="error">' + esc(sbData.err) + "</p>";
-  if (lvl() >= 4) h += pushBoxHtml("drift");
-  else if (Object.keys(sbData.follows).some(sbFollowing) && !sbPushDismissed() && !(pushState.checked && pushState.on)) h += pushBoxHtml("follow", true);
   if (lvl() >= 4) h += '<div class="row sbtools"><button class="btn small" type="button" data-sbxls="1">Hent som regneark</button><button class="btn small" type="button" data-sbsync="1"' + (ui.sbSyncing ? " disabled" : "") + ">" + (ui.sbSyncing ? "Henter fra regnearket…" : "Opdater fra det gamle regneark") + "</button></div>" + (ui.sbSyncMsg ? '<p class="hint">' + esc(ui.sbSyncMsg) + "</p>" : "");
   if (ui.sbFocus) {
     // Åbnet fra et link i en besked: åbn sagen direkte
@@ -1920,7 +1922,7 @@ function sbWizHtml() {
   var w = ui.sb, step = w.step, body = "", next = '<button type="button" class="btn primary" data-sbw="next">Næste</button>';
   if (w.doneId) {
     return '<div class="wizwrap"><div class="rback"></div><div class="helpmodal wiz" role="dialog" aria-modal="true"><button type="button" class="hclose" data-sbw="close" aria-label="Luk">×</button>' +
-      '<h2>Sagen er oprettet. Tak!</h2><p>Du følger sagen og kan se, hvad der sker med den, under fanen Kommentarer.</p>' + sbNudgeHtml("Vil du have besked på telefonen, når der sker noget i sagen?") +
+      '<h2>Sagen er oprettet. Tak!</h2><p>Du følger sagen og kan se, hvad der sker med den, under fanen Kommentarer.</p>' + sbNudgeHtml("Vil du have en notifikation på telefonen, når der sker noget i sagen?") +
       '<div class="row wizfoot"><button type="button" class="btn" data-sbw="close">Luk</button><button type="button" class="btn primary" data-sbw="see">Se sagen</button></div></div></div>';
   }
   if (step === 1) {
@@ -2035,7 +2037,7 @@ function sbNudgeHtml(q) {
   if (!pushSupported()) return isIOS && !isApp ? '<p class="sbnudge">' + esc(q) + ' På iPhone skal appen først lægges på hjemmeskærmen: tryk på Del-knappen i Safari → "Føj til hjemmeskærm", og åbn appen derfra.</p>' : "";
   if (!pushState.checked) { pushCheck(); return ""; }
   if (pushState.on || Notification.permission === "denied") return pushState.msg && pushState.on ? '<p class="hint">' + esc(pushState.msg) + "</p>" : "";
-  return '<p class="sbnudge">' + esc(q) + ' <button class="btn small primary" type="button" data-push="on"' + (pushState.busy ? " disabled" : "") + ">" + (pushState.busy ? "Slår til…" : "Slå beskeder til") + "</button></p>" + (pushState.msg ? '<p class="hint">' + esc(pushState.msg) + "</p>" : "");
+  return '<p class="sbnudge">' + esc(q) + ' <button class="btn small primary" type="button" data-push="on"' + (pushState.busy ? " disabled" : "") + ">" + (pushState.busy ? "Slår til…" : "Slå notifikationer til") + '</button><br><span class="hint">Du kan altid slå dem til og fra under Vores andel → Notifikationer.</span></p>' + (pushState.msg ? '<p class="hint">' + esc(pushState.msg) + "</p>" : "");
 }
 function sbPopHtml() {
   document.body.classList.add("modal-open");
@@ -2077,7 +2079,7 @@ function sbPopHtml() {
     "<h2>" + esc(sbTitleFull(d)) + '</h2><p class="psub">' + (d.source === "regneark" ? "Fra det gamle regneark · skrevet af " + esc(d.reporter_name || "?") + " · " + sbDate(d.created_at) : "Meldt af " + esc(sbWho(d.reporter_name, d.andel_id)) + " · " + sbDate(d.created_at) + " kl. " + p2(new Date(d.created_at).getHours()) + ":" + p2(new Date(d.created_at).getMinutes())) + "</p>" +
     sbProgHtml(d) +
     '<div class="pacts">' + acts + (links.length ? '<span class="plinks">' + links.join("") + "</span>" : "") + "</div>" +
-    (ui.sbNudge ? sbNudgeHtml("Vil du have besked på telefonen, når der sker noget i sagen?") : "") +
+    (ui.sbNudge ? sbNudgeHtml("Vil du have en notifikation på telefonen, når der sker noget i sagen?") : "") +
     (ui.sbMsg ? '<p class="hint" role="status">' + esc(ui.sbMsg) + "</p>" : "") + "</div>" +
     '<div class="ptabs" role="tablist">' + T("o", "Oplysninger", "Oplysninger", 0) + T("k", "Kommentarer", "Kommentarer", nC) + T("h", histLong, "Tidligere", nH) + "</div>";
   if (tab === "o") h += '<div class="pbody">' + (ui.sbEdit ? sbEditHtml(d) : sbInfoHtml(d)) + "</div>";
@@ -2294,21 +2296,21 @@ var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform ==
 async function pushCheck() {
   pushState.checked = true;
   try { var reg = await navigator.serviceWorker.getRegistration(); var sub = reg && await reg.pushManager.getSubscription(); pushState.on = !!sub && Notification.permission === "granted"; } catch (e) { pushState.on = false; }
-  if (ui.page === "sortbog" || ui.page === "hjaelp") render();
+  if (ui.page === "sortbog" || ui.page === "hjaelp" || ui.page === "andel") render();
 }
 function pushBoxHtml(role, canDismiss) {
   var what = role === "drift" ? "når der oprettes en ny sag, og når der sker noget i sager, du følger" : "når der sker noget i sager, du følger";
   var h = '<div class="pushbox">';
   var no = canDismiss ? '<button class="btn small" type="button" data-pushno="1">Ikke nu</button>' : "";
   if (!pushSupported()) {
-    h += isIOS && !isApp ? '<p><b>Få besked på telefonen, ' + what + '.</b> På iPhone skal appen først lægges på hjemmeskærmen: tryk på Del-knappen i Safari → "Føj til hjemmeskærm", og åbn appen derfra. Så kan beskeder slås til her.</p>' + no
-      : '<p>Denne browser kan ikke vise beskeder. Åbn appen i Chrome eller Safari (på iPhone fra hjemmeskærmen).</p>' + no;
+    h += isIOS && !isApp ? '<p><b>Få notifikationer, ' + what + '.</b> På iPhone skal appen først lægges på hjemmeskærmen: tryk på Del-knappen i Safari → "Føj til hjemmeskærm", og åbn appen derfra. Så kan notifikationer slås til her.</p>' + no
+      : '<p>Denne browser kan ikke vise notifikationer. Åbn appen i Chrome eller Safari (på iPhone fra hjemmeskærmen).</p>' + no;
     return h + "</div>";
   }
-  if (!pushState.checked) { pushCheck(); return h + '<p class="hint">Tjekker beskeder…</p></div>'; }
-  if (Notification.permission === "denied") h += '<p>Beskeder er blokeret for appen på denne enhed. Slå dem til i telefonens indstillinger for browseren/appen, og prøv igen.</p>' + no;
-  else if (pushState.on) h += '<p><b>✓ Du får besked på denne enhed</b>, ' + what + '.</p><div class="row"><button class="btn small" type="button" data-push="test"' + (pushState.busy ? " disabled" : "") + '>Send en prøvebesked</button><button class="btn small" type="button" data-push="off"' + (pushState.busy ? " disabled" : "") + ">Slå fra</button></div>";
-  else h += '<p><b>Få besked på denne enhed</b>, ' + what + '.</p><div class="row"><button class="btn small primary" type="button" data-push="on"' + (pushState.busy ? " disabled" : "") + ">" + (pushState.busy ? "Slår til…" : "Slå beskeder til") + "</button>" + no + "</div>";
+  if (!pushState.checked) { pushCheck(); return h + '<p class="hint">Tjekker notifikationer…</p></div>'; }
+  if (Notification.permission === "denied") h += '<p>Notifikationer er blokeret for appen på denne enhed. Slå dem til under Notifikationer i telefonens indstillinger for browseren/appen, og prøv igen.</p>' + no;
+  else if (pushState.on) h += '<p><b>✓ Notifikationer er slået til på denne enhed</b>. Du får en notifikation, ' + what + '.</p><div class="row"><button class="btn small" type="button" data-push="test"' + (pushState.busy ? " disabled" : "") + '>Send en prøvenotifikation</button><button class="btn small" type="button" data-push="off"' + (pushState.busy ? " disabled" : "") + ">Slå fra</button></div>";
+  else h += '<p><b>Notifikationer er slået fra på denne enhed.</b> Slå dem til, så får du en notifikation, ' + what + '.</p><div class="row"><button class="btn small primary" type="button" data-push="on"' + (pushState.busy ? " disabled" : "") + ">" + (pushState.busy ? "Slår til…" : "Slå notifikationer til") + "</button>" + no + "</div>";
   return h + (pushState.msg ? '<p class="hint">' + esc(pushState.msg) + "</p>" : "") + "</div>";
 }
 function b64u(s) { var p = "=".repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, "+").replace(/_/g, "/")), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
@@ -2316,25 +2318,25 @@ async function pushOn() {
   pushState.busy = true; pushState.msg = ""; render();
   try {
     var perm = await Notification.requestPermission();
-    if (perm !== "granted") throw new Error("Du skal tillade beskeder for at få dem.");
+    if (perm !== "granted") throw new Error("Du skal tillade notifikationer for at få dem.");
     var reg = await navigator.serviceWorker.register("sw.js"); await navigator.serviceWorker.ready;
-    var k = await sb.functions.invoke("sortbog-notify", { body: { action: "pubkey" } }); if (!k.data || !k.data.key) throw new Error("Kunne ikke hente nøglen til beskeder.");
+    var k = await sb.functions.invoke("sortbog-notify", { body: { action: "pubkey" } }); if (!k.data || !k.data.key) throw new Error("Kunne ikke slå notifikationer til – prøv igen.");
     var sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(k.data.key) });
     var j = sub.toJSON();
     var r = await sb.from("push_subs").upsert({ user_id: ui.user.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, topic: "sortbog" }, { onConflict: "endpoint" });
     if (r.error) throw new Error(r.error.message);
-    pushState.on = true; pushState.msg = "Beskeder er slået til. Tryk «Send en prøvebesked» for at se, at det virker.";
-  } catch (e) { pushState.msg = e.message || "Det lykkedes ikke at slå beskeder til."; }
+    pushState.on = true; pushState.msg = "Notifikationer er slået til. Tryk «Send en prøvenotifikation» for at se, at det virker.";
+  } catch (e) { pushState.msg = e.message || "Det lykkedes ikke at slå notifikationer til."; }
   pushState.busy = false; render();
 }
 async function pushOff() {
   pushState.busy = true; render();
-  try { var reg = await navigator.serviceWorker.getRegistration(); var sub = reg && await reg.pushManager.getSubscription(); if (sub) { await sb.from("push_subs").delete().eq("endpoint", sub.endpoint); await sub.unsubscribe(); } pushState.on = false; pushState.msg = "Beskeder er slået fra på denne enhed."; } catch (e) { pushState.msg = "Det lykkedes ikke at slå beskeder fra."; }
+  try { var reg = await navigator.serviceWorker.getRegistration(); var sub = reg && await reg.pushManager.getSubscription(); if (sub) { await sb.from("push_subs").delete().eq("endpoint", sub.endpoint); await sub.unsubscribe(); } pushState.on = false; pushState.msg = "Notifikationer er slået fra på denne enhed."; } catch (e) { pushState.msg = "Det lykkedes ikke at slå notifikationer fra."; }
   pushState.busy = false; render();
 }
 async function pushTest() {
   pushState.busy = true; render();
-  try { var r = await sb.functions.invoke("sortbog-notify", { body: { action: "test" } }); pushState.msg = r.data && r.data.ok > 0 ? "Prøvebeskeden er sendt – den kommer om lidt." : "Der blev ikke sendt nogen besked. Prøv at slå beskeder fra og til igen."; } catch (e) { pushState.msg = "Det lykkedes ikke at sende prøvebeskeden."; }
+  try { var r = await sb.functions.invoke("sortbog-notify", { body: { action: "test" } }); pushState.msg = r.data && r.data.ok > 0 ? "Prøvenotifikationen er sendt – den kommer om lidt." : "Der blev ikke sendt nogen notifikation. Prøv at slå notifikationer fra og til igen."; } catch (e) { pushState.msg = "Det lykkedes ikke at sende prøvenotifikationen."; }
   pushState.busy = false; render();
 }
 // Alle sager som regneark (åbner i Excel/Numbers/Google Sheets) – samme kolonner som det gamle regneark
@@ -4208,20 +4210,20 @@ var HELP_SORTBOG = ["sortbog", "Den sorte bog", [
   ["Hvad betyder status?", "<p>Når du åbner en sag, står der øverst <strong>STATUS</strong> og fire trin:</p><ul><li><strong>Meldt</strong> – sagen er oprettet, men ingen er gået i gang endnu.</li><li><strong>I gang</strong> – Drift arbejder på det.</li><li><strong>Afventer</strong> – der ventes på noget. Der står hvad: at en håndværker skal tilkaldes, at en håndværker er bestilt, eller at varer er bestilt.</li><li><strong>Løst</strong> – sagen er lukket.</li></ul><p>Der står ✓ ved de trin, der er klaret, og en prik ved det trin, sagen står på nu.</p>"],
   ["Hvad er fanerne Nye og i gang, Afventer og Løste?", "<ul><li><strong>Nye og i gang</strong> – nye sager og sager, Drift arbejder på.</li><li><strong>Afventer</strong> – sager, der venter på en håndværker eller på varer.</li><li><strong>Løste</strong> – lukkede sager. De bliver liggende, så man kan se, hvordan noget blev løst sidst.</li></ul><p>Med <strong>Sortér</strong> kan du vælge nyeste først, ældste først eller efter hvor meget det haster.</p>"],
   ["Hvordan følger jeg med i min sag?", "<p>Du <strong>følger</strong> automatisk de sager, du selv har meldt, og dem, du har skrevet en kommentar i. Du kan også følge andre sager: åbn sagen og tryk <strong>Følg</strong>.</p><p>På kortet står der <strong>✓ Følger</strong>. Er der sket noget, siden du sidst kiggede, står der også <strong>Nyt</strong>.</p><p>Tryk på kortet for at åbne sagen. Under <strong>Kommentarer</strong> kan du se alt, hvad der er sket.</p>"],
-  ["Hvordan får jeg besked på telefonen?", "<p>Du kan få en besked på telefonen, når der sker noget i de sager, du følger – fx når Drift skriver en kommentar, eller sagen er løst.</p>" +
-    "<p><strong>Du kan slå det til lige her:</strong></p>{{PUSHBOX}}" +
-    "<p>Tryk på <strong>Slå beskeder til</strong>. Telefonen spørger så, om appen må sende beskeder – tryk <strong>Tillad</strong>. Tryk bagefter på <strong>Send en prøvebesked</strong> for at se, at det virker.</p>" +
-    "<p><strong>Hvor står knappen ellers?</strong></p><ul><li>Lige efter du har oprettet en sag.</li><li>Første gang du trykker <strong>Følg</strong> eller skriver en kommentar.</li><li>Øverst i den sorte bog, i den hvide boks <em>Få besked på denne enhed</em> – når du følger mindst én sag. Har du trykket <strong>Ikke nu</strong>, kommer boksen ikke igen der, men du kan altid slå beskeder til her i hjælpen.</li></ul>" +
-    "<p><strong>Det skal gøres på hver telefon eller iPad</strong>, du vil have beskeder på.</p>" +
-    "<p><strong>iPhone og iPad:</strong> Beskeder virker kun, når appen er lagt på hjemmeskærmen. Åbn den i Safari, tryk på Del-knappen " + DEMO.share + " og vælg <strong>Føj til hjemmeskærm</strong> " + DEMO.addhome + ". Åbn appen fra ikonet på hjemmeskærmen og slå beskeder til.</p>" +
-    "<p><strong>Står der, at beskeder er blokeret?</strong> Så har du tidligere sagt nej. Gå til telefonens <strong>Indstillinger</strong>, find browseren eller appen, og slå beskeder til igen.</p>"],
+  ["Hvordan får jeg notifikationer på telefonen?", "<p>Du kan få en notifikation på telefonen, når der sker noget i de sager, du følger – fx når Drift skriver en kommentar, eller sagen er løst.</p>" +
+    "<p><strong>Notifikationer slås til og fra ét sted:</strong> under <strong>Vores andel → Notifikationer</strong>. Du kan også slå dem til lige her:</p>{{PUSHBOX}}" +
+    "<p>Tryk på <strong>Slå notifikationer til</strong>. Telefonen spørger så, om appen må sende notifikationer – tryk <strong>Tillad</strong>. Tryk bagefter på <strong>Send en prøvenotifikation</strong> for at se, at det virker.</p>" +
+    "<p>Lige efter du har oprettet en sag – og første gang du følger en sag – bliver du også spurgt én gang.</p>" +
+    "<p><strong>Det skal gøres på hver telefon, iPad eller computer</strong>, du vil have notifikationer på.</p>" +
+    "<p><strong>iPhone og iPad:</strong> Notifikationer virker kun, når appen er lagt på hjemmeskærmen. Åbn den i Safari, tryk på Del-knappen " + DEMO.share + " og vælg <strong>Føj til hjemmeskærm</strong> " + DEMO.addhome + ". Åbn appen fra ikonet på hjemmeskærmen og slå notifikationer til.</p>" +
+    "<p><strong>Står der, at notifikationer er blokeret?</strong> Så har du tidligere sagt nej. Gå til telefonens <strong>Indstillinger → Notifikationer</strong>, find browseren eller appen, og slå dem til igen.</p>"],
   ["Hvordan skriver jeg en kommentar?", "<ol><li>Tryk på sagen for at åbne den.</li><li>Tryk på fanen <strong>Kommentarer</strong>.</li><li>Skriv i feltet nederst og tryk <strong>Send</strong>. Tryk på kameraet, hvis du vil sætte et billede på.</li></ol><p>Du kan rette eller slette din kommentar i 15 minutter. Derefter bliver den stående, så historikken passer.</p>"],
   ["Kan jeg rette, lukke eller slette min sag?", "<ul><li><strong>Rette:</strong> Åbn sagen og tryk <strong>Ret sagen</strong>. Det kan du, indtil sagen er løst. Din rettelse bliver skrevet i Kommentarer.</li><li><strong>Lukke:</strong> Er problemet væk, eller har du selv ordnet det? Tryk <strong>Ret sagen</strong> og derefter <strong>Luk sagen</strong> nederst. Skriv kort hvorfor. Drift får besked.</li><li><strong>Slette:</strong> Kun mens sagen står som Ny – fx hvis du har oprettet den ved en fejl.</li></ul>"],
   ["Hvad er \"Tidligere sager\"?", "<p>Når du har åbnet en sag, viser fanen <strong>Tidligere</strong> andre sager fra samme lejlighed, samme sted eller samme udstyr – både åbne og løste. Så kan man se, om det er sket før, og hvordan det blev løst.</p><p>I søgefeltet kan du søge i alle sager, fx <em>vaskemaskine</em>. Tryk på en linje for at åbne sagen. Med <strong>‹ Tilbage til …</strong> øverst kommer du tilbage til den sag, du kom fra.</p>"]
 ]];
 var HELP_SORTBOG_DRIFT = ["sortbog-drift", "Den sorte bog – kun for Drift", [
   ["Hvordan følger jeg op på en sag?", "<p>Åbn sagen. Den store knap er det næste naturlige skridt:</p><ul><li><strong>Påbegynd</strong> – sagen går til I gang.</li><li><strong>Færdigmeld</strong> – skriv kort, hvad der blev gjort (skal udfyldes, så andre kan se det næste gang). Du kan sætte et billede på.</li><li><strong>Håndværker er bestilt</strong> – når en håndværker er bestilt.</li></ul><p>Resten ligger under <strong>Flere</strong>: Håndværker skal tilkaldes, Varer bestilt, Følg sagen, Ret sagen, Sendt til Limaser og Slet sagen. En løst sag kan genåbnes under Flere.</p>"],
-  ["Hvem får besked hvornår?", "<ul><li><strong>Ny sag:</strong> Drift og administrator får besked på telefonen, hvis de har slået beskeder til. Er sagen rød (Haster), sendes der også en mail til kontoret.</li><li><strong>Kommentar eller nyt statusskift:</strong> alle, der følger sagen.</li><li><strong>Håndværker skal tilkaldes:</strong> dem, der har fluebenet <strong>Bestiller håndværkere</strong> (sættes af administratoren under Andelshavere). Har ingen fluebenet, får hele Drift besked.</li><li><strong>Melderen retter eller lukker selv sin sag:</strong> Drift får besked. Rettes en sag til rød, sendes der også en mail.</li></ul>"]
+  ["Hvem får besked hvornår?", "<ul><li><strong>Ny sag:</strong> Drift og administrator får besked på telefonen, hvis de har slået notifikationer til. Er sagen rød (Haster), sendes der også en mail til kontoret.</li><li><strong>Kommentar eller nyt statusskift:</strong> alle, der følger sagen.</li><li><strong>Håndværker skal tilkaldes:</strong> dem, der har fluebenet <strong>Bestiller håndværkere</strong> (sættes af administratoren under Andelshavere). Har ingen fluebenet, får hele Drift besked.</li><li><strong>Melderen retter eller lukker selv sin sag:</strong> Drift får besked. Rettes en sag til rød, sendes der også en mail.</li></ul>"]
 ]];
 /* Hjælp til menuen, Fælles aktiviteter og Booking af udstyr */
 var HI_BACK = '<span class="hico" aria-label="tilbage-pilen">' + ICON_BACK + "</span>", HI_HOME = '<span class="hico" aria-label="huset">' + ICON_HOME + "</span>",
@@ -4319,7 +4321,7 @@ var WELCOMES = {
     [ICON_BOOK, "Den sorte bog", "Her melder du, hvis noget er gået i stykker eller mangler – i en lejlighed, på fællesområderne eller ved udstyr, der lånes ud."],
     [WI_PLUS, "Meld en fejl", "Tryk <strong>+ Ny sag</strong> nederst til højre og følg de fire trin. Et billede hjælper meget.</p><p>Haster det, så ring eller skriv også til Stig på +45 20 16 12 17."],
     [WI_CHAT, "Følg med", "Du følger automatisk dine egne sager. Under <strong>Kommentarer</strong> kan du se, hvad der sker, og skrive til Drift."],
-    [WI_BELL, "Få besked", "Tryk <strong>Slå beskeder til</strong>, så får du besked på telefonen, når der sker noget i dine sager."]] },
+    [WI_BELL, "Få notifikationer", "Slå notifikationer til under <strong>Vores andel → Notifikationer</strong>, så får du besked på telefonen, når der sker noget i dine sager."]] },
   guide: { eyebrow: "", last: "Kom i gang", screens: null }
 };
 var welcomeBox = null, welcomeStep = 0, welcomeKind = "guide";
@@ -4718,7 +4720,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 271;
+var APP_VERSION = 272;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
