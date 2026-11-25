@@ -2536,7 +2536,7 @@ function inviteMsg(name, email, andel, lend, readOnly) {
     ? "Du har fået læseadgang til Vores Laderita – andelshavernes app for Laderita de Bolnuevo. " + guide + " Du kan se det hele, men ikke ændre noget eller give vurderinger."
     : lend
     ? "Du er inviteret til Vores Laderita – andelshavernes app for Laderita de Bolnuevo – fordi du skal låne " + lend + ". " + guide
-    : "Du er inviteret til Vores Laderita – andelshavernes app for Laderita de Bolnuevo" + (andel ? (/^900-/.test(andel) ? ". Du er med som personale på hotellet" : ". Du er med som ejer af " + (/,| og /.test(andel) ? "andelene " : "andel ") + andel) : "") + ". " + guide) + "\n\n" + test + "\n\n" +
+    : "Du er inviteret til Vores Laderita – andelshavernes app for Laderita de Bolnuevo" + (andel ? (/^900-/.test(andel) ? ". Du er med som ikke-andelshaver" : ". Du er med som ejer af " + (/,| og /.test(andel) ? "andelene " : "andel ") + andel) : "") + ". " + guide) + "\n\n" + test + "\n\n" +
     "Sådan kommer du i gang:\n" +
     "1. Åbn " + location.origin + location.pathname + "\n" +
     "2. Tryk på \"Første gang: opret adgangskode\".\n" +
@@ -4716,7 +4716,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 275;
+var APP_VERSION = 276;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
