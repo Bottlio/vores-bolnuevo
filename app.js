@@ -4144,7 +4144,7 @@ var HELP_FAQ = [
       "<p><strong>Android</strong> – åbn Vores Laderita i <strong>Chrome</strong>:</p><ol><li>Tryk på de tre prikker " + DEMO.dots + " øverst til højre.</li><li>Tryk <strong>Føj til startskærm</strong> (eller <strong>Installer app</strong>).</li><li>Tryk <strong>Tilføj</strong>.</li></ol><p>Nu ligger Vores Laderita som et ikon sammen med dine andre apps.</p>"],
     ["Hvordan kommer jeg tilbage?", "<p>" + DEMO.back + " øverst til højre går et skridt tilbage.</p><p>" + DEMO.home + " går til forsiden.</p>"],
     ["Hvor finder jeg hjælp?", "<p>Tryk på " + DEMO.help + " øverst til højre. Den virker også, før du er logget ind.</p>"],
-    ["Kan jeg se velkomsten igen?", "<p>Ja: <button type=\"button\" class=\"linkbtn\" id=\"show-welcome\">Vis velkomsten igen</button>.</p>"]
+    ["Kan jeg se velkomsten igen?", "<p>Ja: <button type=\"button\" class=\"linkbtn\" id=\"show-welcome\">Vis velkomsten igen</button>.</p><p>Vil du se <strong>alle</strong> velkomsterne igen – også dem, der kommer første gang du går ind i aktiviteter, booking, guiden og den sorte bog? <button type=\"button\" class=\"linkbtn\" data-wreset=\"1\">Vis alle velkomster igen</button></p>"]
   ]],
   ["find", "Find steder", [
     ["Hvordan finder jeg et sted?", "<ol><li>Tryk på et af felterne på forsiden – fx <strong>Spisesteder</strong> eller <strong>Strande</strong>.</li><li>Tryk på et sted for at se billeder, stjerner og kommentarer.</li></ol><p>Leder du efter noget bestemt, så skriv i søgefeltet øverst.</p>"],
@@ -4335,6 +4335,14 @@ function saveWelcomed() {
   if (welcomedSaved || !ui.user) return; welcomedSaved = true;
   sb.from("user_state").upsert({ user_id: ui.user.id, welcomed: true }, { onConflict: "user_id" }).then(function () {});
 }
+// Alle velkomster vises igen: første gang man åbner menuen og går ind i hver del
+function welcomeResetAll() {
+  ["guide", "app", "akt", "udstyr", "sortbog"].forEach(function (k) { try { localStorage.removeItem(welcomeKey(k)); } catch (x) {} });
+  welcomedSaved = false;
+  if (ui.user) sb.from("user_state").upsert({ user_id: ui.user.id, welcomed: false }, { onConflict: "user_id" }).then(function () {});
+  ui.msg = "Alle velkomster vises igen – første gang du åbner menuen og går ind i hver del.";
+  if (TEST_MENU) nav(function () { ui.menu = true; ui.page = null; ui.place = null; ui.cat = "hjem"; }); else { ui.page = null; render(); }
+}
 function openWelcome(kind) {
   welcomeKind = kind || (TEST_MENU ? "app" : "guide"); welcomeStep = 0;
   if (!welcomeBox) { welcomeBox = document.createElement("div"); welcomeBox.id = "welcomebox"; document.body.appendChild(welcomeBox); }
@@ -4455,6 +4463,7 @@ document.addEventListener("click", async function (e) {
   var hq = e.target.closest("[data-help]"); if (hq) { e.preventDefault(); e.stopPropagation(); openHelpTip(hq.dataset.help); return; }
   if (e.target.closest("#show-welcome")) { openWelcome(); return; }
   var ws = e.target.closest("[data-wshow]"); if (ws) { openWelcome(ws.dataset.wshow); return; }
+  if (e.target.closest("[data-wreset]")) { welcomeResetAll(); return; }
   var sl = e.target.closest(".slide"), art = sl && sl.closest("article.place[data-pid]");
   if (art && !art.classList.contains("detailcard")) { openPlace(art.dataset.pid); return; }
   var t = e.target.closest("button"); if (!t) return;
@@ -4695,7 +4704,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 263;
+var APP_VERSION = 264;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
