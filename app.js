@@ -36,16 +36,9 @@ var ui = { checking: true, view: "liste", scope: "alle", cat: "hjem", status: "t
 var isApp = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
 var h = (location.hash || "").slice(1); if ((CATNAME[h] || h === "byer" || h === "dagsture" || h === "alle") && (!isApp || /[?&]v=/.test(location.search))) ui.cat = h;
 if (/^sted\//.test(h)) ui.place = decodeURIComponent(h.slice(5));
-// Startmenuen er under test: vises kun via QR-koden på skærmen (?fra=skaerm) eller ?menu=test – ellers er guiden forsiden som før
-// Huskes på enheden, så testmenuen bliver ved, selvom adressen ændrer sig (fx ved automatisk opdatering). ?menu=off slår den fra igen.
-var TEST_MENU = /[?&](fra=skaerm|menu=test)/.test(location.search);
-var TEST_ONCE = /[?&]menu=vis/.test(location.search);   // kun dette besøg – huskes ikke på enheden
-try {
-  if (TEST_ONCE) TEST_MENU = true;
-  else if (/[?&]menu=off/.test(location.search)) localStorage.removeItem("bol_testmenu");
-  else if (TEST_MENU) localStorage.setItem("bol_testmenu", "1");
-  else TEST_MENU = localStorage.getItem("bol_testmenu") === "1";
-} catch (x) {}
+// Menuen er startsiden for alle (Christian 25/11 2026). Navnet TEST_MENU er bevaret, fordi mange steder i koden spørger på det.
+var TEST_MENU = true;
+try { localStorage.removeItem("bol_testmenu"); } catch (x) {}
 ui.menu = TEST_MENU && ui.cat === "hjem" && !ui.place;
 var sbHash = /^sortbog(?:-([0-9a-f-]{36})(?:\/(kommentarer))?)?$/.exec(h || "");
 if (sbHash && TEST_MENU) { ui.menu = false; ui.page = "sortbog"; ui.sbFocus = sbHash[1] || null; ui.sbFocusTab = sbHash[2] ? "k" : "o"; }
@@ -4720,7 +4713,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 272;
+var APP_VERSION = 273;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
