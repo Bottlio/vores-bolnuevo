@@ -1348,7 +1348,7 @@ function navBtns() {
     (navStack.length ? '<button class="iconbtn" type="button" data-nav="back" aria-label="Tilbage" title="Tilbage">' + ICON_BACK + "</button>" : "");
 }
 function headerHtml() {
-  return '<header><div><p class="eyebrow">Andelshavernes guide · Costa Cálida</p><h1>Laderita de Bolnuevo</h1></div><span class="beta" title="Guiden er stadig under udvikling">Beta</span><div class="hbtns">' + navBtns() + (ui.page === "hjaelp" ? "" : '<button class="iconbtn helpnav" type="button" data-page="hjaelp" aria-label="Hjælp" title="Hjælp">?</button>') + "</div></header>";
+  return '<header><div><p class="eyebrow">Andelshavernes guide · Costa Cálida</p><h1>Laderita de Bolnuevo</h1></div><span class="beta" title="Guiden er stadig under udvikling">Beta</span><div class="hbtns">' + navBtns() + (ui.page === "hjaelp" ? "" : '<button class="iconbtn helpnav" type="button" data-page="hjaelp" data-helpfor="' + helpSectionOf() + '" aria-label="Hjælp" title="Hjælp">?</button>') + "</div></header>";
 }
 function footerHtml() {
   // Bunden som felter side om side (ikon over tekst), så den ikke ligner linklisten på stederne
@@ -2031,6 +2031,7 @@ function sbNudgeHtml(q) {
   return '<p class="sbnudge">' + esc(q) + ' <button class="btn small primary" type="button" data-push="on"' + (pushState.busy ? " disabled" : "") + ">" + (pushState.busy ? "Slår til…" : "Slå beskeder til") + "</button></p>" + (pushState.msg ? '<p class="hint">' + esc(pushState.msg) + "</p>" : "");
 }
 function sbPopHtml() {
+  document.body.classList.add("modal-open");
   var d = sbData.list.filter(function (x) { return x.id === ui.sbOpen; })[0];
   if (!d) return '<div class="wizwrap"><div class="rback" data-sbclose="1"></div><section class="helpmodal sbpop" role="dialog" aria-modal="true"><div class="phead"><button type="button" class="hclose" data-sbclose="1" aria-label="Luk">×</button><h2>Sagen findes ikke længere</h2></div></section></div>';
   var adm = lvl() >= 4, mine = ui.user && d.created_by === ui.user.id, fol = sbFollowing(d.id), pr = SB_PRIO[d.priority] || ["", "", ""];
@@ -3990,8 +3991,8 @@ function goHome() {
 }
 window.addEventListener("popstate", function () {
   // Telefonens tilbage-knap: tilbage til den forrige sag, eller luk sagen (ikke appen)
-  if (ui.sbOpen && (ui.sbStack || []).length) { var pv = ui.sbStack.pop(); ui.sbOpen = pv.id; ui.sbTab = pv.tab || "o"; ui.sbEdit = null; ui.sbDlg = null; ui.sbMore = false; ui.sbC = { text: "", files: [] }; ui.sbCEdit = null; ui.sbDelConfirm = null; render(); return; }
-  if (ui.sbOpen) { sbClosePop(true); return; }
+  if (ui.sbOpen && ui.page === "sortbog" && (ui.sbStack || []).length) { var pv = ui.sbStack.pop(); ui.sbOpen = pv.id; ui.sbTab = pv.tab || "o"; ui.sbEdit = null; ui.sbDlg = null; ui.sbMore = false; ui.sbC = { text: "", files: [] }; ui.sbCEdit = null; ui.sbDelConfirm = null; render(); return; }
+  if (ui.sbOpen && ui.page === "sortbog") { sbClosePop(true); return; }
   // Telefonens egen tilbage mens man retter: bliv på siden, og luk formularen (eller spørg, hvis noget er ændret)
   if (ui.draft || ui.areaDraft) {
     try { history.pushState({ nav: navStack.length }, "", ui.place ? "#sted/" + ui.place : location.pathname + location.search); } catch (x) {}
@@ -4190,13 +4191,43 @@ var HELP_FAQ = [
     ["Hvordan sletter jeg min konto?", "<p>Gå til <strong>Vores andel</strong> nederst på siden og tryk <strong>Slet min konto</strong>. Det, du har lagt ind, bliver hos andelen.</p>"]
   ]]
 ];
+
+/* Hjælp til den sorte bog (vises, når man trykker ? i den sorte bog) */
+var HELP_SORTBOG = ["sortbog", "Den sorte bog", [
+  ["Hvad er den sorte bog?", "<p>Her melder du, når noget er gået i stykker eller mangler – i en lejlighed, på fællesområderne eller ved udstyr, der lånes ud, fx en cykel eller et golfsæt.</p><p>Drift følger op på sagerne, og du kan følge med i, hvad der sker.</p>"],
+  ["Hvordan melder jeg en fejl?", "<ol><li>Tryk på <strong>+ Ny sag</strong> øverst.</li><li><strong>Hvor er det?</strong> Vælg lejlighed, fællesområde eller udstyr.</li><li><strong>Hvad er galt?</strong> Skriv hvad det drejer sig om, og beskriv problemet.</li><li><strong>Billeder:</strong> Tag et billede eller vælg et fra telefonen. Det er ikke et krav, men det hjælper meget.</li><li><strong>Hvor haster det?</strong> Vælg Haster, Bør ordnes snart eller Kan vente.</li><li>Tryk <strong>Opret sag</strong>.</li></ol>"],
+  ["Det haster – hvad gør jeg?", "<p>Opret en sag og vælg <strong>Haster</strong>. Så får Drift også en mail.</p><p>Ring eller skriv også til Stig på WhatsApp/telefon <strong>+45 20 16 12 17</strong>.</p>"],
+  ["Hvad betyder Haster, Bør ordnes snart og Kan vente?", "<p>Det er, hvor meget det haster. Du kan se det på farven i venstre kant af kortet og på ordet øverst:</p><ul><li><strong style=\"color:#b3402f\">Haster</strong> (rød) – fx vandskade, noget der er farligt, eller lejligheden kan ikke bruges.</li><li><strong style=\"color:#8a6510\">Bør ordnes snart</strong> (gul) – fx en sprunget pære eller en maskine, der ikke virker ordentligt.</li><li><strong style=\"color:#2e7d4f\">Kan vente</strong> (grøn) – fx en ridse i gulvet eller noget, der mangler at blive købt.</li></ul>"],
+  ["Hvad betyder status?", "<p>Når du åbner en sag, står der øverst <strong>STATUS</strong> og fire trin:</p><ul><li><strong>Meldt</strong> – sagen er oprettet, men ingen er gået i gang endnu.</li><li><strong>I gang</strong> – Drift arbejder på det.</li><li><strong>Afventer</strong> – der ventes på noget. Der står hvad: at en håndværker skal tilkaldes, at en håndværker er bestilt, eller at varer er bestilt.</li><li><strong>Løst</strong> – sagen er lukket.</li></ul><p>Der står ✓ ved de trin, der er klaret, og en prik ved det trin, sagen står på nu.</p>"],
+  ["Hvad er fanerne Nye og i gang, Afventer og Løste?", "<ul><li><strong>Nye og i gang</strong> – nye sager og sager, Drift arbejder på.</li><li><strong>Afventer</strong> – sager, der venter på en håndværker eller på varer.</li><li><strong>Løste</strong> – lukkede sager. De bliver liggende, så man kan se, hvordan noget blev løst sidst.</li></ul><p>Med <strong>Sortér</strong> kan du vælge nyeste først, ældste først eller efter hvor meget det haster.</p>"],
+  ["Hvordan følger jeg med i min sag?", "<p>Du <strong>følger</strong> automatisk de sager, du selv har meldt, og dem, du har skrevet en kommentar i. Du kan også følge andre sager: åbn sagen og tryk <strong>Følg</strong>.</p><p>På kortet står der <strong>✓ Følger</strong>. Er der sket noget, siden du sidst kiggede, står der også <strong>Nyt</strong>.</p><p>Tryk på kortet for at åbne sagen. Under <strong>Kommentarer</strong> kan du se alt, hvad der er sket.</p>"],
+  ["Hvordan får jeg besked på telefonen?", "<p>Tryk <strong>Slå beskeder til</strong>, og sig ja, når telefonen spørger. Så får du besked, når der sker noget i de sager, du følger.</p><p><strong>iPhone:</strong> Beskeder virker kun, hvis appen er lagt på hjemmeskærmen. Åbn den i Safari, tryk på Del-knappen " + DEMO.share + " og vælg <strong>Føj til hjemmeskærm</strong> " + DEMO.addhome + ". Åbn den derfra, og slå beskeder til.</p>"],
+  ["Hvordan skriver jeg en kommentar?", "<ol><li>Tryk på sagen for at åbne den.</li><li>Tryk på fanen <strong>Kommentarer</strong>.</li><li>Skriv i feltet nederst og tryk <strong>Send</strong>. Tryk på kameraet, hvis du vil sætte et billede på.</li></ol><p>Du kan rette eller slette din kommentar i 15 minutter. Derefter bliver den stående, så historikken passer.</p>"],
+  ["Kan jeg rette, lukke eller slette min sag?", "<ul><li><strong>Rette:</strong> Åbn sagen og tryk <strong>Ret sagen</strong>. Det kan du, indtil sagen er løst. Din rettelse bliver skrevet i Kommentarer.</li><li><strong>Lukke:</strong> Er problemet væk, eller har du selv ordnet det? Tryk <strong>Ret sagen</strong> og derefter <strong>Luk sagen</strong> nederst. Skriv kort hvorfor. Drift får besked.</li><li><strong>Slette:</strong> Kun mens sagen står som Ny – fx hvis du har oprettet den ved en fejl.</li></ul>"],
+  ["Hvad er \"Tidligere sager\"?", "<p>Når du har åbnet en sag, viser fanen <strong>Tidligere</strong> andre sager fra samme lejlighed, samme sted eller samme udstyr – både åbne og løste. Så kan man se, om det er sket før, og hvordan det blev løst.</p><p>I søgefeltet kan du søge i alle sager, fx <em>vaskemaskine</em>. Tryk på en linje for at åbne sagen. Med <strong>‹ Tilbage til …</strong> øverst kommer du tilbage til den sag, du kom fra.</p>"]
+]];
+var HELP_SORTBOG_DRIFT = ["sortbog-drift", "Den sorte bog – kun for Drift", [
+  ["Hvordan følger jeg op på en sag?", "<p>Åbn sagen. Den store knap er det næste naturlige skridt:</p><ul><li><strong>Påbegynd</strong> – sagen går til I gang.</li><li><strong>Færdigmeld</strong> – skriv kort, hvad der blev gjort (skal udfyldes, så andre kan se det næste gang). Du kan sætte et billede på.</li><li><strong>Håndværker er bestilt</strong> – når en håndværker er bestilt.</li></ul><p>Resten ligger under <strong>Flere</strong>: Håndværker skal tilkaldes, Varer bestilt, Følg sagen, Ret sagen, Sendt til Limaser og Slet sagen. En løst sag kan genåbnes under Flere.</p>"],
+  ["Hvem får besked hvornår?", "<ul><li><strong>Ny sag:</strong> Drift og administrator får besked på telefonen, hvis de har slået beskeder til. Er sagen rød (Haster), sendes der også en mail til kontoret.</li><li><strong>Kommentar eller nyt statusskift:</strong> alle, der følger sagen.</li><li><strong>Håndværker skal tilkaldes:</strong> dem, der har fluebenet <strong>Bestiller håndværkere</strong> (sættes af administratoren under Andelshavere). Har ingen fluebenet, får hele Drift besked.</li><li><strong>Melderen retter eller lukker selv sin sag:</strong> Drift får besked. Rettes en sag til rød, sendes der også en mail.</li></ul>"]
+]];
+function helpSectionOf() { return ui.page === "sortbog" ? "sortbog" : ""; }
 function helpPageHtml() {
+  // Hjælp til den del, man kom fra (fx den sorte bog) – med "Se al hjælp" nederst
+  var faq = function (sec) { var x = '<h3 id="hjaelp-' + sec[0] + '">' + esc(sec[1]) + "</h3>"; sec[2].forEach(function (q) { x += '<details class="faq"><summary><span class="fq">' + (q[2] ? rowIcon(q[2]) : "") + esc(q[0]) + '</span></summary><div class="faqa">' + q[1] + "</div></details>"; }); return x; };
+  if (ui.helpFor === "sortbog" && !ui.helpAll) {
+    return '<section class="panel helppage"><p class="eyebrow">Hjælp</p><h2>Hjælp til den sorte bog</h2><p class="hint">Tryk på et spørgsmål for at se svaret.</p>' +
+      faq(HELP_SORTBOG) + (lvl() >= 4 ? faq(HELP_SORTBOG_DRIFT) : "") +
+      '<div class="row helpall"><button class="btn" type="button" data-helpall="1">Se al hjælp</button></div>' +
+      '<div class="helpcontact"><h3>Kan du ikke finde svaret?</h3><p>Skriv til Christian på <a href="mailto:' + HELP_MAIL + '">' + HELP_MAIL + "</a>. Skriv gerne, hvad du prøvede at gøre, og hvad der skete.</p></div></section>";
+  }
   var h = '<section class="panel helppage"><p class="eyebrow">Hjælp</p><h2>Sådan bruger du guiden</h2>' +
     '<p class="hint">Tryk på et spørgsmål for at se svaret. Du kan også trykke på <span class="qhelp inline" aria-hidden="true">?</span> rundt omkring i guiden.</p>';
   HELP_FAQ.forEach(function (sec) {
     h += '<h3 id="hjaelp-' + sec[0] + '">' + esc(sec[1]) + "</h3>";
     sec[2].forEach(function (q) { h += '<details class="faq"><summary><span class="fq">' + (q[2] ? rowIcon(q[2]) : "") + esc(q[0]) + '</span></summary><div class="faqa">' + q[1] + "</div></details>"; });
   });
+  // Den sorte bog er under test: dens hjælp vises kun med testmenuen
+  if (TEST_MENU && ui.member) h += faq(HELP_SORTBOG) + (lvl() >= 4 ? faq(HELP_SORTBOG_DRIFT) : "");
   h += '<div class="helpcontact"><h3>Kan du ikke finde svaret?</h3><p>Skriv til Christian på <a href="mailto:' + HELP_MAIL + '">' + HELP_MAIL + "</a>. Skriv gerne, hvad du prøvede at gøre, og hvad der skete.</p></div></section>";
   return h;
 }
@@ -4423,7 +4454,8 @@ document.addEventListener("click", async function (e) {
     navigator.geolocation.getCurrentPosition(function (pos) { ui.nearMe = [pos.coords.latitude, pos.coords.longitude]; ui.nearErr = ""; render(); }, function () { ui.nearErr = "Placeringen blev ikke givet."; render(); }, { timeout: 15000 });
     return;
   }
-  if (t.dataset.page != null) { var pg = t.dataset.page; ui.inviteText = ""; andelData = null; adminData = null; if (!pg && navStack.length) { goBack(); return; } nav(function () { ui.page = pg || null; }); return; }
+  if (t.dataset.helpall) { ui.helpAll = true; render(); window.scrollTo({ top: 0 }); return; }
+  if (t.dataset.page != null) { var pg = t.dataset.page; if (pg === "hjaelp") { ui.helpFor = t.dataset.helpfor || ""; ui.helpAll = false; if (ui.sbOpen) document.body.classList.remove("modal-open"); } ui.inviteText = ""; andelData = null; adminData = null; if (!pg && navStack.length) { goBack(); return; } nav(function () { ui.page = pg || null; }); return; }
   if (t.dataset.rmmember) { removeMember(t.dataset.rmmember); return; }
   if (t.dataset.irole) { ui.irole = t.dataset.irole; render(); return; }
   if (t.dataset.setvis) { setPhotoVis(t.dataset.setvis, t.dataset.v); return; }
@@ -4581,7 +4613,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 255;
+var APP_VERSION = 256;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
