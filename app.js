@@ -2210,7 +2210,7 @@ var LEVELS = [
   [4, "Drift", "Som kommunikation + følger op i den sorte bog (status, opfølgning, Limaser, slette sager) og kan aflyse andres bookinger af udstyr."],
   [5, "Administrator", "Alt – også andelshavere, invitationer, adgang, anmeldelser og ændringer."]
 ];
-async function loadEditors() { var r = await sb.from("access_levels").select("email, level"); editorData = r.data || []; rerenderAdmin(); }
+async function loadEditors() { var r = await sb.from("access_levels").select("email, level"); editorData = r.data || []; editorData.err = r.error ? r.error.message : ""; rerenderAdmin(); }
 function levelsHtml(d) {
   if (!editorData) { loadEditors(); return '<p class="hint">Henter…</p>'; }
   var byMail = {}; (d.members || []).forEach(function (m) { var k = (m.email || "").toLowerCase(); if (k && !byMail[k]) byMail[k] = m.name || k; });
@@ -2235,6 +2235,8 @@ function lvOf(mail) { if (!editorData || !mail) return 2; var r = editorData.fil
 function lvSelect(mail, a) {
   if (!mail || !me || !me.admin || (a && a.lejlighed === READ_LEJL)) return "";
   if (!editorData) { loadEditors(); return ""; }
+  if (editorData.err) return ' <span class="lvsel">Niveau kunne ikke hentes</span>';
+  if (ui.user && mail.toLowerCase() === String(ui.user.email || "").toLowerCase()) return ' <span class="lvsel">Niveau 5 · Administrator</span>';
   var cur = lvOf(mail), opts = (a && a.lejlighed === "900" ? [1, 2, 3, 4] : [2, 3, 4]);
   if (opts.indexOf(cur) < 0) opts.unshift(cur);
   return '<label class="lvsel">Niveau <select data-lvmail="' + esc(mail.toLowerCase()) + '">' + opts.map(function (n) { return '<option value="' + n + '"' + (n === cur ? " selected" : "") + ">" + n + " · " + LEVELS[n][1] + "</option>"; }).join("") + "</select></label>";
@@ -4168,7 +4170,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 242;
+var APP_VERSION = 243;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
