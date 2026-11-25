@@ -331,10 +331,12 @@ async function checkUser() {
   var ad = await sb.rpc("am_i_admin"), lv = await sb.rpc("my_level");
   me = { andel: row.andel_id, label: row.andele.lejlighed + "-" + row.andele.nummer, role: row.role, name: row.name, admin: ad.data === true,
     others: rows.filter(function (x) { return x !== row; }).map(function (x) { return { id: x.andel_id, label: x.andele.lejlighed + "-" + x.andele.nummer }; }) };
-  me.level = typeof lv.data === "number" ? lv.data : (me.admin ? 4 : 1);
-  me.canPost = me.level >= 2;
+  me.level = typeof lv.data === "number" ? lv.data : (me.admin ? 5 : 2);
+  // Niveauer: 0 gæst · 1 personale · 2 andelshaver · 3 kommunikation · 4 drift · 5 administrator
+  me.canPost = [1, 3, 4, 5].indexOf(me.level) >= 0;
+  me.staff = me.level === 1;   // personale: kan se alt, skrive opslag og oprette sager i den sorte bog – ikke aktiviteter, booking eller steder
   me.readonly = !me.admin && rows.every(function (x) { return x.role === "laeser"; });
-  ui.member = true; ui.editor = !me.readonly;
+  ui.member = true; ui.editor = !me.readonly && !me.staff;
 }
 function authorText(e) {
   var a = e && authors[e.updated_by];
@@ -1482,7 +1484,7 @@ function aktCard(a) {
   var st = new Date(a.starts_at), en = a.ends_at ? new Date(a.ends_at) : null;
   var sig = a.activity_signups || [], mine = ui.user && sig.filter(function (x) { return x.user_id === ui.user.id; })[0];
   var used = aktUsed(a), full = a.max_people && used >= a.max_people, past = (en || st) < new Date();
-  var canEdit = ui.user && (a.created_by === ui.user.id || lvl() >= 2);
+  var canEdit = ui.user && (a.created_by === ui.user.id || lvl() >= 3);
   var status = a.cancelled ? '<p class="akst cancel">Aflyst</p>'
     : !a.signup ? '<p class="akst">Ingen tilmelding<span class="akmeet"> – bare mød op</span></p>'
     : '<p class="akst ' + (full ? "full" : "ok") + '">' + (a.max_people ? (full ? "Fuldt booket" : used + " af " + a.max_people + " tilmeldt") : used + " tilmeldt") + "</p>";
@@ -1613,7 +1615,7 @@ function bkRange() { var d = new Date((ui.bkDate || dayKey(new Date())) + "T00:0
 function bkIsFree(id) { var rg = bkRange(); return !bkData.list.some(function (b) { return b.equipment_id === id && new Date(b.starts_at) < rg[1] && new Date(b.ends_at) > rg[0]; }); }
 function bkCard(b) {
   var st = new Date(b.starts_at), en = new Date(b.ends_at), e = b.equipment || {};
-  var mine = ui.user && b.user_id === ui.user.id, can = mine || lvl() >= 3, past = en < new Date();
+  var mine = ui.user && b.user_id === ui.user.id, can = mine || lvl() >= 4, past = en < new Date();
   return '<article class="akcard bkcard ' + (e.kind || "") + '"><p class="aktime">' + hhmm(st) + "–" + hhmm(en) + "</p><h3>" + esc(e.name || "Udstyr") + '</h3><p class="akplace">' + esc([b.name, bkLabel(b) ? "lejl. " + bkLabel(b) : ""].filter(Boolean).join(" · ")) + (b.source === "skaerm" ? " · booket på skærmen" : "") + "</p>" +
     (can && !past ? '<div class="akbtns"><button class="linkbtn danger-t" type="button" data-bkdel="' + esc(b.id) + '">' + (ui.bkDelConfirm === b.id ? "Tryk igen for at aflyse" : "Aflys") + "</button></div>" : "") + "</article>";
 }
@@ -1718,7 +1720,7 @@ function udstyrPageHtml() {
   if (ui.bkPick) {   // valgt booking (evt. flere ting booket sammen): vis detaljer og Aflys
     var grp = bkData.list.filter(function (b) { return bkKey(b) === ui.bkPick; });
     if (grp.length) {
-      var pb = grp[0], pst = new Date(pb.starts_at), pen = new Date(pb.ends_at), pcan = ((ui.user && pb.user_id === ui.user.id) || lvl() >= 3) && pen > new Date();
+      var pb = grp[0], pst = new Date(pb.starts_at), pen = new Date(pb.ends_at), pcan = ((ui.user && pb.user_id === ui.user.id) || lvl() >= 4) && pen > new Date();
       h += '<div class="wizwrap"><div class="rback"></div><section class="helpmodal wiz pop bkpick"><button type="button" class="hclose" data-bkpick="" aria-label="Luk">×</button><h2>Booking</h2><p><strong>' + dayTitle(pst) + " kl. " + hhmm(pst) + "–" + hhmm(pen) + "</strong><br>" + esc([pb.name, bkLabel(pb) ? "lejl. " + bkLabel(pb) : ""].filter(Boolean).join(" · ")) + (pb.source === "skaerm" ? " · booket på skærmen" : "") + "</p>" +
         '<ul class="nlist">' + grp.map(function (b) { return '<li class="nitem"><span>' + esc((b.equipment || {}).name || "Udstyr") + "</span>" + (pcan ? '<button class="linkbtn danger-t" type="button" data-bkdel="' + esc(b.id) + '">' + (ui.bkDelConfirm === b.id ? "Tryk igen for at aflyse" : "Aflys") + "</button>" : "") + "</li>"; }).join("") + "</ul>" +
         '<div class="row wizfoot"><span></span><button class="btn" type="button" data-bkpick="">Luk</button></div></section></div>';
@@ -1774,7 +1776,7 @@ var SB_STEPS = ["Hvor er det?", "Hvad er galt?", "Billeder", "Hvor haster det?"]
 var SB_AREAS = ["Receptionen", "Fællesrummet / spisesalen", "Køkkenet i fællesrummet", "Terrassen", "Poolområdet", "Udendørs brusere", "Trapper og gange", "Garagen / depotrum", "Haven / udearealer", "Andet"];
 var SB_PRIO = { rod: ["Rød", "Haster", "Fx vandskade, noget der er farligt, eller lejligheden kan ikke bruges"], gul: ["Gul", "Bør ordnes snart", "Fx en sprunget pære eller en maskine, der ikke virker ordentligt"], gron: ["Grøn", "Kan vente", "Fx en ridse i gulvet eller noget, der mangler at blive købt"] };
 var SB_STATUS = { ny: "Ny", igang: "I gang", bestilt: "Bestilt", loest: "Løst" };
-function lvl() { return me ? (me.level != null ? me.level : me.admin ? 4 : 1) : -1; }
+function lvl() { return me ? (me.level != null ? me.level : me.admin ? 5 : 2) : -1; }
 function sbMyLejl() { var a = me && andelLabels[me.andel]; return a ? String(a).split("-")[0].replace(/ m\.fl\.$/, "") : ""; }
 async function loadSb() {
   if (sbLoading) return; sbLoading = true;
@@ -1794,7 +1796,7 @@ function sbWhere(d) {
   return d.where_kind === "lejlighed" ? "Lejl. " + (d.where_lejl || "?") : d.where_kind === "udstyr" ? "Udstyr" + (d.where_text ? ": " + d.where_text : "") : (d.where_text || "Fællesområde");
 }
 function sbCard(d) {
-  var pr = SB_PRIO[d.priority] || ["", ""], st = new Date(d.created_at), mine = ui.user && d.created_by === ui.user.id, adm = lvl() >= 3;
+  var pr = SB_PRIO[d.priority] || ["", ""], st = new Date(d.created_at), mine = ui.user && d.created_by === ui.user.id, adm = lvl() >= 4;
   var pics = (sbData.photos || []).filter(function (x) { return x.target === d.id; });
   var h = '<article class="sbcard ' + d.status + '"><div class="sbtop"><span class="sbprio ' + d.priority + '">' + pr[0] + '</span><span class="sbstat ' + d.status + '">' + SB_STATUS[d.status] + (d.status === "loest" && d.solved_at ? " " + new Date(d.solved_at).toLocaleDateString("da-DK", { day: "numeric", month: "short" }) : "") + "</span>" +
     '<span class="sbdate">' + st.getDate() + ". " + DA_MON[st.getMonth()] + " " + st.getFullYear() + "</span></div>" +
@@ -1813,10 +1815,11 @@ function sbCard(d) {
 }
 function sortbogPageHtml() {
   if (!sbData) { loadSb(); return '<section class="akhead"><h2>Den sorte bog</h2></section><p class="loading">Henter…</p>'; }
-  var h = '<section class="akhead"><h2>Den sorte bog</h2>' + (ui.editor ? '<button class="btn primary" type="button" data-sbnew="1">+ Ny sag</button>' : "") + "</section>";
+  var h = '<section class="akhead"><h2>Den sorte bog</h2>' + (ui.editor || (me && me.staff) ? '<button class="btn primary" type="button" data-sbnew="1">+ Ny sag</button>' : "") + "</section>";
   h += '<p class="notice">Test: sager, du opretter her, er rigtige og kan ses af alle andre testere.</p>';
   h += '<p class="hint">Er noget gået i stykker, eller mangler der noget? Opret en sag, så den ansvarlige kan følge op. Har du brug for akut hjælp, så ring eller skriv til Stig på WhatsApp/telefon +45 20 16 12 17.</p>';
   if (sbData.err) h += '<p class="error">' + esc(sbData.err) + "</p>";
+  if (lvl() >= 4) h += '<div class="row sbtools"><button class="btn small" type="button" data-sbxls="1">Hent som regneark</button><button class="btn small" type="button" data-sbsync="1"' + (ui.sbSyncing ? " disabled" : "") + ">" + (ui.sbSyncing ? "Henter fra regnearket…" : "Opdater fra det gamle regneark") + "</button></div>" + (ui.sbSyncMsg ? '<p class="hint">' + esc(ui.sbSyncMsg) + "</p>" : "");
   var f = ui.sbFilter || "open", open = sbData.list.filter(function (d) { return d.status !== "loest"; }), done = sbData.list.filter(function (d) { return d.status === "loest"; });
   var ord = { rod: 0, gul: 1, gron: 2 };
   var srt = ui.sbSort || "date";
@@ -1904,6 +1907,25 @@ async function sbSave() {
     }
     sbClose(); ui.sbFilter = "open"; ui.msg = "Sagen er oprettet. Tak!"; sbData = null; render(); window.scrollTo({ top: 0 });
   } catch (x) { w.busy = false; w.prog = ""; w.err = x.message || "Det lykkedes ikke at gemme sagen."; render(); }
+}
+// Alle sager som regneark (åbner i Excel/Numbers/Google Sheets) – samme kolonner som det gamle regneark
+function sbExport() {
+  var P = { rod: "Rød", gul: "Gul", gron: "Grøn" }, q = function (v) { v = v == null ? "" : String(v); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  var dk = function (x) { if (!x) return ""; var d = new Date(x); return p2(d.getDate()) + "-" + p2(d.getMonth() + 1) + "-" + d.getFullYear(); };
+  var rows = [["Dato", "Navn/Andelsnummer", "Hvor er skaden", "Hvad", "Problembeskrivelse", "Prioritet", "Status", "Opfølgning", "Sendt til Limaser", "Løst dato", "Fra"]];
+  sbData.list.slice().sort(function (a, b) { return String(b.created_at).localeCompare(String(a.created_at)); }).forEach(function (d) {
+    rows.push([dk(d.created_at), (d.reporter_name || "") + (d.andel_id && andelLabels[d.andel_id] ? " " + String(andelLabels[d.andel_id]).replace(/ m\.fl\.$/, "") : ""), sbWhere(d), d.item || "", d.description, P[d.priority] || "", SB_STATUS[d.status] || d.status, d.handling || "", d.sent_limaser ? "Ja" : "", d.solved_at ? dk(d.solved_at + "T12:00") : "", d.source === "regneark" ? "Regneark" : "App"]);
+  });
+  var blob = new Blob(["\ufeff" + rows.map(function (r) { return r.map(q).join(";"); }).join("\r\n")], { type: "text/csv;charset=utf-8" });
+  var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "den-sorte-bog-" + dayKey(new Date()) + ".csv"; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+async function sbSync() {
+  ui.sbSyncing = true; ui.sbSyncMsg = ""; render();
+  try {
+    var r = await sb.functions.invoke("sortbog-sync", { body: {} }), x = r.data || {};
+    ui.sbSyncMsg = r.error ? "Det lykkedes ikke at hente regnearket." : x.error ? x.error : "Hentet fra regnearket: " + x.nye + " nye sager, " + x.opdateret + " opdateret." + (x.fejl && x.fejl.length ? " " + x.fejl.length + " rækker kunne ikke læses: " + x.fejl.slice(0, 3).join("; ") : "");
+  } catch (e) { ui.sbSyncMsg = "Det lykkedes ikke at hente regnearket."; }
+  ui.sbSyncing = false; sbData = null; render();
 }
 async function sbSet(id, field, val) {
   var u = {}; u[field] = val;
@@ -2123,7 +2145,7 @@ function adminPageHtml() {
     '<div class="grid"><label>Ejerens fornavn<input id="n-name" required></label><label>Ejerens mail<input id="n-email" type="email" required></label></div><button class="btn primary" type="submit">Opret andel</button></form>' +
     '<p class="hint">"Marker som solgt" (under Andelshavere) lukker andelens adgang. Deres private indhold følger ikke med til køberen, som får en ny andel med samme nummer.</p>';
   h += foldBox("adm-new", "<strong>Opret ny andel</strong>", "Ny andel og invitation til første ejer – fx ved salg", newandel);
-  h += foldBox("adm-levels", "<strong>Udvidet adgang</strong>", "Hvem må mere end almindelige andelshavere – og gæster med kun læseadgang", levelsHtml(d));
+  h += foldBox("adm-levels", "<strong>Udvidet adgang</strong>", "Seks niveauer: gæst, personale, andelshaver, kommunikation, drift og administrator", levelsHtml(d));
   h += foldBox("adm-notes", "<strong>Opslag på skærmen</strong>", "Korte beskeder i receptionen, fx \"Poolen er lukket torsdag\"", noticesAdminHtml());
   return h;
 }
@@ -2131,10 +2153,11 @@ function adminPageHtml() {
 var noticeData = null, editorData = null;
 var LEVELS = [
   [0, "Gæst – kun læse", "Midlertidige gæster, der ikke er gæst hos en andelshaver (fx Mads). Kan se guiden, aktiviteter, bookinger og den sorte bog, men ikke oprette noget."],
-  [1, "Andelshaver", "Alle andelshavere og deres gæster. Bruger guiden, opretter aktiviteter, booker udstyr og opretter sager i den sorte bog. Retter og sletter egne ting."],
-  [2, "Kommunikation", "Som andelshaver + skriver opslag på skærmen i receptionen og kan rette, aflyse og slette alle aktiviteter."],
-  [3, "Drift", "Som kommunikation + følger op i den sorte bog (status, opfølgning, Limaser, slette sager) og kan aflyse andres bookinger af udstyr."],
-  [4, "Administrator", "Alt – også andelshavere, invitationer, adgang, anmeldelser og ændringer."]
+  [1, "Personale", "Fx host og rengøring. Kan se alt, skrive opslag på skærmen og oprette sager i den sorte bog – men ikke oprette aktiviteter, booke udstyr eller tilføje steder."],
+  [2, "Andelshaver", "Alle andelshavere og deres gæster. Bruger guiden, opretter aktiviteter, booker udstyr og opretter sager i den sorte bog. Retter og sletter egne ting. Kan ikke skrive opslag."],
+  [3, "Kommunikation", "Som andelshaver + skriver opslag på skærmen og kan rette, aflyse og slette alle aktiviteter."],
+  [4, "Drift", "Som kommunikation + følger op i den sorte bog (status, opfølgning, Limaser, slette sager) og kan aflyse andres bookinger af udstyr."],
+  [5, "Administrator", "Alt – også andelshavere, invitationer, adgang, anmeldelser og ændringer."]
 ];
 async function loadEditors() { var r = await sb.from("access_levels").select("email, level"); editorData = r.data || []; rerenderAdmin(); }
 function levelsHtml(d) {
@@ -2146,21 +2169,21 @@ function levelsHtml(d) {
   var opts = Object.keys(byMail).filter(function (k) { return given.indexOf(k) < 0; }).sort(function (a, b) { return byMail[a].localeCompare(byMail[b], "da"); });
   var who = function (lv) {
     if (lv === 0) return guests.length ? guests.map(function (m) { return esc(m.name || m.email); }).join(", ") : "Ingen lige nu";
-    if (lv === 1) return "Alle andre";
-    if (lv === 4) return "Dig";
+    if (lv === 2) return "Alle andre";
+    if (lv === 5) return "Dig";
     var l = editorData.filter(function (x) { return x.level === lv; });
     return l.length ? l.map(function (x) { return esc(byMail[x.email] || x.email); }).join(", ") : "Ingen endnu";
   };
   return '<ul class="lvlist">' + LEVELS.map(function (L) { return '<li><b>' + L[0] + " · " + esc(L[1]) + '</b><p class="hint">' + esc(L[2]) + '</p><p class="lvwho">' + who(L[0]) + "</p></li>"; }).join("") + "</ul>" +
-    '<h3>Niveau 2 og 3</h3>' +
+    '<h3>Personale, kommunikation og drift</h3>' +
     (editorData.length ? '<ul class="nlist">' + editorData.slice().sort(function (a, b) { return b.level - a.level; }).map(function (x) {
       return '<li class="nitem"><span>' + esc(byMail[x.email] || x.email) + ' <span class="hint">' + esc(x.email) + '</span></span><span class="lvact"><select data-lvset="' + esc(x.email) + '" aria-label="Niveau">' +
-        [2, 3].map(function (n) { return '<option value="' + n + '"' + (x.level === n ? " selected" : "") + ">" + n + " · " + LEVELS[n][1] + "</option>"; }).join("") + '</select><button class="linkbtn danger-t" type="button" data-edrm="' + esc(x.email) + '">Fjern</button></span></li>'; }).join("") + "</ul>" : '<p class="hint">Ingen endnu.</p>') +
+        [1, 3, 4].map(function (n) { return '<option value="' + n + '"' + (x.level === n ? " selected" : "") + ">" + n + " · " + LEVELS[n][1] + "</option>"; }).join("") + '</select><button class="linkbtn danger-t" type="button" data-edrm="' + esc(x.email) + '">Fjern</button></span></li>'; }).join("") + "</ul>" : '<p class="hint">Ingen endnu.</p>') +
     '<form id="editor-form" class="invite"><div class="grid"><label>Person<select name="email" required><option value="">Vælg person …</option>' + opts.map(function (k) { return '<option value="' + esc(k) + '">' + esc(byMail[k]) + " – " + esc(k) + "</option>"; }).join("") + "</select></label>" +
-    '<label>Niveau<select name="level"><option value="3">3 · Drift</option><option value="2">2 · Kommunikation</option></select></label></div><button class="btn" type="submit">Giv adgang</button></form>' +
+    '<label>Niveau<select name="level"><option value="1">1 · Personale</option><option value="3">3 · Kommunikation</option><option value="4">4 · Drift</option></select></label></div><button class="btn" type="submit">Giv adgang</button></form>' +
     '<p class="hint">Gæster med kun læseadgang (niveau 0) oprettes under Andelshavere på lejlighed 901 ("Læseadgang 1–10").</p>';
 }
-async function addEditor(f) { var e = f.elements.email.value; if (!e) return; var r = await sb.from("access_levels").insert({ email: e.toLowerCase(), level: parseInt(f.elements.level.value, 10) || 2 }); if (r.error) ui.msg = "Det blev ikke gemt: " + r.error.message; editorData = null; rerenderAdmin(); }
+async function addEditor(f) { var e = f.elements.email.value; if (!e) return; var r = await sb.from("access_levels").insert({ email: e.toLowerCase(), level: parseInt(f.elements.level.value, 10) || 3 }); if (r.error) ui.msg = "Det blev ikke gemt: " + r.error.message; editorData = null; rerenderAdmin(); }
 async function rmEditor(e) { await sb.from("access_levels").delete().eq("email", e); editorData = null; rerenderAdmin(); }
 async function setLevel(e, n) { var r = await sb.from("access_levels").update({ level: n }).eq("email", e); if (r.error) ui.msg = "Det blev ikke gemt: " + r.error.message; editorData = null; rerenderAdmin(); }
 document.addEventListener("change", function (e) { var k = e.target.dataset && e.target.dataset.lvset; if (k) setLevel(k, parseInt(e.target.value, 10)); });
@@ -3923,6 +3946,8 @@ document.addEventListener("click", async function (e) {
   }
   if (t.dataset.bkpick != null) { ui.bkPick = t.dataset.bkpick || null; ui.bkDelConfirm = null; render(); if (ui.bkPick) { var pe = document.querySelector(".bkpick"); if (pe) pe.scrollIntoView({ block: "center", behavior: "smooth" }); } return; }
   if (t.dataset.sbnew) { sbOpen(); return; }
+  if (t.dataset.sbxls) { sbExport(); return; }
+  if (t.dataset.sbsync) { sbSync(); return; }
   if (t.dataset.sbw) { sbNav(t.dataset.sbw); return; }
   if (t.dataset.sbkind) { ui.sb.kind = t.dataset.sbkind; ui.sb.err = ""; render(); return; }
   if (t.dataset.sbarea) { ui.sb.area = t.dataset.sbarea; ui.sb.err = ""; render(); return; }
@@ -4056,7 +4081,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 238;
+var APP_VERSION = 240;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
