@@ -1407,14 +1407,15 @@ var ICON_BIKE = licon('<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r
 // Menuknappen: fire små farvede felter med hvide ikoner – samme farver som kortene på menusiden (aktiviteter, booking, guide, sort bog)
 var ICON_MENU4 = (function () {
   var L = function (p) { return '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + "</svg>"; };
-  return '<span class="menu4" aria-hidden="true"><i class="m4a">' + L('<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>') + '</i><i class="m4b">' + L('<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7"/>') +
-    '</i><i class="m4c">' + L('<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>') + '</i><i class="m4d">' + L('<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>') + "</i></span>";
+  return '<span class="menu4" aria-hidden="true"><i class="m4c">' + L('<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>') + '</i><i class="m4b">' + L('<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7"/>') +
+    '</i><i class="m4a">' + L('<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>') + '</i><i class="m4d">' + L('<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>') + "</i></span>";
 })();
 var ICON_MENU = licon('<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>');
+// Rækkefølge på forsiden (Christian 25/11): Guide, booking, aktiviteter, sort bog, AHbooking
 var MENU = [
-  ["akt", ICON_CAL, "Fælles aktiviteter", "Se hvad der sker, tilmeld dig eller opret en aktivitet"],
-  ["udstyr", ICON_BIKE, "Booking af udstyr", "Cykler, golfsæt og andet, der kan lånes"],
   ["guide", ICON_COMPASS, "Guide til området", "Spisesteder, strande, udflugter og andelshavernes tips"],
+  ["udstyr", ICON_BIKE, "Booking af udstyr", "Cykler, golfsæt og andet, der kan lånes"],
+  ["akt", ICON_CAL, "Fælles aktiviteter", "Se hvad der sker, tilmeld dig eller opret en aktivitet"],
   ["sortbog", ICON_BOOK, "Den sorte bog", "Er noget gået i stykker, eller mangler der noget?"],
   ["ahbooking", ICON_KEYBED, "AHbooking", "Book uger i lejlighederne, point og år-rul"]
 ];
@@ -4223,7 +4224,7 @@ var HELP_SORTBOG_DRIFT = ["sortbog-drift", "Den sorte bog – kun for Drift", [
 var HI_BACK = '<span class="hico" aria-label="tilbage-pilen">' + ICON_BACK + "</span>", HI_HOME = '<span class="hico" aria-label="huset">' + ICON_HOME + "</span>",
   HI_MENU = '<span class="hico" aria-label="menuknappen">' + ICON_MENU4 + "</span>", HI_HELP = '<span class="hico hq" aria-label="spørgsmålstegnet">?</span>';
 var HELP_MENU = ["menu", "Menuen", [
-  ["Hvad er menuen?", "<p>Menuen er appens forside med fem felter:</p><ul><li><strong>Fælles aktiviteter</strong> – se hvad der sker, tilmeld dig eller opret en aktivitet.</li><li><strong>Booking af udstyr</strong> – lån cykler og golfsæt.</li><li><strong>Guide til området</strong> – spisesteder, strande, udflugter og andelshavernes tips.</li><li><strong>Den sorte bog</strong> – meld, hvis noget er gået i stykker eller mangler.</li><li><strong>AHbooking</strong> – Andelshotellets eget bookingsystem.</li></ul><p>Tryk på et felt for at komme ind.</p>"],
+  ["Hvad er menuen?", "<p>Menuen er appens forside med fem felter:</p><ul><li><strong>Guide til området</strong> – spisesteder, strande, udflugter og andelshavernes tips.</li><li><strong>Booking af udstyr</strong> – lån cykler og golfsæt.</li><li><strong>Fælles aktiviteter</strong> – se hvad der sker, tilmeld dig eller opret en aktivitet.</li><li><strong>Den sorte bog</strong> – meld, hvis noget er gået i stykker eller mangler.</li><li><strong>AHbooking</strong> – Andelshotellets eget bookingsystem.</li></ul><p>Tryk på et felt for at komme ind.</p>"],
   ["Hvordan kommer jeg tilbage til menuen?", "<p>Tryk på knappen med de fire små farvede felter " + HI_MENU + " øverst til højre. Den virker overalt i appen.</p>"],
   ["Hvad betyder knapperne øverst til højre?", "<ul class=\"hicons\"><li>" + HI_MENU + " <span><strong>Menuen</strong> – tilbage til forsiden med de fem felter.</span></li><li>" + HI_HOME + " <span><strong>Huset</strong> – kun inde i Guiden: tilbage til Guidens forside.</span></li><li>" + HI_BACK + " <span><strong>Pilen</strong> – ét skridt tilbage, til der hvor du var før.</span></li><li>" + HI_HELP + " <span><strong>Spørgsmålstegnet</strong> – hjælp til den del, du står i.</span></li></ul>"],
   ["Hvad er AHbooking?", "<p>AHbooking er Andelshotellets eget system, hvor man booker uger i lejlighederne og ser point og år-rul. Det har sit eget login og åbner i et nyt vindue. Det er ikke en del af denne app, så spørgsmål om AHbooking skal gå til Andelshotellet.</p>"],
@@ -4257,8 +4258,8 @@ function helpTabs() {
   // Med menuen forklares knapperne under "Menuen" – det gamle svar om tilbage/hus passer ikke længere
   var st = g("start"); if (t && st) st = [st[0], st[1], st[2].filter(function (q) { return q[0] !== "Hvordan kommer jeg tilbage?"; })];
   var tabs = [["start", ICON_HELP, "Kom i gang", [st].concat(t ? [HELP_MENU] : []), ["start"]]];
-  if (t) tabs.push(["akt", ICON_CAL, "Fælles aktiviteter", [HELP_AKT], []], ["udstyr", ICON_BIKE, "Book udstyr", [HELP_BK], []]);
   tabs.push(["guide", ICON_PIN, "Guide til området", [g("find"), g("stjerner"), g("billeder"), g("avanceret")], ["find", "stjerner", "billeder", "avanceret"]]);
+  if (t) tabs.push(["udstyr", ICON_BIKE, "Book udstyr", [HELP_BK], []], ["akt", ICON_CAL, "Fælles aktiviteter", [HELP_AKT], []]);
   if (t) tabs.push(["sortbog", ICON_BOOK, "Den sorte bog", [HELP_SORTBOG].concat(lvl() >= 4 ? [HELP_SORTBOG_DRIFT] : []), []]);
   tabs.push(["andel", ICON_GEAR, "Vores andel", [g("andel")], ["andel"]]);
   return tabs.map(function (x) { x[3] = x[3].filter(Boolean); return x; });
@@ -4286,26 +4287,36 @@ var WELCOME = [
   ["heart", "Hjerte og besøgt", "Ved hvert sted er der to knapper:</p><p class=\"wpair\"><span class=\"wb wbv\">" + visitSvg(true) + "</span><span><strong>Besøgt</strong> – tryk, når I har været der. Så finder I det under <strong>Besøgt</strong> og <strong>Seneste besøg</strong>.</span></p><p class=\"wpair\"><span class=\"wb wbh\">" + heartSvg(true) + "</span><span><strong>Favorit</strong> – tryk på hjertet, så finder I det under <strong>Favoritter</strong>.</span></p><p>Begge deles med alle i jeres andel."],
   ["star", "Del jeres oplevelser", "Tryk på stjernerne for at give jeres vurdering, eller på <strong>+ Nyt sted</strong> for at lægge et sted og billeder ind. Har du brug for hjælp, så tryk på <strong>?</strong> øverst."]
 ];
+var WI_CHECK = licon('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16.5 9.5"/>'), WI_PLUS = licon('<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>'),
+  WI_X = licon('<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>'), WI_CHAT = licon('<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>'),
+  WI_BELL = licon('<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/>');
 var WLI = function (icon, t) { return '<li><span class="wli" aria-hidden="true">' + icon + "</span><span>" + t + "</span></li>"; };
 var WELCOMES = {
   app: { eyebrow: "Velkommen", last: "Kom i gang", screens: [
-    [ICON_MENU4, "Velkommen til Vores Laderita", "Her samler vi alt det, andelshaverne på Laderita de Bolnuevo har brug for i hverdagen – fx:</p><ul class=\"wlist\">" +
-      WLI(ICON_CAL, "<strong>Fælles aktiviteter</strong> – se hvad der sker, tilmeld dig eller opret en aktivitet") + WLI(ICON_BIKE, "<strong>Book udstyr</strong> – lån cykler og golfsæt") + "</ul><p>"],
-    [ICON_PIN, "Og der er mere", "</p><ul class=\"wlist\">" +
-      WLI(ICON_PIN, "<strong>Guide til området</strong> – spisesteder, strande og andelshavernes tips") + WLI(ICON_BOOK, "<strong>Den sorte bog</strong> – meld, hvis noget er gået i stykker eller mangler") +
+    [ICON_MENU4, "Velkommen til Vores Laderita", "Her samler vi alt det, andelshaverne på Laderita de Bolnuevo har brug for i hverdagen."],
+    [ICON_PIN, "Det finder du her", "</p><ul class=\"wlist\">" +
+      WLI(ICON_PIN, "<strong>Guide til området</strong> – spisesteder, strande og andelshavernes tips") + WLI(ICON_BIKE, "<strong>Book udstyr</strong> – lån cykler og golfsæt") + "</ul><p>"],
+    [ICON_CAL, "Og der er mere", "</p><ul class=\"wlist\">" +
+      WLI(ICON_CAL, "<strong>Fælles aktiviteter</strong> – se hvad der sker, tilmeld dig eller opret en aktivitet") + WLI(ICON_BOOK, "<strong>Den sorte bog</strong> – meld, hvis noget er gået i stykker eller mangler") +
       WLI(ICON_KEYBED, "<strong>AHbooking</strong> – Andelshotellets eget system til at booke uger") + "</ul><p>Tryk på et felt på menuen for at komme ind."],
     [ICON_HELP, "Sådan finder du rundt", "</p><ul class=\"wlist\">" + WLI(ICON_MENU4, "<strong>Menuen</strong> – tryk her for at komme tilbage til forsiden, uanset hvor du er.") +
       WLI('<b class="wq">?</b>', "<strong>Hjælp</strong> – tryk her, hvis du er i tvivl. Hjælpen handler altid om det, du står i.") + "</ul><p>Første gang du går ind i en af delene, får du en kort introduktion."]
   ] },
   akt: { eyebrow: "Velkommen", help: "akt", screens: [
-    [ICON_CAL, "Fælles aktiviteter", "Her kan du se, hvad der sker blandt andelshaverne – og selv sætte noget i gang.</p><ul class=\"wlist plain\"><li><span><strong>Se hvad der sker:</strong> Bladr mellem ugerne med pilene ‹ › og tryk på en dag.</span></li></ul><p>"],
-    [ICON_CAL, "Tilmeld dig – eller opret selv", "</p><ul class=\"wlist plain\"><li><span><strong>Tilmeld dig:</strong> Tryk på en aktivitet, vælg antal personer og tryk <strong>Tilmeld</strong>.</span></li><li><span><strong>Opret en aktivitet:</strong> Tryk <strong>+ Opret aktivitet</strong> – fx padel, en cykeltur eller kortspil.</span></li></ul><p>Aktiviteterne vises også på skærmen i receptionen."]] },
+    [ICON_CAL, "Fælles aktiviteter", "Her kan du se, hvad der sker blandt andelshaverne – og selv sætte noget i gang."],
+    [ICON_CAL, "Se hvad der sker", "Bladr mellem ugerne med pilene <strong>‹ ›</strong> og tryk på en dag for at se, hvad der sker."],
+    [WI_CHECK, "Tilmeld dig", "Tryk på en aktivitet, vælg antal personer og tryk <strong>Tilmeld</strong>."],
+    [WI_PLUS, "Opret en aktivitet", "Tryk <strong>+ Opret aktivitet</strong> – fx padel, en cykeltur eller kortspil.</p><p>Aktiviteterne vises også på skærmen i receptionen."]] },
   udstyr: { eyebrow: "Velkommen", help: "udstyr", screens: [
-    [ICON_BIKE, "Book udstyr", "Her kan du låne cykler og golfsæt – også hjemmefra, fx to cykler til næste uge.</p><ul class=\"wlist plain\"><li><span><strong>Se hvad der er booket:</strong> Skemaet viser dagens bookinger. Bladr mellem ugerne med pilene ‹ ›.</span></li></ul><p>"],
-    [ICON_BIKE, "Book og aflys", "</p><ul class=\"wlist plain\"><li><span><strong>Book:</strong> Tryk <strong>+ Book udstyr</strong>, vælg dag og tidsrum, og tryk på det, du vil låne. Du kan vælge flere ting på én gang.</span></li><li><span><strong>Aflys:</strong> Tryk på din booking i skemaet og tryk <strong>Aflys</strong>.</span></li></ul><p>Bookingerne er de samme som på skærmen i receptionen."]] },
+    [ICON_BIKE, "Book udstyr", "Her kan du låne cykler og golfsæt – også hjemmefra, fx to cykler til næste uge."],
+    [ICON_CAL, "Se hvad der er booket", "Skemaet viser dagens bookinger. Bladr mellem ugerne med pilene <strong>‹ ›</strong>."],
+    [WI_PLUS, "Book", "Tryk <strong>+ Book udstyr</strong>, vælg dag og tidsrum, og tryk på det, du vil låne. Du kan vælge flere ting på én gang."],
+    [WI_X, "Aflys", "Tryk på din booking i skemaet og tryk <strong>Aflys</strong>.</p><p>Bookingerne er de samme som på skærmen i receptionen."]] },
   sortbog: { eyebrow: "Velkommen", help: "sortbog", screens: [
-    [ICON_BOOK, "Den sorte bog", "Her melder du, hvis noget er gået i stykker eller mangler – i en lejlighed, på fællesområderne eller ved udstyr, der lånes ud.</p><ul class=\"wlist plain\"><li><span><strong>Meld en fejl:</strong> Tryk <strong>+ Ny sag</strong> og følg de fire trin. Et billede hjælper meget.</span></li></ul><p>"],
-    [ICON_BOOK, "Følg med i din sag", "</p><ul class=\"wlist plain\"><li><span><strong>Følg med:</strong> Du følger automatisk dine egne sager. Under <strong>Kommentarer</strong> kan du se, hvad der sker, og skrive til Drift.</span></li><li><span><strong>Få besked:</strong> Tryk <strong>Slå beskeder til</strong>, så får du besked på telefonen, når der sker noget.</span></li></ul><p>Haster det, så ring eller skriv også til Stig på +45 20 16 12 17."]] },
+    [ICON_BOOK, "Den sorte bog", "Her melder du, hvis noget er gået i stykker eller mangler – i en lejlighed, på fællesområderne eller ved udstyr, der lånes ud."],
+    [WI_PLUS, "Meld en fejl", "Tryk <strong>+ Ny sag</strong> og følg de fire trin. Et billede hjælper meget.</p><p>Haster det, så ring eller skriv også til Stig på +45 20 16 12 17."],
+    [WI_CHAT, "Følg med", "Du følger automatisk dine egne sager. Under <strong>Kommentarer</strong> kan du se, hvad der sker, og skrive til Drift."],
+    [WI_BELL, "Få besked", "Tryk <strong>Slå beskeder til</strong>, så får du besked på telefonen, når der sker noget i dine sager."]] },
   guide: { eyebrow: "", last: "Kom i gang", screens: null }
 };
 var welcomeBox = null, welcomeStep = 0, welcomeKind = "guide";
@@ -4704,7 +4715,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 264;
+var APP_VERSION = 266;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
