@@ -1348,7 +1348,7 @@ function navBtns() {
     (navStack.length ? '<button class="iconbtn" type="button" data-nav="back" aria-label="Tilbage" title="Tilbage">' + ICON_BACK + "</button>" : "");
 }
 function headerHtml() {
-  return '<header><div><p class="eyebrow">Andelshotellet · Bolnuevo</p><h1>Laderita de Bolnuevo</h1></div><span class="beta" title="Appen er stadig under udvikling">Beta</span><div class="hbtns">' + navBtns() + (ui.page === "hjaelp" ? "" : '<button class="iconbtn helpnav" type="button" data-page="hjaelp" data-helpfor="' + helpSectionOf() + '" aria-label="Hjælp" title="Hjælp">?</button>') + "</div></header>";
+  return '<header><div><p class="eyebrow">Andelshotellet · Bolnuevo</p><h1>Vores Laderita</h1></div><span class="beta" title="Appen er stadig under udvikling">Beta</span><div class="hbtns">' + navBtns() + (ui.page === "hjaelp" ? "" : '<button class="iconbtn helpnav" type="button" data-page="hjaelp" data-helpfor="' + helpSectionOf() + '" aria-label="Hjælp" title="Hjælp">?</button>') + "</div></header>";
 }
 function footerHtml() {
   // Bunden som felter side om side (ikon over tekst), så den ikke ligner linklisten på stederne
@@ -4715,7 +4715,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 268;
+var APP_VERSION = 269;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
