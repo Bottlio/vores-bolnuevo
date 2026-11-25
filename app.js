@@ -1394,6 +1394,8 @@ function renderGate() {
   html += ui.member && ui.loaded ? footerHtml() : '<footer><span><button class="linkbtn" type="button" data-page="hjaelp">Hjælp</button> · <button class="linkbtn" type="button" data-page="regler">Regler og privatliv</button></span></footer>';
   root.innerHTML = html;
   slim.innerHTML = ""; slim.classList.remove("show"); panel.hidden = true;
+  // Velkomst første gang man går ind i en del
+  if (ui.member && ["akt", "udstyr", "sortbog"].indexOf(ui.page) >= 0) { var wp = ui.page; setTimeout(function () { if (ui.page === wp) maybeWelcomeKind(wp); }, 400); }
 }
 function pageBack() { return ""; }
 /* ---------- Startmenu: det første man ser efter login (også fra QR-koden på skærmen i receptionen) ---------- */
@@ -1439,6 +1441,7 @@ function renderMenu() {
   html += ui.loaded ? footerHtml() : "";
   root.innerHTML = html;
   slim.innerHTML = ""; slim.classList.remove("show"); panel.hidden = true;
+  setTimeout(function () { if (ui.menu && !ui.page) maybeWelcomeKind("app"); }, 400);
 }
 /* ---------- Fælles aktiviteter: alle kan oprette, alle (også gæster) kan tilmelde sig ---------- */
 var aktData = null, aktLoading = false;
@@ -4220,7 +4223,7 @@ var HELP_SORTBOG_DRIFT = ["sortbog-drift", "Den sorte bog – kun for Drift", [
 var HI_BACK = '<span class="hico" aria-label="tilbage-pilen">' + ICON_BACK + "</span>", HI_HOME = '<span class="hico" aria-label="huset">' + ICON_HOME + "</span>",
   HI_MENU = '<span class="hico" aria-label="menuknappen">' + ICON_MENU4 + "</span>", HI_HELP = '<span class="hico hq" aria-label="spørgsmålstegnet">?</span>';
 var HELP_MENU = ["menu", "Menuen", [
-  ["Hvad er menuen?", "<p>Menuen er appens forside med fem felter:</p><ul><li><strong>Fælles aktiviteter</strong> – se hvad der sker, og tilmeld dig.</li><li><strong>Booking af udstyr</strong> – lån cykler og golfsæt.</li><li><strong>Guide til området</strong> – spisesteder, strande, udflugter og andelshavernes tips.</li><li><strong>Den sorte bog</strong> – meld, hvis noget er gået i stykker eller mangler.</li><li><strong>AHbooking</strong> – Andelshotellets eget bookingsystem.</li></ul><p>Tryk på et felt for at komme ind.</p>"],
+  ["Hvad er menuen?", "<p>Menuen er appens forside med fem felter:</p><ul><li><strong>Fælles aktiviteter</strong> – se hvad der sker, tilmeld dig eller opret en aktivitet.</li><li><strong>Booking af udstyr</strong> – lån cykler og golfsæt.</li><li><strong>Guide til området</strong> – spisesteder, strande, udflugter og andelshavernes tips.</li><li><strong>Den sorte bog</strong> – meld, hvis noget er gået i stykker eller mangler.</li><li><strong>AHbooking</strong> – Andelshotellets eget bookingsystem.</li></ul><p>Tryk på et felt for at komme ind.</p>"],
   ["Hvordan kommer jeg tilbage til menuen?", "<p>Tryk på knappen med de fire små farvede felter " + HI_MENU + " øverst til højre. Den virker overalt i appen.</p>"],
   ["Hvad betyder knapperne øverst til højre?", "<ul class=\"hicons\"><li>" + HI_MENU + " <span><strong>Menuen</strong> – tilbage til forsiden med de fem felter.</span></li><li>" + HI_HOME + " <span><strong>Huset</strong> – kun inde i Guiden: tilbage til Guidens forside.</span></li><li>" + HI_BACK + " <span><strong>Pilen</strong> – ét skridt tilbage, til der hvor du var før.</span></li><li>" + HI_HELP + " <span><strong>Spørgsmålstegnet</strong> – hjælp til den del, du står i.</span></li></ul>"],
   ["Hvad er AHbooking?", "<p>AHbooking er Andelshotellets eget system, hvor man booker uger i lejlighederne og ser point og år-rul. Det har sit eget login og åbner i et nyt vindue. Det er ikke en del af denne app, så spørgsmål om AHbooking skal gå til Andelshotellet.</p>"],
@@ -4273,6 +4276,7 @@ function helpPageHtml() {
   return '<section class="panel helppage"><p class="eyebrow">Hjælp</p><h2>Sådan bruger du appen</h2>' +
     '<div class="helptabs" role="tablist" style="--n:' + tabs.length + '">' + tabs.map(function (x) { return '<button type="button" role="tab" class="htab' + (x === cur ? " on" : "") + '" data-helptab="' + x[0] + '" aria-selected="' + (x === cur) + '">' + x[1] + "<span>" + esc(x[2]) + "</span></button>"; }).join("") + "</div>" +
     '<p class="hint">Tryk på et spørgsmål for at se svaret.</p>' + body +
+    ((cur[0] === "guide" || (TEST_MENU && (WELCOMES[cur[0]] || {}).screens)) ? '<p class="wagain"><button type="button" class="btn small" data-wshow="' + cur[0] + '">Vis velkomsten til ' + esc(cur[0] === "guide" ? "Guide til området" : WELCOMES[cur[0]].screens[0][1]) + " igen</button></p>" : "") +
     '<div class="helpcontact"><h3>Kan du ikke finde svaret?</h3><p>Skriv til Christian på <a href="mailto:' + HELP_MAIL + '">' + HELP_MAIL + "</a>. Skriv gerne, hvad du prøvede at gøre, og hvad der skete.</p></div></section>";
 }
 
@@ -4282,42 +4286,74 @@ var WELCOME = [
   ["heart", "Hjerte og besøgt", "Ved hvert sted er der to knapper:</p><p class=\"wpair\"><span class=\"wb wbv\">" + visitSvg(true) + "</span><span><strong>Besøgt</strong> – tryk, når I har været der. Så finder I det under <strong>Besøgt</strong> og <strong>Seneste besøg</strong>.</span></p><p class=\"wpair\"><span class=\"wb wbh\">" + heartSvg(true) + "</span><span><strong>Favorit</strong> – tryk på hjertet, så finder I det under <strong>Favoritter</strong>.</span></p><p>Begge deles med alle i jeres andel."],
   ["star", "Del jeres oplevelser", "Tryk på stjernerne for at give jeres vurdering, eller på <strong>+ Nyt sted</strong> for at lægge et sted og billeder ind. Har du brug for hjælp, så tryk på <strong>?</strong> øverst."]
 ];
-var welcomeBox = null, welcomeStep = 0;
-function welcomeKey() { return "bol_welcome_" + (ui.user ? ui.user.id : ""); }
+var WLI = function (icon, t) { return '<li><span class="wli" aria-hidden="true">' + icon + "</span><span>" + t + "</span></li>"; };
+var WELCOMES = {
+  app: { eyebrow: "Velkommen til Vores Laderita", last: "Kom i gang", screens: [
+    [ICON_MENU4, "Velkommen til Vores Laderita", "Her samler vi alt det, andelshaverne på Laderita de Bolnuevo har brug for i hverdagen:</p><ul class=\"wlist\">" +
+      WLI(ICON_CAL, "<strong>Fælles aktiviteter</strong> – se hvad der sker, tilmeld dig eller opret en aktivitet") + WLI(ICON_BIKE, "<strong>Book udstyr</strong> – lån cykler og golfsæt") +
+      WLI(ICON_PIN, "<strong>Guide til området</strong> – spisesteder, strande og andelshavernes tips") + WLI(ICON_BOOK, "<strong>Den sorte bog</strong> – meld, hvis noget er gået i stykker eller mangler") +
+      WLI(ICON_KEYBED, "<strong>AHbooking</strong> – Andelshotellets eget system til at booke uger") + "</ul><p>Tryk på et felt for at komme ind."],
+    [ICON_HELP, "Sådan finder du rundt", "</p><ul class=\"wlist\">" + WLI(ICON_MENU4, "<strong>Menuen</strong> – tryk her for at komme tilbage til forsiden, uanset hvor du er.") +
+      WLI('<b class="wq">?</b>', "<strong>Hjælp</strong> – tryk her, hvis du er i tvivl. Hjælpen handler altid om det, du står i.") + "</ul><p>Første gang du går ind i en af delene, får du en kort introduktion."]
+  ] },
+  akt: { eyebrow: "Velkommen", help: "akt", screens: [[ICON_CAL, "Fælles aktiviteter", "Her kan du se, hvad der sker blandt andelshaverne – og selv sætte noget i gang.</p><ul class=\"wlist plain\">" +
+    "<li><span><strong>Se hvad der sker:</strong> Bladr mellem ugerne med pilene ‹ › og tryk på en dag.</span></li><li><span><strong>Tilmeld dig:</strong> Tryk på en aktivitet, vælg antal personer og tryk <strong>Tilmeld</strong>.</span></li>" +
+    "<li><span><strong>Opret en aktivitet:</strong> Tryk <strong>+ Opret aktivitet</strong> – fx padel, en cykeltur eller kortspil.</span></li></ul><p>Aktiviteterne vises også på skærmen i receptionen."]] },
+  udstyr: { eyebrow: "Velkommen", help: "udstyr", screens: [[ICON_BIKE, "Book udstyr", "Her kan du låne cykler og golfsæt – også hjemmefra, fx to cykler til næste uge.</p><ul class=\"wlist plain\">" +
+    "<li><span><strong>Se hvad der er booket:</strong> Skemaet viser dagens bookinger. Bladr mellem ugerne med pilene ‹ ›.</span></li><li><span><strong>Book:</strong> Tryk <strong>+ Book udstyr</strong>, vælg dag og tidsrum, og tryk på det, du vil låne. Du kan vælge flere ting på én gang.</span></li>" +
+    "<li><span><strong>Aflys:</strong> Tryk på din booking i skemaet og tryk <strong>Aflys</strong>.</span></li></ul><p>Bookingerne er de samme som på skærmen i receptionen."]] },
+  sortbog: { eyebrow: "Velkommen", help: "sortbog", screens: [[ICON_BOOK, "Den sorte bog", "Her melder du, hvis noget er gået i stykker eller mangler – i en lejlighed, på fællesområderne eller ved udstyr, der lånes ud.</p><ul class=\"wlist plain\">" +
+    "<li><span><strong>Meld en fejl:</strong> Tryk <strong>+ Ny sag</strong> og følg de fire trin. Et billede hjælper meget.</span></li><li><span><strong>Følg med:</strong> Du følger automatisk dine egne sager. Under <strong>Kommentarer</strong> kan du se, hvad der sker, og skrive til Drift.</span></li>" +
+    "<li><span><strong>Få besked:</strong> Tryk <strong>Slå beskeder til</strong>, så får du besked på telefonen, når der sker noget.</span></li></ul><p>Haster det, så ring eller skriv også til Stig på +45 20 16 12 17."]] },
+  guide: { eyebrow: "", last: "Kom i gang", screens: null }
+};
+var welcomeBox = null, welcomeStep = 0, welcomeKind = "guide";
+function welcomeKey(kind) { return "bol_welcome_" + (kind && kind !== "guide" ? kind + "_" : "") + (ui.user ? ui.user.id : ""); }
+function welcomeScreens(kind) { return kind === "guide" ? WELCOME : WELCOMES[kind].screens; }
+// Guiden: vises første gang man er på guidens forside (huskes også på tværs af enheder, som før)
 function maybeWelcome() {
   if (!ui.user || !ui.member || ui.page || welcomeBox && !welcomeBox.hidden) return;
-  var seen = true; try { seen = !!localStorage.getItem(welcomeKey()); } catch (x) { seen = true; }
+  var seen = true; try { seen = !!localStorage.getItem(welcomeKey("guide")); } catch (x) { seen = true; }
   if (seen) { saveWelcomed(); return; }
   // Set på en anden enhed eller i en anden browser (fx hjemmeskærm-appen)? Så spring den over her også
   var uid = ui.user.id;
   sb.from("user_state").select("welcomed").eq("user_id", uid).maybeSingle().then(function (r) {
     if (!ui.user || ui.user.id !== uid) return;
-    if (r.data && r.data.welcomed) { try { localStorage.setItem(welcomeKey(), "1"); } catch (x) {} return; }
-    if (!ui.page && !(welcomeBox && !welcomeBox.hidden)) openWelcome();
+    if (r.data && r.data.welcomed) { try { localStorage.setItem(welcomeKey("guide"), "1"); } catch (x) {} return; }
+    if (!ui.page && !ui.menu && !(welcomeBox && !welcomeBox.hidden)) openWelcome("guide");
   });
+}
+// Appen (menuen) og de enkelte dele – kun med testmenuen indtil videre
+function maybeWelcomeKind(kind) {
+  if (!TEST_MENU || !ui.user || !ui.member || (welcomeBox && !welcomeBox.hidden) || ui.sbOpen || ui.sb) return;
+  var seen = true; try { seen = !!localStorage.getItem(welcomeKey(kind)); } catch (x) { seen = true; }
+  if (!seen) openWelcome(kind);
 }
 var welcomedSaved = false;
 function saveWelcomed() {
   if (welcomedSaved || !ui.user) return; welcomedSaved = true;
   sb.from("user_state").upsert({ user_id: ui.user.id, welcomed: true }, { onConflict: "user_id" }).then(function () {});
 }
-function openWelcome() {
-  welcomeStep = 0;
+function openWelcome(kind) {
+  welcomeKind = kind || (TEST_MENU ? "app" : "guide"); welcomeStep = 0;
   if (!welcomeBox) { welcomeBox = document.createElement("div"); welcomeBox.id = "welcomebox"; document.body.appendChild(welcomeBox); }
   drawWelcome(); welcomeBox.hidden = false; document.body.classList.add("modal-open");
 }
 function drawWelcome() {
-  var w = WELCOME[welcomeStep], last = welcomeStep === WELCOME.length - 1;
-  var icon = w[0] === "heart" ? visitSvg(false) + heartSvg(false) : w[0] === "star" ? CAT_ICONS.oplevelser || "★" : CAT_ICONS.alle;
+  var list = welcomeScreens(welcomeKind), cfg = WELCOMES[welcomeKind], w = list[welcomeStep], last = welcomeStep === list.length - 1, single = list.length === 1;
+  var icon = welcomeKind !== "guide" ? w[0] : w[0] === "heart" ? visitSvg(false) + heartSvg(false) : w[0] === "star" ? CAT_ICONS.oplevelser || "★" : CAT_ICONS.alle;
+  var eb = welcomeKind === "guide" ? (TEST_MENU ? "Velkommen til Guide til området" : "Velkommen til Vores Laderita") : cfg.eyebrow;
   welcomeBox.innerHTML = '<div class="rback"></div><div class="helpmodal welcome-modal" role="dialog" aria-modal="true" aria-labelledby="wb-h">' +
-    '<p class="eyebrow">Velkommen til guiden' + (me && me.name ? ", " + esc(me.name) : "") + '</p><div class="wicon" aria-hidden="true">' + icon + '</div><h2 id="wb-h">' + esc(w[1]) + "</h2><p>" + w[2] + "</p>" +
-    '<div class="wdots" aria-hidden="true">' + WELCOME.map(function (x, i) { return '<span class="' + (i === welcomeStep ? "on" : "") + '"></span>'; }).join("") + "</div>" +
-    '<div class="row"><button type="button" class="btn primary" data-wnext>' + (last ? "Kom i gang" : "Næste") + "</button>" + (last ? "" : '<button type="button" class="btn" data-wskip>Spring over</button>') + "</div></div>";
+    '<p class="eyebrow">' + esc(eb) + (me && me.name && (welcomeKind === "app" || welcomeKind === "guide") ? ", " + esc(me.name) : "") + '</p><div class="wicon" aria-hidden="true">' + icon + '</div><h2 id="wb-h">' + esc(w[1]) + "</h2><p>" + w[2] + "</p>" +
+    (single ? "" : '<div class="wdots" aria-hidden="true">' + list.map(function (x, i) { return '<span class="' + (i === welcomeStep ? "on" : "") + '"></span>'; }).join("") + "</div>") +
+    '<div class="row">' + (single
+      ? '<button type="button" class="btn primary" data-wnext>Forstået</button>' + (cfg && cfg.help ? '<button type="button" class="btn" data-whelp="' + cfg.help + '">Læs mere i hjælpen</button>' : "")
+      : '<button type="button" class="btn primary" data-wnext>' + (last ? (cfg && cfg.last) || "Kom i gang" : "Næste") + "</button>" + (last ? "" : '<button type="button" class="btn" data-wskip>Spring over</button>')) + "</div></div>";
   var b = welcomeBox.querySelector(".btn.primary"); if (b) b.focus();
 }
 function closeWelcome() {
-  try { localStorage.setItem(welcomeKey(), "1"); } catch (x) {}
-  saveWelcomed();
+  try { localStorage.setItem(welcomeKey(welcomeKind), "1"); } catch (x) {}
+  if (welcomeKind === "guide") saveWelcomed();
   if (welcomeBox) { welcomeBox.hidden = true; welcomeBox.innerHTML = ""; }
   document.body.classList.remove("modal-open");
 }
@@ -4417,6 +4453,7 @@ document.addEventListener("click", async function (e) {
   var cv = e.target.closest("[data-cvis]"); if (cv) { e.preventDefault(); carouselVis(cv); return; }
   var hq = e.target.closest("[data-help]"); if (hq) { e.preventDefault(); e.stopPropagation(); openHelpTip(hq.dataset.help); return; }
   if (e.target.closest("#show-welcome")) { openWelcome(); return; }
+  var ws = e.target.closest("[data-wshow]"); if (ws) { openWelcome(ws.dataset.wshow); return; }
   var sl = e.target.closest(".slide"), art = sl && sl.closest("article.place[data-pid]");
   if (art && !art.classList.contains("detailcard")) { openPlace(art.dataset.pid); return; }
   var t = e.target.closest("button"); if (!t) return;
@@ -4657,7 +4694,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 261;
+var APP_VERSION = 262;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -4729,7 +4766,8 @@ document.addEventListener("click", function (e) {
   }
   if (welcomeBox && !welcomeBox.hidden && welcomeBox.contains(e.target)) {
     if (e.target.closest("[data-wskip]")) { closeWelcome(); return; }
-    if (e.target.closest("[data-wnext]")) { if (welcomeStep < WELCOME.length - 1) { welcomeStep++; drawWelcome(); } else closeWelcome(); }
+    var wh = e.target.closest("[data-whelp]"); if (wh) { var ht = wh.dataset.whelp; closeWelcome(); ui.helpTab = ht; nav(function () { ui.page = "hjaelp"; }); return; }
+    if (e.target.closest("[data-wnext]")) { if (welcomeStep < welcomeScreens(welcomeKind).length - 1) { welcomeStep++; drawWelcome(); } else closeWelcome(); }
   }
 });
 document.addEventListener("keydown", function (e) {
