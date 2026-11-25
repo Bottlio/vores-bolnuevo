@@ -1380,7 +1380,7 @@ function renderGate() {
   else if (ui.page === "udstyr" && ui.member) html += udstyrPageHtml();
   else if (ui.page === "sortbog" && ui.member) html += sortbogPageHtml();
   else if (!ui.user) {
-    html += '<section class="welcome"><p class="lead">Andelshavernes egne tips til lokalområdet: spisesteder, strande, udsigtspunkter, dagsture og det praktiske. Adgang kun via invitation fra en andelshaver.</p></section>';
+    html += '<section class="welcome"><p class="lead">Andelshavernes egen app til Laderita de Bolnuevo: en guide til området med andelshavernes tips til spisesteder, strande, udsigtspunkter, dagsture og det praktiske. Booking af udstyr, fælles aktiviteter og den sorte bog er under afprøvning. Adgang kun via invitation fra en andelshaver.</p></section>';
     if (!ui.login) ui.login = { mode: "login" };
     html += loginHtml();
   } else if (!ui.member) {
@@ -2529,11 +2529,13 @@ var READ_LEJL = "901";   // lejlighed 901 = læseadgang: kan se alt, men ikke æ
 function isReadAndel(d, id) { var a = (d.andele || []).filter(function (x) { return x.id === id; })[0]; return !!a && a.lejlighed === READ_LEJL; }
 function roleName(r) { return r === "ejer" ? "Ejer" : r === "laeser" ? "Læseadgang" : "Gæst"; }
 function inviteMsg(name, email, andel, lend, readOnly) {
+  var guide = "Her finder du en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer.";
+  var test = "Booking af udstyr, fælles aktiviteter og den sorte bog (fejl og mangler) er også i appen, men de er under afprøvning og ikke i brug endnu.";
   return "Hej" + (name ? " " + name : "") + ".\n\n" + (readOnly
-    ? "Du har fået læseadgang til Vores Laderita – andelshavernes app for Laderita de Bolnuevo med bl.a. en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer. Du kan se det hele, men ikke ændre noget eller give vurderinger."
+    ? "Du har fået læseadgang til Vores Laderita – andelshavernes app for Laderita de Bolnuevo. " + guide + " Du kan se det hele, men ikke ændre noget eller give vurderinger."
     : lend
-    ? "Du er inviteret til Vores Laderita – andelshavernes app for Laderita de Bolnuevo – fordi du skal låne " + lend + ". Her finder du bl.a. en guide til området omkring hotellet med billeder og andelshavernes kommentarer."
-    : "Du er inviteret til Vores Laderita – andelshavernes app for Laderita de Bolnuevo med bl.a. en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer" + (andel ? ". Du er med som ejer af " + (/,| og /.test(andel) ? "andelene " : "andel ") + andel : "") + ".") + "\n\n" +
+    ? "Du er inviteret til Vores Laderita – andelshavernes app for Laderita de Bolnuevo – fordi du skal låne " + lend + ". " + guide
+    : "Du er inviteret til Vores Laderita – andelshavernes app for Laderita de Bolnuevo" + (andel ? ". Du er med som ejer af " + (/,| og /.test(andel) ? "andelene " : "andel ") + andel : "") + ". " + guide) + "\n\n" + test + "\n\n" +
     "Sådan kommer du i gang:\n" +
     "1. Åbn " + location.origin + location.pathname + "\n" +
     "2. Tryk på \"Første gang: opret adgangskode\".\n" +
@@ -4713,7 +4715,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 273;
+var APP_VERSION = 274;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
