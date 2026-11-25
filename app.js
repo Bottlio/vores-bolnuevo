@@ -2529,13 +2529,14 @@ var READ_LEJL = "901";   // lejlighed 901 = læseadgang: kan se alt, men ikke æ
 function isReadAndel(d, id) { var a = (d.andele || []).filter(function (x) { return x.id === id; })[0]; return !!a && a.lejlighed === READ_LEJL; }
 function roleName(r) { return r === "ejer" ? "Ejer" : r === "laeser" ? "Læseadgang" : "Gæst"; }
 function inviteMsg(name, email, andel, lend, readOnly) {
+  // Personale har en intern plads (900-xxx), som ikke er en rigtig andel – de får deres egen linje
   var guide = "Her finder du en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer.";
   var test = "Booking af udstyr, fælles aktiviteter og den sorte bog (fejl og mangler) er også i appen, men de er under afprøvning og ikke i brug endnu.";
   return "Hej" + (name ? " " + name : "") + ".\n\n" + (readOnly
     ? "Du har fået læseadgang til Vores Laderita – andelshavernes app for Laderita de Bolnuevo. " + guide + " Du kan se det hele, men ikke ændre noget eller give vurderinger."
     : lend
     ? "Du er inviteret til Vores Laderita – andelshavernes app for Laderita de Bolnuevo – fordi du skal låne " + lend + ". " + guide
-    : "Du er inviteret til Vores Laderita – andelshavernes app for Laderita de Bolnuevo" + (andel ? ". Du er med som ejer af " + (/,| og /.test(andel) ? "andelene " : "andel ") + andel : "") + ". " + guide) + "\n\n" + test + "\n\n" +
+    : "Du er inviteret til Vores Laderita – andelshavernes app for Laderita de Bolnuevo" + (andel ? (/^900-/.test(andel) ? ". Du er med som personale på hotellet" : ". Du er med som ejer af " + (/,| og /.test(andel) ? "andelene " : "andel ") + andel) : "") + ". " + guide) + "\n\n" + test + "\n\n" +
     "Sådan kommer du i gang:\n" +
     "1. Åbn " + location.origin + location.pathname + "\n" +
     "2. Tryk på \"Første gang: opret adgangskode\".\n" +
@@ -4715,7 +4716,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 274;
+var APP_VERSION = 275;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
