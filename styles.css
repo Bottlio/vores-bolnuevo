@@ -1231,3 +1231,9 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
   .pfrow textarea{flex:1 1 100%;order:-1}
   .pfrow .btn.primary{margin-left:auto;min-width:110px;justify-content:center}
 }
+/* Menuknappen med fire små farvede felter (v255) */
+.menu4{display:grid;grid-template-columns:1fr 1fr;gap:2px;width:24px;height:24px}
+.menu4 i{border-radius:3px;display:flex;align-items:center;justify-content:center}
+.menu4 svg{width:8px;height:8px}
+.menu4 .m4a{background:#b3402f}.menu4 .m4b{background:#0d5c6b}.menu4 .m4c{background:#2e7d4f}.menu4 .m4d{background:#1f2a2c}
+@media (prefers-color-scheme:dark){.menu4 .m4d{background:#4a5a5d}}

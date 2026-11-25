@@ -1341,8 +1341,11 @@ window.addEventListener("resize", function () { root.querySelectorAll(".car.fit"
 function navBtns() {
   if (!ui.member) return "";
   if (ui.menu && !ui.page) return "";
-  return (TEST_MENU ? '<button class="iconbtn" type="button" data-menu="menu" aria-label="Menu" title="Menu">' + ICON_MENU + "</button>" : "") + (navStack.length ? '<button class="iconbtn" type="button" data-nav="back" aria-label="Tilbage" title="Tilbage">' + ICON_BACK + "</button>" : "") +
-    (!atStart() ? '<button class="iconbtn" type="button" data-nav="home" aria-label="Til forsiden" title="Til forsiden">' + ICON_HOME + "</button>" : "");
+  // Rækkefølge: menu · hus (kun inde i Guiden) · tilbage · ? (hjælp tilføjes i headerHtml)
+  var inGuide = !ui.page || !TEST_MENU;
+  return (TEST_MENU ? '<button class="iconbtn menu4btn" type="button" data-menu="menu" aria-label="Til menuen" title="Til menuen">' + ICON_MENU4 + "</button>" : "") +
+    (inGuide && !atStart() ? '<button class="iconbtn" type="button" data-nav="home" aria-label="Til Guidens forside" title="Til Guidens forside">' + ICON_HOME + "</button>" : "") +
+    (navStack.length ? '<button class="iconbtn" type="button" data-nav="back" aria-label="Tilbage" title="Tilbage">' + ICON_BACK + "</button>" : "");
 }
 function headerHtml() {
   return '<header><div><p class="eyebrow">Andelshavernes guide · Costa Cálida</p><h1>Laderita de Bolnuevo</h1></div><span class="beta" title="Guiden er stadig under udvikling">Beta</span><div class="hbtns">' + navBtns() + (ui.page === "hjaelp" ? "" : '<button class="iconbtn helpnav" type="button" data-page="hjaelp" aria-label="Hjælp" title="Hjælp">?</button>') + "</div></header>";
@@ -1399,6 +1402,12 @@ var ICON_KEYBED = licon('<path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7"/><p
 var ICON_COMPASS = licon('<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>');
 var ICON_BOOK = licon('<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/><path d="M9 8h6"/>');
 var ICON_BIKE = licon('<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9 8.5 6H7M15 9l-3 7"/>');
+// Menuknappen: fire små farvede felter med hvide ikoner – samme farver som kortene på menusiden (aktiviteter, booking, guide, sort bog)
+var ICON_MENU4 = (function () {
+  var L = function (p) { return '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + "</svg>"; };
+  return '<span class="menu4" aria-hidden="true"><i class="m4a">' + L('<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>') + '</i><i class="m4b">' + L('<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7"/>') +
+    '</i><i class="m4c">' + L('<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>') + '</i><i class="m4d">' + L('<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>') + "</i></span>";
+})();
 var ICON_MENU = licon('<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>');
 var MENU = [
   ["akt", ICON_CAL, "Fælles aktiviteter", "Se hvad der sker, tilmeld dig eller opret en aktivitet"],
@@ -4572,7 +4581,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 254;
+var APP_VERSION = 255;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
