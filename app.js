@@ -47,8 +47,8 @@ try {
   else TEST_MENU = localStorage.getItem("bol_testmenu") === "1";
 } catch (x) {}
 ui.menu = TEST_MENU && ui.cat === "hjem" && !ui.place;
-var sbHash = /^sortbog(?:-([0-9a-f-]{36}))?$/.exec(h || "");
-if (sbHash && TEST_MENU) { ui.menu = false; ui.page = "sortbog"; ui.sbFocus = sbHash[1] || null; }
+var sbHash = /^sortbog(?:-([0-9a-f-]{36})(?:\/(kommentarer))?)?$/.exec(h || "");
+if (sbHash && TEST_MENU) { ui.menu = false; ui.page = "sortbog"; ui.sbFocus = sbHash[1] || null; ui.sbFocusTab = sbHash[2] ? "k" : "o"; }
 var root = document.getElementById("root");
 var newInput = document.getElementById("new-photos");
 
@@ -1777,56 +1777,68 @@ var sbData = null, sbLoading = false;
 var SB_STEPS = ["Hvor er det?", "Hvad er galt?", "Billeder", "Hvor haster det?"];
 var SB_AREAS = ["Receptionen", "Fællesrummet / spisesalen", "Køkkenet i fællesrummet", "Terrassen", "Poolområdet", "Udendørs brusere", "Trapper og gange", "Garagen / depotrum", "Haven / udearealer", "Andet"];
 var SB_PRIO = { rod: ["Rød", "Haster", "Fx vandskade, noget der er farligt, eller lejligheden kan ikke bruges"], gul: ["Gul", "Bør ordnes snart", "Fx en sprunget pære eller en maskine, der ikke virker ordentligt"], gron: ["Grøn", "Kan vente", "Fx en ridse i gulvet eller noget, der mangler at blive købt"] };
-var SB_STATUS = { ny: "Ny", igang: "I gang", bestilt: "Bestilt", loest: "Løst" };
+var SB_STATUS = { ny: "Ny", igang: "I gang", venter: "Venter på håndværker", bestilt: "Bestilt", loest: "Løst" };
+var SB_FIELDS = { sted: "stedet", hvad: "hvad det drejer sig om", beskrivelse: "beskrivelsen", prioritet: "prioriteten", billeder: "billederne" };
+var SB_EQKIND = { cykel: "Cykler", golf: "Golfsæt" };
 function lvl() { return me ? (me.level != null ? me.level : me.admin ? 5 : 2) : -1; }
 function sbMyLejl() { var a = me && andelLabels[me.andel]; return a ? String(a).split("-")[0].replace(/ m\.fl\.$/, "") : ""; }
+function sbCanWrite() { return lvl() >= 1 && !!(ui.editor || (me && me.staff)); }
+function sbLabel(andel) { return andel && andelLabels[andel] ? String(andelLabels[andel]).split("-")[0].replace(/ m\.fl\.$/, "") : ""; }
+function sbWho(name, andel) { var l = sbLabel(andel); return (name || "?") + (l ? " (" + l + ")" : ""); }
+function sbDate(x, withTime) { var d = new Date(x); return d.getDate() + ". " + DA_MON[d.getMonth()] + (withTime ? " kl. " + p2(d.getHours()) + ":" + p2(d.getMinutes()) : " " + d.getFullYear()); }
+function joinDa(a) { return a.length < 2 ? (a[0] || "") : a.slice(0, -1).join(", ") + " og " + a[a.length - 1]; }
 async function loadSb() {
   if (sbLoading) return; sbLoading = true;
   var r = await sb.from("defects").select("*").order("created_at", { ascending: false }).limit(500);
-  var list = r.data || [], ph = [];
-  if (list.length) {
-    var p = await sb.from("photos").select("path, thumb, target").eq("kind", "defect").in("target", list.map(function (d) { return d.id; }));
+  var list = r.data || [], ph = [], cm = [], fol = {}, eq = [];
+  var c = await sb.from("sb_comments").select("*").order("created_at").limit(5000); cm = c.data || [];
+  var fo = ui.user ? await sb.from("sb_follows").select("*").eq("user_id", ui.user.id) : { data: [] };
+  (fo.data || []).forEach(function (x) { fol[x.defect_id] = x; });
+  var e = await sb.from("equipment").select("id, name, kind, sort").eq("active", true).order("sort"); eq = e.data || [];
+  var targets = list.map(function (d) { return d.id; }).concat(cm.map(function (x) { return x.id; }));
+  if (targets.length) {
+    var p = await sb.from("photos").select("path, thumb, target, kind, owner").in("kind", ["defect", "sbcomment"]).in("target", targets);
     ph = p.data || [];
     ph.forEach(function (x) { if (x.thumb) THUMBS[x.path] = 1; });
     await signPhotos(ph.reduce(function (a, x) { a.push(x.path); if (x.thumb) a.push(thumbPath(x.path)); return a; }, []));
   }
   sbLoading = false;
-  sbData = { list: list, photos: ph, err: r.error ? "Den sorte bog kunne ikke hentes: " + r.error.message : "" };
+  sbData = { list: list, photos: ph, comments: cm, follows: fol, equipment: eq, err: r.error ? "Den sorte bog kunne ikke hentes: " + r.error.message : "" };
   if (ui.page === "sortbog") render();
 }
 function sbWhere(d) {
-  return d.where_kind === "lejlighed" ? "Lejl. " + (d.where_lejl || "?") : d.where_kind === "udstyr" ? "Udstyr" + (d.where_text ? ": " + d.where_text : "") : (d.where_text || "Fællesområde");
+  return d.where_kind === "lejlighed" ? "Lejl. " + (d.where_lejl || "?") : d.where_kind === "udstyr" ? (d.where_text || "Udstyr") : (d.where_text || "Fællesområde");
+}
+function sbTitle(d) { return sbWhere(d) + (d.item ? " · " + d.item : ""); }
+function sbPics(id) { return (sbData.photos || []).filter(function (x) { return x.target === id; }); }
+function sbFollowing(id) { var f = sbData && sbData.follows[id]; return !!(f && f.following); }
+function sbIsNew(d) {
+  var f = sbData.follows[d.id]; if (!f || !f.following) return false;
+  var seen = f.seen_at ? new Date(f.seen_at).getTime() : 0;
+  return sbData.comments.some(function (c) { return c.defect_id === d.id && c.author !== (ui.user && ui.user.id) && new Date(c.created_at).getTime() > seen; });
 }
 function sbCard(d) {
-  var pr = SB_PRIO[d.priority] || ["", ""], st = new Date(d.created_at), mine = ui.user && d.created_by === ui.user.id, adm = lvl() >= 4;
-  var pics = (sbData.photos || []).filter(function (x) { return x.target === d.id; });
-  var h = '<article class="sbcard ' + d.status + '" id="sb-' + esc(d.id) + '"><div class="sbtop"><span class="sbprio ' + d.priority + '">' + pr[0] + '</span><span class="sbstat ' + d.status + '">' + SB_STATUS[d.status] + (d.status === "loest" && d.solved_at ? " " + new Date(d.solved_at).toLocaleDateString("da-DK", { day: "numeric", month: "short" }) : "") + "</span>" +
-    '<span class="sbdate">' + st.getDate() + ". " + DA_MON[st.getMonth()] + " " + st.getFullYear() + "</span></div>" +
-    "<h3>" + esc(sbWhere(d)) + (d.item ? " · " + esc(d.item) : "") + "</h3>" +
-    '<p class="sbdesc">' + esc(d.description) + "</p>" +
-    (pics.length ? '<div class="qthumbs sbpics">' + pics.map(function (x) { return '<a href="' + esc(photoUrl(x.path)) + '" target="_blank" rel="noopener"><img src="' + esc(photoUrl(x.path, true)) + '" alt="Billede af problemet"></a>'; }).join("") + "</div>" : "") +
-    '<p class="sbwho">Skrevet af ' + esc(d.reporter_name || "?") + (d.andel_id && andelLabels[d.andel_id] ? " (" + esc(String(andelLabels[d.andel_id]).replace(/ m\.fl\.$/, "")) + ")" : "") + (d.source === "regneark" ? " · fra det gamle regneark" : "") + "</p>" +
-    (d.handling || d.sent_limaser ? '<p class="sbhandl"><b>Opfølgning:</b> ' + esc([d.handling, d.sent_limaser ? "sendt til Limaser" : ""].filter(Boolean).join(" · ")) + "</p>" : "");
-  if (adm) {
-    h += '<div class="sbadm" data-sbid="' + esc(d.id) + '"><label>Status<select data-sbset="status">' + Object.keys(SB_STATUS).map(function (k) { return '<option value="' + k + '"' + (k === d.status ? " selected" : "") + ">" + SB_STATUS[k] + "</option>"; }).join("") + "</select></label>" +
-      '<label>Opfølgning<input data-sbset="handling" maxlength="200" placeholder="Fx Stig har bestilt tekniker 12.11" value="' + esc(d.handling || "") + '"></label>' +
-      '<label class="akcheck"><input type="checkbox" data-sbset="sent_limaser"' + (d.sent_limaser ? " checked" : "") + "> Sendt til Limaser</label></div>";
-  }
-  if ((mine && d.status === "ny") || adm) h += '<div class="akbtns"><button class="linkbtn danger-t" type="button" data-sbdel="' + esc(d.id) + '">' + (ui.sbDelConfirm === d.id ? "Tryk igen for at slette sagen" : "Slet") + "</button></div>";
-  return h + "</article>";
+  var pr = SB_PRIO[d.priority] || ["", ""], pics = sbPics(d.id);
+  return '<article class="sbcard ' + d.status + '" id="sb-' + esc(d.id) + '" data-sbopen="' + esc(d.id) + '" tabindex="0" role="button" aria-label="Åbn sagen ' + esc(sbTitle(d)) + '"><div class="sbtop"><span class="sbprio ' + d.priority + '">' + pr[0] + '</span><span class="sbstat ' + d.status + '">' + SB_STATUS[d.status] + (d.status === "loest" && d.solved_at ? " " + new Date(d.solved_at).toLocaleDateString("da-DK", { day: "numeric", month: "short" }) : "") + "</span>" +
+    (sbIsNew(d) ? '<span class="sbnew">Nyt</span>' : "") + '<span class="sbdate">' + sbDate(d.created_at) + "</span></div>" +
+    "<h3>" + esc(sbTitle(d)) + "</h3>" +
+    '<p class="sbdesc sbclamp">' + esc(d.description) + "</p>" +
+    (pics.length ? '<div class="qthumbs sbpics">' + pics.slice(0, 3).map(function (x) { return '<img src="' + esc(photoUrl(x.path, true)) + '" alt="">'; }).join("") + "</div>" : "") +
+    '<p class="sbwho">Skrevet af ' + esc(sbWho(d.reporter_name, d.andel_id)) + (d.source === "regneark" ? " · fra det gamle regneark" : "") + "</p></article>";
 }
 function sortbogPageHtml() {
   if (!sbData) { loadSb(); return '<section class="akhead"><h2>Den sorte bog</h2></section><p class="loading">Henter…</p>'; }
-  var h = '<section class="akhead"><h2>Den sorte bog</h2>' + (ui.editor || (me && me.staff) ? '<button class="btn primary" type="button" data-sbnew="1">+ Ny sag</button>' : "") + "</section>";
+  var h = '<section class="akhead"><h2>Den sorte bog</h2>' + (sbCanWrite() ? '<button class="btn primary" type="button" data-sbnew="1">+ Ny sag</button>' : "") + "</section>";
   h += '<p class="notice">Test: sager, du opretter her, er rigtige og kan ses af alle andre testere.</p>';
   h += '<p class="hint">Er noget gået i stykker, eller mangler der noget? Opret en sag, så den ansvarlige kan følge op. Har du brug for akut hjælp, så ring eller skriv til Stig på WhatsApp/telefon +45 20 16 12 17.</p>';
   if (sbData.err) h += '<p class="error">' + esc(sbData.err) + "</p>";
-  if (lvl() >= 4) h += pushBoxHtml();
+  if (lvl() >= 4) h += pushBoxHtml("drift");
+  else if (Object.keys(sbData.follows).some(sbFollowing) && !sbPushDismissed() && !(pushState.checked && pushState.on)) h += pushBoxHtml("follow", true);
   if (lvl() >= 4) h += '<div class="row sbtools"><button class="btn small" type="button" data-sbxls="1">Hent som regneark</button><button class="btn small" type="button" data-sbsync="1"' + (ui.sbSyncing ? " disabled" : "") + ">" + (ui.sbSyncing ? "Henter fra regnearket…" : "Opdater fra det gamle regneark") + "</button></div>" + (ui.sbSyncMsg ? '<p class="hint">' + esc(ui.sbSyncMsg) + "</p>" : "");
   if (ui.sbFocus) {
-    // Åbnet fra et link i en besked: vis den rigtige fane og rul hen til sagen
-    var fd = sbData.list.filter(function (x) { return x.id === ui.sbFocus; })[0], fid = ui.sbFocus; ui.sbFocus = null;
-    if (fd) { ui.sbFilter = fd.status === "loest" ? "done" : "open"; setTimeout(function () { var el = document.getElementById("sb-" + fid); if (el) { el.classList.add("sbfocus"); el.scrollIntoView({ block: "center" }); } }, 60); }
+    // Åbnet fra et link i en besked: åbn sagen direkte
+    var fd = sbData.list.filter(function (x) { return x.id === ui.sbFocus; })[0]; ui.sbFocus = null;
+    if (fd) { ui.sbFilter = fd.status === "loest" ? "done" : "open"; setTimeout(function () { sbOpenPop(fd.id, ui.sbFocusTab || "o"); ui.sbFocusTab = null; }, 0); }
     else h += '<p class="notice">Sagen fra linket findes ikke længere.</p>';
   }
   var f = ui.sbFilter || "open", open = sbData.list.filter(function (d) { return d.status !== "loest"; }), done = sbData.list.filter(function (d) { return d.status === "loest"; });
@@ -1837,29 +1849,68 @@ function sortbogPageHtml() {
   h += '<div class="sbtabs"><button type="button" class="chip' + (f === "open" ? " on" : "") + '" data-sbf="open">Åbne sager (' + open.length + ')</button><button type="button" class="chip' + (f === "done" ? " on" : "") + '" data-sbf="done">Løste (' + done.length + ")</button>" +
     '<label class="sbsort">Sortér<select data-sbsort="1">' + [["prio", "Prioritet"], ["date", "Nyeste først"], ["old", "Ældste først"]].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === srt ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label></div>";
   h += list.length ? '<div class="sblist">' + list.map(sbCard).join("") + "</div>" : '<p class="hint">' + (f === "open" ? "Ingen åbne sager." : "Ingen løste sager endnu.") + "</p>";
+  if (ui.sbOpen) h += sbPopHtml();
   if (ui.sb) h += sbWizHtml();
   return h;
 }
+
+/* ---------- Hvor er det? (bruges både når man opretter og retter en sag) ---------- */
+function sbW() { return ui.sbEdit || ui.sb; }
+function sbEqKinds() { var k = []; (sbData && sbData.equipment || []).forEach(function (e) { if (k.indexOf(e.kind) < 0) k.push(e.kind); }); return k; }
+function sbEqShort(e) { return e.kind === "golf" ? e.name.replace(/^Golfsæt\s+/i, "").replace(/^./, function (c) { return c.toUpperCase(); }) : e.name; }
+function sbWhereHtml(w, compact) {
+  var opt = function (k, icon, t, s) { return '<button type="button" class="wizopt' + (compact ? " compact" : "") + (w.kind === k ? " on" : "") + '" data-sbkind="' + k + '">' + icon + "<span><strong>" + t + "</strong>" + (compact ? "" : "<small>" + s + "</small>") + "</span></button>"; };
+  var h = '<div class="wizbig' + (compact ? " sbkinds" : "") + '">' + opt("lejlighed", ICON_HOME, "I en lejlighed", "Fx noget i køkkenet, badeværelset eller soveværelset") +
+    opt("faelles", ICON_PIN, compact ? "Fællesområde" : "På et fællesområde", "Fx receptionen, poolen, terrassen eller fællesrummet") +
+    opt("udstyr", ICON_BIKE, compact ? "Udstyr" : "Udstyr, der lånes ud", "Fx en cykel eller et golfsæt") + "</div>";
+  if (w.kind === "lejlighed") h += '<label>Hvilken lejlighed?<input data-sbf2="lejl" inputmode="numeric" maxlength="4" placeholder="Fx 203" value="' + esc(w.lejl || "") + '"></label>';
+  if (w.kind === "faelles") h += '<p class="hint">Hvor?</p><div class="sbareas">' + SB_AREAS.map(function (a) { return '<button type="button" class="chip' + (w.area === a ? " on" : "") + '" data-sbarea="' + esc(a) + '">' + esc(a) + "</button>"; }).join("") + "</div>" +
+    (w.area === "Andet" ? '<label>Skriv hvor<input data-sbf2="areaTxt" maxlength="80" placeholder="Fx parkeringspladsen" value="' + esc(w.areaTxt || "") + '"></label>' : "");
+  if (w.kind === "udstyr") {
+    var kinds = sbEqKinds();
+    h += '<p class="hint">Hvilken slags?</p><div class="sbareas">' + kinds.map(function (k) { return '<button type="button" class="chip' + (w.eqKind === k ? " on" : "") + '" data-sbeqk="' + esc(k) + '">' + esc(SB_EQKIND[k] || k.replace(/^./, function (c) { return c.toUpperCase(); })) + "</button>"; }).join("") +
+      '<button type="button" class="chip' + (w.eqKind === "andet" ? " on" : "") + '" data-sbeqk="andet">Andet udstyr</button></div>';
+    if (w.eqKind && w.eqKind !== "andet") h += '<p class="hint">Hvilken?</p><div class="sbareas">' + sbData.equipment.filter(function (e) { return e.kind === w.eqKind; }).map(function (e) { return '<button type="button" class="chip' + (w.eqId === e.id ? " on" : "") + '" data-sbeq="' + esc(e.id) + '">' + esc(sbEqShort(e)) + "</button>"; }).join("") + "</div>";
+    if (w.eqKind === "andet") h += '<label>Hvilket udstyr?<input data-sbf2="equip" maxlength="80" placeholder="Fx motionscyklen" value="' + esc(w.equip || "") + '"></label>';
+  }
+  return h;
+}
+function sbWhereCheck(w) {
+  if (!w.kind) return "Vælg hvor problemet er.";
+  if (w.kind === "lejlighed" && !/^\d{3,4}$/.test((w.lejl || "").trim())) return "Skriv lejlighedens nummer, fx 203.";
+  if (w.kind === "faelles" && !w.area) return "Vælg hvor på fællesområdet.";
+  if (w.kind === "faelles" && w.area === "Andet" && !(w.areaTxt || "").trim()) return "Skriv hvor det er.";
+  if (w.kind === "udstyr" && !w.eqKind) return "Vælg hvilken slags udstyr.";
+  if (w.kind === "udstyr" && w.eqKind !== "andet" && !w.eqId) return "Vælg hvilket udstyr det drejer sig om.";
+  if (w.kind === "udstyr" && w.eqKind === "andet" && !(w.equip || "").trim()) return "Skriv hvilket udstyr det drejer sig om.";
+  return "";
+}
+function sbWhereRow(w) {
+  var eq = w.kind === "udstyr" && w.eqKind !== "andet" ? sbData.equipment.filter(function (e) { return e.id === w.eqId; })[0] : null;
+  return { where_kind: w.kind, where_lejl: w.kind === "lejlighed" ? w.lejl.trim() : null,
+    where_text: w.kind === "faelles" ? (w.area === "Andet" ? w.areaTxt.trim() : w.area) : w.kind === "udstyr" ? (eq ? eq.name : w.equip.trim()) : null,
+    equipment_id: eq ? eq.id : null };
+}
+
+/* ---------- Opret sag (guide i 4 trin + kvittering) ---------- */
 function sbWizHtml() {
   var w = ui.sb, step = w.step, body = "", next = '<button type="button" class="btn primary" data-sbw="next">Næste</button>';
+  if (w.doneId) {
+    return '<div class="wizwrap"><div class="rback"></div><div class="helpmodal wiz" role="dialog" aria-modal="true"><button type="button" class="hclose" data-sbw="close" aria-label="Luk">×</button>' +
+      '<h2>Sagen er oprettet. Tak!</h2><p>Du følger sagen og kan se, hvad der sker med den, under fanen Kommentarer.</p>' + sbNudgeHtml("Vil du have besked på telefonen, når der sker noget i sagen?") +
+      '<div class="row wizfoot"><button type="button" class="btn" data-sbw="close">Luk</button><button type="button" class="btn primary" data-sbw="see">Se sagen</button></div></div></div>';
+  }
   if (step === 1) {
-    body = '<div class="wizbig">' +
-      '<button type="button" class="wizopt' + (w.kind === "lejlighed" ? " on" : "") + '" data-sbkind="lejlighed">' + ICON_HOME + '<span><strong>I en lejlighed</strong><small>Fx noget i køkkenet, badeværelset eller soveværelset</small></span></button>' +
-      '<button type="button" class="wizopt' + (w.kind === "faelles" ? " on" : "") + '" data-sbkind="faelles">' + ICON_PIN + '<span><strong>På et fællesområde</strong><small>Fx receptionen, poolen, terrassen eller fællesrummet</small></span></button>' +
-      '<button type="button" class="wizopt' + (w.kind === "udstyr" ? " on" : "") + '" data-sbkind="udstyr">' + ICON_BIKE + '<span><strong>Udstyr, der lånes ud</strong><small>Fx en cykel, et golfsæt eller en motionscykel</small></span></button></div>';
-    if (w.kind === "lejlighed") body += '<label>Hvilken lejlighed?<input data-sbf2="lejl" inputmode="numeric" maxlength="4" placeholder="Fx 203" value="' + esc(w.lejl || "") + '"></label>';
-    if (w.kind === "faelles") body += '<p class="hint">Hvor?</p><div class="sbareas">' + SB_AREAS.map(function (a) { return '<button type="button" class="chip' + (w.area === a ? " on" : "") + '" data-sbarea="' + esc(a) + '">' + esc(a) + "</button>"; }).join("") + "</div>" +
-      (w.area === "Andet" ? '<label>Skriv hvor<input data-sbf2="areaTxt" maxlength="80" placeholder="Fx parkeringspladsen" value="' + esc(w.areaTxt || "") + '"></label>' : "");
-    if (w.kind === "udstyr") body += '<label>Hvilket udstyr?<input data-sbf2="equip" maxlength="80" placeholder="Fx Cykel 3 eller Golfsæt dame 1" value="' + esc(w.equip || "") + '"></label>';
+    body = sbWhereHtml(w);
   } else if (step === 2) {
     body = '<label>Hvad drejer det sig om?<input data-sbf2="item" maxlength="80" placeholder="Fx opvaskemaskinen, dørhåndtaget, håndklæder" value="' + esc(w.item || "") + '"></label>' +
       '<label>Beskriv problemet<textarea data-sbf2="desc" maxlength="1500" placeholder="Hvad er der galt? Hvornår opdagede du det? Er der noget, du allerede har prøvet?">' + esc(w.desc || "") + "</textarea></label>" +
       '<p class="hint">Skriv så meget, at den, der skal ordne det, kan forstå problemet uden at ringe til dig.</p>';
   } else if (step === 3) {
     body = '<p class="hint">Et billede gør det meget lettere at se, hvad der er galt. Du kan tage et nu eller vælge nogle, du allerede har.</p>' +
-      (w.files.length ? '<div class="qthumbs">' + w.files.map(function (x, i) { return '<div class="qthumb"><img src="' + esc(x.url) + '" alt=""><button type="button" class="sbrm" data-sbrm="' + i + '" aria-label="Fjern billede">×</button></div>'; }).join("") + "</div>" : "") +
-      '<div class="wizbig"><button type="button" class="wizopt" data-sbpic="cam">' + ICON_CAM + '<span><strong>Tag et billede</strong><small>Med telefonens kamera</small></span></button>' +
-      '<button type="button" class="wizopt" data-sbpic="pick">' + ICON_CAM + '<span><strong>Vælg billeder</strong><small>Fra telefonen eller computeren</small></span></button></div>' +
+      sbFilesHtml(w.files, "wiz") +
+      '<div class="wizbig"><button type="button" class="wizopt" data-sbpic="cam" data-sbfor="wiz">' + ICON_CAM + '<span><strong>Tag et billede</strong><small>Med telefonens kamera</small></span></button>' +
+      '<button type="button" class="wizopt" data-sbpic="pick" data-sbfor="wiz">' + ICON_CAM + '<span><strong>Vælg billeder</strong><small>Fra telefonen eller computeren</small></span></button></div>' +
       (w.files.length ? "" : '<p class="hint">Har du ikke et billede, så tryk bare Næste.</p>');
   } else {
     body = '<div class="wizbig">' + Object.keys(SB_PRIO).map(function (k) { var p = SB_PRIO[k];
@@ -1875,15 +1926,12 @@ function sbWizHtml() {
     (w.err ? '<p class="err" role="alert">' + esc(w.err) + "</p>" : "") +
     '<div class="row wizfoot">' + (step > 1 ? '<button type="button" class="btn" data-sbw="back">Tilbage</button>' : '<button type="button" class="btn" data-sbw="close">Annuller</button>') + next + "</div></div></div>";
 }
-function sbCheck(step) {
-  var w = ui.sb;
-  if (step === 1) {
-    if (!w.kind) return "Vælg hvor problemet er.";
-    if (w.kind === "lejlighed" && !/^\d{3,4}$/.test((w.lejl || "").trim())) return "Skriv lejlighedens nummer, fx 203.";
-    if (w.kind === "faelles" && !w.area) return "Vælg hvor på fællesområdet.";
-    if (w.kind === "faelles" && w.area === "Andet" && !(w.areaTxt || "").trim()) return "Skriv hvor det er.";
-    if (w.kind === "udstyr" && !(w.equip || "").trim()) return "Skriv hvilket udstyr det drejer sig om.";
-  }
+function sbFilesHtml(files, forWhat) {
+  return files.length ? '<div class="qthumbs">' + files.map(function (x, i) { return '<div class="qthumb"><img src="' + esc(x.url) + '" alt=""><button type="button" class="sbrm" data-sbrm="' + i + '" data-sbfor="' + forWhat + '" aria-label="Fjern billede">×</button></div>'; }).join("") + "</div>" : "";
+}
+function sbCheck(step, w) {
+  w = w || ui.sb;
+  if (step === 1) return sbWhereCheck(w);
   if (step === 2) {
     if (!(w.item || "").trim()) return "Skriv hvad det drejer sig om, fx opvaskemaskinen.";
     if ((w.desc || "").trim().length < 10) return "Beskriv problemet lidt mere – mindst en hel sætning.";
@@ -1896,6 +1944,7 @@ function sbClose() { if (ui.sb) ui.sb.files.forEach(function (x) { try { URL.rev
 function sbNav(dir) {
   var w = ui.sb; if (!w || w.busy) return;
   if (dir === "close") { sbClose(); return; }
+  if (dir === "see") { var id = w.doneId; ui.sb = null; sbOpenPop(id, "o"); return; }
   if (dir === "back") { w.err = ""; w.step = Math.max(1, w.step - 1); render(); return; }
   var e = sbCheck(w.step); w.err = e; if (e) { render(); return; }
   if (dir === "next") { w.step = Math.min(4, w.step + 1); render(); return; }
@@ -1904,10 +1953,7 @@ function sbNav(dir) {
 async function sbSave() {
   var w = ui.sb; w.busy = true; w.err = ""; render();
   try {
-    var row = { created_by: ui.user.id, andel_id: me.andel, reporter_name: (me && me.name) || "", where_kind: w.kind,
-      where_lejl: w.kind === "lejlighed" ? w.lejl.trim() : null,
-      where_text: w.kind === "faelles" ? (w.area === "Andet" ? w.areaTxt.trim() : w.area) : w.kind === "udstyr" ? w.equip.trim() : null,
-      item: w.item.trim(), description: w.desc.trim(), priority: w.prio };
+    var row = Object.assign({ created_by: ui.user.id, andel_id: me.andel, reporter_name: (me && me.name) || "", item: w.item.trim(), description: w.desc.trim(), priority: w.prio }, sbWhereRow(w));
     var r = await sb.from("defects").insert(row).select("id").single();
     if (r.error) throw new Error("Sagen blev ikke gemt: " + r.error.message);
     if (w.files.length) {
@@ -1915,10 +1961,257 @@ async function sbSave() {
       await addPhotoRows("defect", r.data.id, paths.map(function (p) { return { path: p, vis: "alle" }; }));
     }
     try { sb.functions.invoke("sortbog-notify", { body: { action: "new", id: r.data.id } }); } catch (e) {}
-    sbClose(); ui.sbFilter = "open"; ui.msg = "Sagen er oprettet. Tak!"; sbData = null; render(); window.scrollTo({ top: 0 });
+    w.files.forEach(function (x) { try { URL.revokeObjectURL(x.url); } catch (e) {} });
+    ui.sb = { doneId: r.data.id, files: [] }; ui.sbFilter = "open"; sbData = null; render();
   } catch (x) { w.busy = false; w.prog = ""; w.err = x.message || "Det lykkedes ikke at gemme sagen."; render(); }
 }
-/* Push-beskeder på telefonen: drift og administrator kan få besked, når der oprettes en ny sag */
+
+/* ---------- En sag åbner i en popup med tre faner ---------- */
+function sbOpenPop(id, tab, replace) {
+  var was = !!ui.sbOpen;
+  ui.sbOpen = id; ui.sbTab = tab || "o"; ui.sbEdit = null; ui.sbDlg = null; ui.sbC = { text: "", files: [] }; ui.sbCEdit = null; ui.sbHistQ = ""; ui.sbDelConfirm = null;
+  try { if (was || replace) history.replaceState({ sbpop: 1 }, "", location.href); else history.pushState({ sbpop: 1 }, "", location.href); } catch (x) {}
+  document.body.classList.add("modal-open");
+  sbSeen(id); render();
+}
+function sbClosePop(fromBack) {
+  if (!fromBack && history.state && history.state.sbpop) { try { history.back(); return; } catch (x) {} }
+  ui.sbOpen = null; ui.sbEdit = null; ui.sbDlg = null; ui.sbNudge = false;
+  if (!ui.sb) document.body.classList.remove("modal-open");
+  render();
+}
+async function sbSeen(id) {
+  var f = sbData && sbData.follows[id]; if (!f || !f.following || !ui.user) return;
+  f.seen_at = new Date().toISOString();
+  await sb.from("sb_follows").update({ seen_at: f.seen_at }).eq("user_id", ui.user.id).eq("defect_id", id);
+}
+function sbHist(d) {
+  var q = (ui.sbHistQ || "").trim().toLowerCase(), all = sbData.list, res;
+  var txt = function (x) { return [x.where_lejl ? "lejl " + x.where_lejl : "", x.where_text, x.item, q ? x.description : ""].join(" ").toLowerCase(); };
+  if (q) res = all.filter(function (x) { return txt(x).indexOf(q) >= 0; });
+  else if (d.where_kind === "lejlighed" && d.where_lejl) {
+    var re = new RegExp("(^|\\D)" + d.where_lejl + "(\\D|$)");
+    res = all.filter(function (x) { return x.where_lejl === d.where_lejl || re.test((x.where_text || "") + " " + (x.item || "")); });
+  } else if (d.equipment_id) res = all.filter(function (x) { return x.equipment_id === d.equipment_id || (x.where_text || "").toLowerCase() === (d.where_text || "").toLowerCase(); });
+  else {
+    var STOP = ["ved", "til", "med", "den", "det", "der", "og", "i", "på", "fra", "imellem", "mellem", "generelt", "ikke", "angivet", "andet"];
+    var words = ((d.where_text || "") + " " + (d.item || "")).toLowerCase().split(/[^a-zæøå0-9]+/).filter(function (w) { return w.length >= 4 && STOP.indexOf(w) < 0; })
+      .map(function (w) { return w.length > 5 ? w.slice(0, 5) : w; });
+    res = words.length ? all.filter(function (x) { var t = ((x.where_text || "") + " " + (x.item || "")).toLowerCase(); return words.some(function (w) { return t.indexOf(w) >= 0; }); }) : [d];
+  }
+  if (res.indexOf(d) < 0 && !q) res.push(d);
+  return res.sort(function (a, b) { return String(b.created_at).localeCompare(String(a.created_at)); });
+}
+function sbNudgeHtml(q) {
+  if (!pushSupported()) return isIOS && !isApp ? '<p class="sbnudge">' + esc(q) + ' På iPhone skal appen først lægges på hjemmeskærmen: tryk på Del-knappen i Safari → "Føj til hjemmeskærm", og åbn appen derfra.</p>' : "";
+  if (!pushState.checked) { pushCheck(); return ""; }
+  if (pushState.on || Notification.permission === "denied") return pushState.msg && pushState.on ? '<p class="hint">' + esc(pushState.msg) + "</p>" : "";
+  return '<p class="sbnudge">' + esc(q) + ' <button class="btn small primary" type="button" data-push="on"' + (pushState.busy ? " disabled" : "") + ">" + (pushState.busy ? "Slår til…" : "Slå beskeder til") + "</button></p>" + (pushState.msg ? '<p class="hint">' + esc(pushState.msg) + "</p>" : "");
+}
+function sbPopHtml() {
+  var d = sbData.list.filter(function (x) { return x.id === ui.sbOpen; })[0];
+  if (!d) return '<div class="wizwrap"><div class="rback" data-sbclose="1"></div><section class="helpmodal sbpop" role="dialog" aria-modal="true"><div class="phead"><button type="button" class="hclose" data-sbclose="1" aria-label="Luk">×</button><h2>Sagen findes ikke længere</h2></div></section></div>';
+  var adm = lvl() >= 4, mine = ui.user && d.created_by === ui.user.id, fol = sbFollowing(d.id), pr = SB_PRIO[d.priority] || ["", "", ""];
+  var B = function (cls, attr, txt) { return '<button type="button" class="btn' + (cls ? " " + cls : "") + '" ' + attr + (ui.sbBusy ? " disabled" : "") + ">" + txt + "</button>"; };
+  var folBtn = fol ? B("", 'data-sbfol="0" aria-pressed="true"', "✓ Følger") : B("", 'data-sbfol="1"', "Følg");
+  var acts = "", links = [];
+  if (adm) {
+    var st = d.status;
+    if (st === "ny") acts = B("primary", 'data-sbst="igang"', "▶ Påbegynd") + B("", 'data-sbdlg="venter"', "Håndværker skal tilkaldes") + B("", 'data-sbdlg="loest"', "✓ Færdigmeld");
+    else if (st === "igang") acts = B("primary", 'data-sbdlg="loest"', "✓ Færdigmeld") + B("", 'data-sbdlg="venter"', "Håndværker skal tilkaldes");
+    else if (st === "venter") acts = B("primary", 'data-sbst="bestilt"', "Håndværker er bestilt") + B("", 'data-sbdlg="loest"', "✓ Færdigmeld");
+    else if (st === "bestilt") acts = B("primary", 'data-sbdlg="loest"', "✓ Færdigmeld");
+    else acts = B("", 'data-sbst="igang"', "Genåbn sagen");
+    links.push(fol ? '<button type="button" class="linkbtn" data-sbfol="0">Følg ikke længere</button>' : '<button type="button" class="linkbtn" data-sbfol="1">Følg</button>');
+    links.push('<button type="button" class="linkbtn" data-sbedit="1">Ret sagen</button>');
+    if (!d.sent_limaser) links.push('<button type="button" class="linkbtn" data-sblim="1">Sendt til Limaser</button>');
+    links.push('<button type="button" class="linkbtn danger-t" data-sbdel="' + esc(d.id) + '">' + (ui.sbDelConfirm === d.id ? "Tryk igen for at slette sagen" : "Slet") + "</button>");
+  } else {
+    acts = folBtn + (mine && d.status !== "loest" ? B("", 'data-sbedit="1"', "✎ Ret sagen") : "");
+    if (mine && d.status === "ny") links.push('<button type="button" class="linkbtn danger-t" data-sbdel="' + esc(d.id) + '">' + (ui.sbDelConfirm === d.id ? "Tryk igen for at slette sagen" : "Slet") + "</button>");
+  }
+  var nC = sbData.comments.filter(function (c) { return c.defect_id === d.id && c.kind === "comment"; }).length;
+  var hist = sbHist(d), nH = hist.filter(function (x) { return x !== d; }).length;
+  var histLong = d.where_kind === "lejlighed" ? "Tidligere sager i lejl. " + esc(d.where_lejl) : d.equipment_id ? "Tidligere sager om " + esc(d.where_text) : "Tidligere sager samme sted";
+  var tab = ui.sbTab || "o";
+  var T = function (k, long, short, n) { return '<button type="button" role="tab" class="' + (tab === k ? "on" : "") + '" data-sbtab="' + k + '" aria-selected="' + (tab === k) + '"><span class="tlong">' + long + '</span><span class="tshort">' + short + "</span>" + (n ? '<span class="cnt">' + n + "</span>" : "") + "</button>"; };
+  var h = '<div class="wizwrap"><div class="rback" data-sbclose="1"></div><section class="helpmodal sbpop" role="dialog" aria-modal="true" aria-label="' + esc(sbTitle(d)) + '">' +
+    '<div class="phead"><button type="button" class="hclose" data-sbclose="1" aria-label="Luk">×</button>' +
+    '<div class="sbtop"><span class="sbprio ' + d.priority + '">' + pr[0] + '</span><span class="sbstat ' + d.status + '">' + SB_STATUS[d.status] + "</span></div>" +
+    "<h2>" + esc(sbTitle(d)) + '</h2><p class="psub">' + (d.source === "regneark" ? "Fra det gamle regneark · skrevet af " + esc(d.reporter_name || "?") + " · " + sbDate(d.created_at) : "Meldt af " + esc(sbWho(d.reporter_name, d.andel_id)) + " · " + sbDate(d.created_at) + " kl. " + p2(new Date(d.created_at).getHours()) + ":" + p2(new Date(d.created_at).getMinutes())) + "</p>" +
+    '<div class="pacts">' + acts + (links.length ? '<span class="plinks">' + links.join("") + "</span>" : "") + "</div>" +
+    (ui.sbNudge ? sbNudgeHtml("Vil du have besked på telefonen, når der sker noget i sagen?") : "") +
+    (ui.sbMsg ? '<p class="hint" role="status">' + esc(ui.sbMsg) + "</p>" : "") + "</div>" +
+    '<div class="ptabs" role="tablist">' + T("o", "Oplysninger", "Oplysninger", 0) + T("k", "Kommentarer", "Kommentarer", nC) + T("h", histLong, "Tidligere", nH) + "</div>";
+  if (tab === "o") h += '<div class="pbody">' + (ui.sbEdit ? sbEditHtml(d) : sbInfoHtml(d)) + "</div>";
+  else if (tab === "k") h += '<div class="pbody" id="sbthread">' + sbThreadHtml(d) + "</div>" + sbComposerHtml(d);
+  else h += '<div class="pbody">' + sbHistHtml(d, hist) + "</div>";
+  h += "</section></div>";
+  if (ui.sbDlg) h += sbDlgHtml(d);
+  return h;
+}
+function sbInfoHtml(d) {
+  var pr = SB_PRIO[d.priority] || ["", "", ""], pics = sbPics(d.id);
+  var ed = sbData.comments.filter(function (c) { return c.defect_id === d.id && c.kind === "edit"; }).pop();
+  var rows = [["Hvor", d.where_kind === "lejlighed" ? "Lejlighed " + (d.where_lejl || "?") : d.where_kind === "udstyr" ? "Udstyr: " + (d.where_text || "") : (d.where_text || "Fællesområde")],
+    ["Hvad", d.item || "–"], ["Prioritet", pr[0] + " – " + pr[1].toLowerCase()], ["Status", SB_STATUS[d.status] + (d.status === "loest" && d.solved_at ? " " + sbDate(d.solved_at + "T12:00") : "")],
+    ["Meldt af", d.source === "regneark" ? (d.reporter_name || "?") + " (fra det gamle regneark)" : sbWho(d.reporter_name, d.andel_id)], ["Oprettet", sbDate(d.created_at)]];
+  if (ed) rows.push(["Rettet", sbDate(ed.created_at) + " af " + (ed.author_name || "?")]);
+  return '<dl class="sbdl">' + rows.map(function (r) { return "<dt>" + r[0] + "</dt><dd>" + esc(r[1]) + "</dd>"; }).join("") + "</dl>" +
+    '<p class="sbh">Beskrivelse</p><p class="sbdesc">' + esc(d.description) + "</p>" +
+    (pics.length ? '<p class="sbh">Billeder</p><div class="sbbig">' + pics.map(function (x) { return '<a href="' + esc(photoUrl(x.path)) + '" target="_blank" rel="noopener"><img src="' + esc(photoUrl(x.path, true)) + '" alt="Billede af problemet"></a>'; }).join("") + "</div>" : "");
+}
+function sbEditHtml(d) {
+  var w = ui.sbEdit, pics = sbPics(d.id);
+  return '<p class="sbh">Ret sagen</p>' + sbWhereHtml(w, true) +
+    '<label>Hvad drejer det sig om?<input data-sbf2="item" maxlength="80" value="' + esc(w.item || "") + '"></label>' +
+    '<label>Beskriv problemet<textarea data-sbf2="desc" maxlength="1500">' + esc(w.desc || "") + "</textarea></label>" +
+    '<p class="hint">Hvor haster det?</p><div class="sbareas">' + Object.keys(SB_PRIO).map(function (k) { return '<button type="button" class="chip sbprchip' + (w.prio === k ? " on" : "") + '" data-sbprio="' + k + '"><span class="sbdot ' + k + '"></span>' + SB_PRIO[k][0] + " – " + SB_PRIO[k][1].toLowerCase() + "</button>"; }).join("") + "</div>" +
+    '<p class="hint">Billeder</p><div class="qthumbs">' + pics.map(function (x) { var gone = w.rm.indexOf(x.path) >= 0; return '<div class="qthumb' + (gone ? " sbgone" : "") + '"><img src="' + esc(photoUrl(x.path, true)) + '" alt=""><button type="button" class="sbrm" data-sbrmold="' + esc(x.path) + '" aria-label="' + (gone ? "Behold billedet" : "Fjern billede") + '">' + (gone ? "↺" : "×") + "</button></div>"; }).join("") + "</div>" +
+    sbFilesHtml(w.files, "edit") +
+    '<div class="row"><button type="button" class="btn small" data-sbpic="cam" data-sbfor="edit">Tag et billede</button><button type="button" class="btn small" data-sbpic="pick" data-sbfor="edit">Vælg billeder</button></div>' +
+    (w.err ? '<p class="err" role="alert">' + esc(w.err) + "</p>" : "") +
+    '<p class="hint">Din rettelse bliver skrevet i Kommentarer, så andre kan se, hvad der er ændret.</p>' +
+    '<div class="row wizfoot"><button type="button" class="btn" data-sbedit="0">Annuller</button><button type="button" class="btn primary" data-sbesave="1"' + (w.busy ? " disabled" : "") + ">" + (w.busy ? "Gemmer…" : "Gem rettelsen") + "</button></div>";
+}
+function sbThreadHtml(d) {
+  var h = "", myId = ui.user && ui.user.id, adm = lvl() >= 4;
+  if (d.handling || (d.source === "regneark" && d.sent_limaser)) h += '<div class="sbc sbold"><p class="who"><b>Opfølgning fra det gamle regneark</b></p><p>' + esc([d.handling, d.sent_limaser ? "Sendt til Limaser" : ""].filter(Boolean).join(" · ")) + "</p></div>";
+  h += '<p class="sbev">' + (d.source === "regneark" ? "Sagen kommer fra det gamle regneark · " + sbDate(d.created_at) : esc(sbWho(d.reporter_name, d.andel_id)) + " oprettede sagen · " + sbDate(d.created_at, true)) + "</p>";
+  sbData.comments.filter(function (c) { return c.defect_id === d.id; }).forEach(function (c) {
+    var who = esc(sbWho(c.author_name, c.andel_id)), when = sbDate(c.created_at, true), pics = sbPics(c.id);
+    var picHtml = pics.length ? '<div class="sbbig small">' + pics.map(function (x) { return '<a href="' + esc(photoUrl(x.path)) + '" target="_blank" rel="noopener"><img src="' + esc(photoUrl(x.path, true)) + '" alt=""></a>'; }).join("") + "</div>" : "";
+    if (c.kind === "comment") {
+      var fresh = Date.now() - new Date(c.created_at).getTime() < 15 * 60 * 1000, own = c.author === myId;
+      var tools = [];
+      if (own && fresh) tools.push('<button type="button" class="linkbtn" data-sbcedit="' + esc(c.id) + '">Ret</button>');
+      if ((own && fresh) || adm) tools.push('<button type="button" class="linkbtn danger-t" data-sbcdel="' + esc(c.id) + '">' + (ui.sbCDelConfirm === c.id ? "Tryk igen for at slette" : "Slet") + "</button>");
+      if (ui.sbCEdit && ui.sbCEdit.id === c.id) {
+        h += '<div class="sbc"><p class="who"><b>' + who + "</b> · " + when + '</p><textarea data-sbcetext="1" maxlength="2000">' + esc(ui.sbCEdit.text) + '</textarea><div class="row"><button type="button" class="btn small" data-sbcedit="">Annuller</button><button type="button" class="btn small primary" data-sbcesave="1">Gem</button></div></div>';
+      } else h += '<div class="sbc"><p class="who"><b>' + who + "</b> · " + when + (c.edited_at ? " · rettet" : "") + (tools.length ? '<span class="sbctools">' + tools.join("") + "</span>" : "") + "</p><p>" + esc(c.body) + "</p>" + picHtml + "</div>";
+    } else if (c.kind === "status" && c.body) {
+      var head = c.status === "loest" ? who + " færdigmeldte sagen" : c.status === "venter" ? who + ": Håndværker skal tilkaldes" : who + " satte sagen til «" + esc(SB_STATUS[c.status] || c.status) + "»";
+      h += '<div class="sbc sbstatus"><p class="who"><b>' + head + "</b> · " + when + "</p><p>" + esc(c.body) + "</p>" + picHtml + "</div>";
+    } else if (c.kind === "status") h += '<p class="sbev">' + who + " satte sagen til «" + esc(SB_STATUS[c.status] || c.status) + "» · " + when + "</p>";
+    else if (c.kind === "edit") h += '<p class="sbev">' + who + " rettede " + esc(joinDa((c.fields || []).map(function (f) { return SB_FIELDS[f] || f; }))) + (c.red ? " – sagen er nu rød" : "") + " · " + when + "</p>";
+    else if (c.kind === "limaser") h += '<p class="sbev">' + who + " markerede sagen som sendt til Limaser · " + when + "</p>";
+  });
+  return h;
+}
+function sbComposerHtml(d) {
+  if (!sbCanWrite()) return '<div class="pfoot"><p class="hint">Du kan læse kommentarerne, men ikke skrive.</p></div>';
+  var c = ui.sbC || { text: "", files: [] };
+  return '<div class="pfoot">' + (c.err ? '<p class="err">' + esc(c.err) + "</p>" : "") + sbFilesHtml(c.files, "cmt") +
+    '<div class="pfrow"><button type="button" class="btn" data-sbpic="pick" data-sbfor="cmt" aria-label="Tilføj billede" title="Tilføj billede">' + ICON_CAM + '</button><textarea data-sbctext="1" maxlength="2000" placeholder="Skriv en kommentar…" rows="1">' + esc(c.text) + "</textarea>" +
+    '<button type="button" class="btn primary" data-sbcsend="1"' + (c.busy ? " disabled" : "") + ">" + (c.busy ? "Sender…" : "Send") + "</button></div></div>";
+}
+function sbHistHtml(d, list) {
+  return '<input class="sbhq" data-sbhq="1" placeholder="Søg i alle sager, fx «vaskemaskine»" value="' + esc(ui.sbHistQ || "") + '">' +
+    (list.length ? '<table class="sbhist"><tbody>' + list.map(function (x) { return '<tr data-sbopen="' + esc(x.id) + '"' + (x === d ? ' class="me"' : "") + "><td>" + sbDate(x.created_at) + "</td><td>" + esc(sbTitle(x)) + (x === d ? '<br><span class="hint">denne sag</span>' : "") + '</td><td class="st ' + x.status + '">' + SB_STATUS[x.status] + "</td></tr>"; }).join("") + "</tbody></table>" : '<p class="hint">Ingen sager fundet.</p>') +
+    '<p class="hint">Tryk på en linje for at åbne sagen.</p>';
+}
+function sbDlgHtml(d) {
+  var g = ui.sbDlg, done = g.kind === "loest";
+  return '<div class="wizwrap sbdlgwrap"><div class="rback"></div><section class="helpmodal wiz sbdlg" role="dialog" aria-modal="true"><button type="button" class="hclose" data-sbdlg="" aria-label="Luk">×</button>' +
+    "<h2>" + (done ? "Færdigmeld sagen" : "Håndværker skal tilkaldes") + "</h2>" +
+    "<label>" + (done ? 'Hvad blev der gjort? <span class="hint">(skal udfyldes – hjælper næste gang)</span>' : "Hvad skal håndværkeren se på?") + '<textarea data-sbdtext="1" maxlength="2000">' + esc(g.text || "") + "</textarea></label>" +
+    (done ? sbFilesHtml(g.files, "dlg") + '<div class="wizrow"><button type="button" class="btn" data-sbpic="cam" data-sbfor="dlg">' + ICON_CAM + 'Tag et billede</button><button type="button" class="btn" data-sbpic="pick" data-sbfor="dlg">' + ICON_CAM + "Vælg billeder</button></div>" : "") +
+    '<p class="hint">' + (done ? "Teksten lægges i Kommentarer, og alle der følger sagen får besked." : "Sendes til den, der bestiller håndværkere. Sagen får status «Venter på håndværker».") + "</p>" +
+    (g.err ? '<p class="err" role="alert">' + esc(g.err) + "</p>" : "") +
+    '<div class="row wizfoot"><button type="button" class="btn" data-sbdlg="">Annuller</button><button type="button" class="btn primary" data-sbdsave="1"' + (g.busy ? " disabled" : "") + ">" + (g.busy ? "Gemmer…" : done ? "Luk sagen som løst" : "Send videre") + "</button></div></section></div>";
+}
+
+/* ---------- Handlinger i popuppen ---------- */
+function sbNotify(id) { if (id) try { sb.functions.invoke("sortbog-notify", { body: { action: "event", id: id } }); } catch (e) {} }
+async function sbReload() { sbLoading = false; await loadSb(); }
+async function sbUploadTo(kind, target, files) {
+  if (!files.length) return;
+  var paths = await uploadFiles("sortbog-" + target, files.map(function (x) { return x.file; }));
+  await addPhotoRows(kind, target, paths.map(function (p) { return { path: p, vis: "alle" }; }));
+  files.forEach(function (x) { try { URL.revokeObjectURL(x.url); } catch (e) {} });
+}
+async function sbSetStatus(st, note, files) {
+  var id = ui.sbOpen; ui.sbBusy = true; ui.sbMsg = ""; render();
+  var r = await sb.rpc("sb_status", { p_defect: id, p_status: st, p_note: note || null });
+  ui.sbBusy = false;
+  if (r.error) { if (ui.sbDlg) { ui.sbDlg.busy = false; ui.sbDlg.err = "Det blev ikke gemt: " + r.error.message; } else ui.sbMsg = "Det blev ikke gemt: " + r.error.message; render(); return; }
+  try { if (files && files.length && r.data) await sbUploadTo("sbcomment", r.data, files); } catch (e) { ui.sbMsg = e.message; }
+  sbNotify(r.data); ui.sbDlg = null; ui.sbTab = "k"; await sbReload();
+}
+async function sbDlgSave() {
+  var g = ui.sbDlg; if (!g || g.busy) return;
+  if ((g.text || "").trim().length < 3) { g.err = g.kind === "loest" ? "Skriv kort, hvad der blev gjort." : "Skriv kort, hvad håndværkeren skal se på."; render(); return; }
+  g.busy = true; g.err = ""; render();
+  await sbSetStatus(g.kind, g.text.trim(), g.files);
+}
+async function sbFollow(on) {
+  var id = ui.sbOpen, row = { user_id: ui.user.id, defect_id: id, following: on, seen_at: new Date().toISOString() };
+  var r = await sb.from("sb_follows").upsert(row, { onConflict: "user_id,defect_id" });
+  if (r.error) { ui.sbMsg = "Det blev ikke gemt: " + r.error.message; render(); return; }
+  sbData.follows[id] = row; if (on) sbNudgeOnce(); render();
+}
+function sbNudgeOnce() { try { if (localStorage.getItem("bol_sbnudged") === "1") return; localStorage.setItem("bol_sbnudged", "1"); } catch (x) {} ui.sbNudge = true; }
+async function sbLimaser() {
+  var id = ui.sbOpen; ui.sbBusy = true; render();
+  var r = await sb.from("defects").update({ sent_limaser: true }).eq("id", id);
+  ui.sbBusy = false;
+  if (r.error) { ui.sbMsg = "Det blev ikke gemt: " + r.error.message; render(); return; }
+  var c = await sb.from("sb_comments").select("id").eq("defect_id", id).eq("kind", "limaser").eq("author", ui.user.id).order("created_at", { ascending: false }).limit(1);
+  sbNotify(c.data && c.data[0] && c.data[0].id); ui.sbTab = "k"; await sbReload();
+}
+async function sbSendComment() {
+  var c = ui.sbC, id = ui.sbOpen; if (!c || c.busy) return;
+  if (!(c.text || "").trim()) { c.err = "Skriv en kommentar."; render(); return; }
+  c.busy = true; c.err = ""; render();
+  var r = await sb.rpc("sb_comment", { p_defect: id, p_body: c.text.trim() });
+  if (r.error) { c.busy = false; c.err = "Kommentaren blev ikke gemt: " + r.error.message; render(); return; }
+  try { await sbUploadTo("sbcomment", r.data, c.files); } catch (e) { ui.sbMsg = e.message; }
+  sbNotify(r.data); ui.sbC = { text: "", files: [] }; sbNudgeOnce(); await sbReload();
+  setTimeout(function () { var t = document.getElementById("sbthread"); if (t) t.scrollTop = t.scrollHeight; }, 30);
+}
+async function sbSaveCEdit() {
+  var e = ui.sbCEdit; if (!e) return;
+  var r = await sb.rpc("sb_comment_edit", { p_id: e.id, p_body: e.text });
+  ui.sbMsg = r.error ? "Rettelsen blev ikke gemt: " + r.error.message : ""; ui.sbCEdit = null; await sbReload();
+}
+async function sbDelComment(cid) {
+  var pics = sbPics(cid);
+  var r = await sb.rpc("sb_comment_delete", { p_id: cid });
+  if (!r.error && pics.length) { await sb.storage.from("photos").remove(withThumbs(pics.map(function (x) { return x.path; }))); await sb.from("photos").delete().eq("kind", "sbcomment").eq("target", cid); }
+  ui.sbMsg = r.error ? "Kommentaren blev ikke slettet: " + r.error.message : ""; ui.sbCDelConfirm = null; await sbReload();
+}
+function sbStartEdit(d) {
+  var eq = d.equipment_id ? sbData.equipment.filter(function (e) { return e.id === d.equipment_id; })[0] : null;
+  var isArea = d.where_kind === "faelles" && SB_AREAS.indexOf(d.where_text) >= 0;
+  ui.sbEdit = { kind: d.where_kind, lejl: d.where_lejl || "", area: d.where_kind === "faelles" ? (isArea ? d.where_text : "Andet") : null, areaTxt: d.where_kind === "faelles" && !isArea ? (d.where_text || "") : "",
+    eqKind: d.where_kind === "udstyr" ? (eq ? eq.kind : "andet") : null, eqId: eq ? eq.id : null, equip: d.where_kind === "udstyr" && !eq ? (d.where_text || "") : "",
+    item: d.item || "", desc: d.description || "", prio: d.priority, rm: [], files: [], err: "" };
+  ui.sbTab = "o"; render();
+}
+async function sbSaveEdit() {
+  var w = ui.sbEdit, d = sbData.list.filter(function (x) { return x.id === ui.sbOpen; })[0]; if (!w || !d || w.busy) return;
+  var e = sbWhereCheck(w) || sbCheck(2, w); if (e) { w.err = e; render(); return; }
+  w.busy = true; w.err = ""; render();
+  try {
+    var row = Object.assign({ item: w.item.trim(), description: w.desc.trim(), priority: w.prio }, sbWhereRow(w)), ch = {};
+    Object.keys(row).forEach(function (k) { if ((row[k] || null) !== (d[k] || null)) ch[k] = row[k]; });
+    if (Object.keys(ch).length) {
+      var r = await sb.from("defects").update(ch).eq("id", d.id);
+      if (r.error) throw new Error("Rettelsen blev ikke gemt: " + r.error.message);
+      var c = await sb.from("sb_comments").select("id").eq("defect_id", d.id).eq("kind", "edit").eq("author", ui.user.id).order("created_at", { ascending: false }).limit(1);
+      sbNotify(c.data && c.data[0] && c.data[0].id);
+    }
+    if (w.rm.length || w.files.length) {
+      if (w.rm.length) { await sb.storage.from("photos").remove(withThumbs(w.rm)); await sb.from("photos").delete().eq("kind", "defect").eq("target", d.id).in("path", w.rm); }
+      await sbUploadTo("defect", d.id, w.files);
+      var l = await sb.rpc("sb_log_photos", { p_defect: d.id }); sbNotify(l.data);
+    }
+    ui.sbEdit = null; ui.sbMsg = Object.keys(ch).length || w.rm.length || w.files.length ? "Rettelsen er gemt." : ""; await sbReload();
+  } catch (x) { w.busy = false; w.err = x.message || "Det lykkedes ikke at gemme rettelsen."; render(); }
+}
+function sbPushDismissed() { try { return localStorage.getItem("bol_sbpush_no") === "1"; } catch (x) { return false; } }
+
+/* Push-beskeder på telefonen: drift og administrator får besked om nye sager; alle kan få besked om sager, de følger */
 var pushState = { checked: false, on: false, busy: false, msg: "" };
 function pushSupported() { return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
 var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -1927,17 +2220,19 @@ async function pushCheck() {
   try { var reg = await navigator.serviceWorker.getRegistration(); var sub = reg && await reg.pushManager.getSubscription(); pushState.on = !!sub && Notification.permission === "granted"; } catch (e) { pushState.on = false; }
   if (ui.page === "sortbog") render();
 }
-function pushBoxHtml() {
+function pushBoxHtml(role, canDismiss) {
+  var what = role === "drift" ? "når der oprettes en ny sag, og når der sker noget i sager, du følger" : "når der sker noget i sager, du følger";
   var h = '<div class="pushbox">';
+  var no = canDismiss ? '<button class="btn small" type="button" data-pushno="1">Ikke nu</button>' : "";
   if (!pushSupported()) {
-    h += isIOS && !isApp ? '<p><b>Få besked på telefonen, når der kommer en ny sag.</b> På iPhone skal appen først lægges på hjemmeskærmen: tryk på Del-knappen i Safari → "Føj til hjemmeskærm", og åbn appen derfra. Så kan beskeder slås til her.</p>'
-      : '<p>Denne browser kan ikke vise beskeder. Åbn appen i Chrome eller Safari (på iPhone fra hjemmeskærmen).</p>';
+    h += isIOS && !isApp ? '<p><b>Få besked på telefonen, ' + what + '.</b> På iPhone skal appen først lægges på hjemmeskærmen: tryk på Del-knappen i Safari → "Føj til hjemmeskærm", og åbn appen derfra. Så kan beskeder slås til her.</p>' + no
+      : '<p>Denne browser kan ikke vise beskeder. Åbn appen i Chrome eller Safari (på iPhone fra hjemmeskærmen).</p>' + no;
     return h + "</div>";
   }
   if (!pushState.checked) { pushCheck(); return h + '<p class="hint">Tjekker beskeder…</p></div>'; }
-  if (Notification.permission === "denied") h += '<p>Beskeder er blokeret for appen på denne enhed. Slå dem til i telefonens indstillinger for browseren/appen, og prøv igen.</p>';
-  else if (pushState.on) h += '<p><b>✓ Du får besked på denne enhed</b>, når der oprettes en ny sag.</p><div class="row"><button class="btn small" type="button" data-push="test"' + (pushState.busy ? " disabled" : "") + '>Send en prøvebesked</button><button class="btn small" type="button" data-push="off"' + (pushState.busy ? " disabled" : "") + ">Slå fra</button></div>";
-  else h += '<p><b>Få besked på denne enhed</b>, når der oprettes en ny sag i den sorte bog.</p><button class="btn small primary" type="button" data-push="on"' + (pushState.busy ? " disabled" : "") + ">" + (pushState.busy ? "Slår til…" : "Slå beskeder til") + "</button>";
+  if (Notification.permission === "denied") h += '<p>Beskeder er blokeret for appen på denne enhed. Slå dem til i telefonens indstillinger for browseren/appen, og prøv igen.</p>' + no;
+  else if (pushState.on) h += '<p><b>✓ Du får besked på denne enhed</b>, ' + what + '.</p><div class="row"><button class="btn small" type="button" data-push="test"' + (pushState.busy ? " disabled" : "") + '>Send en prøvebesked</button><button class="btn small" type="button" data-push="off"' + (pushState.busy ? " disabled" : "") + ">Slå fra</button></div>";
+  else h += '<p><b>Få besked på denne enhed</b>, ' + what + '.</p><div class="row"><button class="btn small primary" type="button" data-push="on"' + (pushState.busy ? " disabled" : "") + ">" + (pushState.busy ? "Slår til…" : "Slå beskeder til") + "</button>" + no + "</div>";
   return h + (pushState.msg ? '<p class="hint">' + esc(pushState.msg) + "</p>" : "") + "</div>";
 }
 function b64u(s) { var p = "=".repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, "+").replace(/_/g, "/")), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
@@ -1985,38 +2280,71 @@ async function sbSync() {
   } catch (e) { ui.sbSyncMsg = "Det lykkedes ikke at hente regnearket."; }
   ui.sbSyncing = false; sbData = null; render();
 }
-async function sbSet(id, field, val) {
-  var u = {}; u[field] = val;
-  var r = await sb.from("defects").update(u).eq("id", id);
-  ui.msg = r.error ? "Det blev ikke gemt: " + r.error.message : field === "status" ? "Status er ændret til " + SB_STATUS[val].toLowerCase() + "." : "Gemt.";
-  sbData = null; render();
-}
 async function sbDelete(id) {
-  var pics = (sbData.photos || []).filter(function (x) { return x.target === id; });
+  var pics = sbPics(id), cids = sbData.comments.filter(function (c) { return c.defect_id === id; }).map(function (c) { return c.id; });
+  var cpics = (sbData.photos || []).filter(function (x) { return cids.indexOf(x.target) >= 0; });
   var r = await sb.from("defects").delete().eq("id", id).select("id");
-  if (!r.error && (r.data || []).length && pics.length) {
+  if (!r.error && (r.data || []).length && (pics.length || cpics.length)) {
     // Filerne først – bagefter kan de ikke længere ses (og dermed ikke slettes), når billedrækkerne er væk
-    await sb.storage.from("photos").remove(withThumbs(pics.map(function (x) { return x.path; })));
-    await sb.from("photos").delete().eq("kind", "defect").eq("target", id);
+    await sb.storage.from("photos").remove(withThumbs(pics.concat(cpics).map(function (x) { return x.path; })));
+    if (pics.length) await sb.from("photos").delete().eq("kind", "defect").eq("target", id);
+    if (cpics.length) await sb.from("photos").delete().eq("kind", "sbcomment").in("target", cids);
   }
   ui.sbDelConfirm = null; ui.msg = r.error ? "Sagen blev ikke slettet: " + r.error.message : !(r.data || []).length ? "Sagen blev ikke slettet." : "Sagen er slettet.";
+  if (!r.error && (r.data || []).length) { ui.sbOpen = null; document.body.classList.remove("modal-open"); try { if (history.state && history.state.sbpop) history.replaceState(null, "", location.href); } catch (x) {} }
   sbData = null; render();
 }
-// Billeder: kamera eller fra telefonen/computeren
+// Billeder: kamera eller fra telefonen/computeren – til guiden, en rettelse, en kommentar eller en færdigmelding
 var sbCam = document.createElement("input"); sbCam.type = "file"; sbCam.accept = "image/*"; sbCam.setAttribute("capture", "environment"); sbCam.hidden = true;
 var sbPick = document.createElement("input"); sbPick.type = "file"; sbPick.accept = "image/*"; sbPick.multiple = true; sbPick.hidden = true;
 document.body.appendChild(sbCam); document.body.appendChild(sbPick);
+function sbFilesFor(w) { return w === "edit" ? ui.sbEdit : w === "cmt" ? ui.sbC : w === "dlg" ? ui.sbDlg : ui.sb; }
 [sbCam, sbPick].forEach(function (inp) {
   inp.addEventListener("change", function () {
-    if (ui.sb) Array.prototype.slice.call(inp.files).slice(0, 8 - ui.sb.files.length).forEach(function (f) { ui.sb.files.push({ file: f, url: URL.createObjectURL(f) }); });
+    var o = sbFilesFor(ui.sbPicFor);
+    if (o) { o.files = o.files || []; Array.prototype.slice.call(inp.files).slice(0, 8 - o.files.length).forEach(function (f) { o.files.push({ file: f, url: URL.createObjectURL(f) }); }); }
     inp.value = ""; render();
   });
 });
-document.addEventListener("input", function (e) { var k = e.target.dataset && e.target.dataset.sbf2; if (k && ui.sb) ui.sb[k] = e.target.value; });
+document.addEventListener("input", function (e) {
+  var ds = e.target.dataset || {};
+  if (ds.sbf2) { var o = sbW(); if (o) o[ds.sbf2] = e.target.value; return; }
+  if (ds.sbctext && ui.sbC) { ui.sbC.text = e.target.value; return; }
+  if (ds.sbcetext && ui.sbCEdit) { ui.sbCEdit.text = e.target.value; return; }
+  if (ds.sbdtext && ui.sbDlg) { ui.sbDlg.text = e.target.value; return; }
+  if (ds.sbhq) { ui.sbHistQ = e.target.value; var pos = e.target.selectionStart; render(); var q = document.querySelector("[data-sbhq]"); if (q) { q.focus(); try { q.setSelectionRange(pos, pos); } catch (x) {} } }
+});
 document.addEventListener("change", function (e) {
   if (e.target.dataset && e.target.dataset.sbsort) { ui.sbSort = e.target.value; render(); return; }
-  var k = e.target.dataset && e.target.dataset.sbset; if (!k) return; var box = e.target.closest("[data-sbid]"); if (!box) return;
-  sbSet(box.dataset.sbid, k, e.target.type === "checkbox" ? e.target.checked : k === "handling" ? (e.target.value.trim() || null) : e.target.value);
+});
+document.addEventListener("keydown", function (e) {
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches("article.sbcard[data-sbopen]")) { e.preventDefault(); sbOpenPop(e.target.dataset.sbopen, "o"); }
+  if (e.key === "Escape" && ui.sbOpen && !ui.sbDlg) sbClosePop();
+});
+// Klik i den sorte bog (kort, popup, faner, knapper)
+document.addEventListener("click", function (e) {
+  if (ui.page !== "sortbog") return;
+  var t = e.target.closest("[data-sbopen],[data-sbclose],[data-sbtab],[data-sbfol],[data-sbst],[data-sbdlg],[data-sbdsave],[data-sbedit],[data-sbesave],[data-sblim],[data-sbcsend],[data-sbcedit],[data-sbcesave],[data-sbcdel],[data-sbeqk],[data-sbeq],[data-sbrmold],[data-pushno]");
+  if (!t) return;
+  var ds = t.dataset;
+  if (ds.sbopen) { if (e.target.closest("a")) return; sbOpenPop(ds.sbopen, "o", !!ui.sbOpen); return; }
+  if (ds.sbclose) { sbClosePop(); return; }
+  if (ds.sbtab) { ui.sbTab = ds.sbtab; ui.sbMsg = ""; if (ds.sbtab === "k") { sbSeen(ui.sbOpen); setTimeout(function () { var th = document.getElementById("sbthread"); if (th) th.scrollTop = th.scrollHeight; }, 30); } render(); return; }
+  if (ds.sbfol) { sbFollow(ds.sbfol === "1"); return; }
+  if (ds.sbst) { sbSetStatus(ds.sbst); return; }
+  if (ds.sbdlg != null) { ui.sbDlg = ds.sbdlg ? { kind: ds.sbdlg, text: "", files: [], err: "" } : null; render(); var ta = document.querySelector("[data-sbdtext]"); if (ta) ta.focus(); return; }
+  if (ds.sbdsave) { sbDlgSave(); return; }
+  if (ds.sbedit) { if (ds.sbedit === "1") { var d = sbData.list.filter(function (x) { return x.id === ui.sbOpen; })[0]; if (d) sbStartEdit(d); } else { ui.sbEdit = null; render(); } return; }
+  if (ds.sbesave) { sbSaveEdit(); return; }
+  if (ds.sblim) { sbLimaser(); return; }
+  if (ds.sbcsend) { sbSendComment(); return; }
+  if (ds.sbcedit != null) { var cm = sbData.comments.filter(function (c) { return c.id === ds.sbcedit; })[0]; ui.sbCEdit = cm ? { id: cm.id, text: cm.body || "" } : null; render(); return; }
+  if (ds.sbcesave) { sbSaveCEdit(); return; }
+  if (ds.sbcdel) { if (ui.sbCDelConfirm === ds.sbcdel) sbDelComment(ds.sbcdel); else { ui.sbCDelConfirm = ds.sbcdel; render(); } return; }
+  if (ds.sbeqk) { var w = sbW(); if (w) { w.eqKind = ds.sbeqk; w.eqId = null; w.err = ""; } render(); return; }
+  if (ds.sbeq) { var w2 = sbW(); if (w2) { w2.eqId = ds.sbeq; w2.err = ""; } render(); return; }
+  if (ds.sbrmold) { var w3 = ui.sbEdit; if (w3) { var i = w3.rm.indexOf(ds.sbrmold); if (i >= 0) w3.rm.splice(i, 1); else w3.rm.push(ds.sbrmold); } render(); return; }
+  if (ds.pushno) { try { localStorage.setItem("bol_sbpush_no", "1"); } catch (x) {} render(); return; }
 });
 
 /* ---------- Vores andel: medlemmer, invitationer, billeder med personer ---------- */
@@ -2216,7 +2544,7 @@ var LEVELS = [
   [4, "Drift", "Som kommunikation + følger op i den sorte bog (status, opfølgning, Limaser, slette sager) og kan aflyse andres bookinger af udstyr."],
   [5, "Administrator", "Alt – også andelshavere, invitationer, adgang, anmeldelser og ændringer."]
 ];
-async function loadEditors() { var r = await sb.from("access_levels").select("email, level"); editorData = r.data || []; editorData.err = r.error ? r.error.message : ""; rerenderAdmin(); }
+async function loadEditors() { var r = await sb.from("access_levels").select("email, level, bestiller"); editorData = r.data || []; editorData.err = r.error ? r.error.message : ""; rerenderAdmin(); }
 function levelsHtml(d) {
   if (!editorData) { loadEditors(); return '<p class="hint">Henter…</p>'; }
   var byMail = {}; (d.members || []).forEach(function (m) { var k = (m.email || "").toLowerCase(); if (k && !byMail[k]) byMail[k] = m.name || k; });
@@ -2245,7 +2573,9 @@ function lvSelect(mail, a) {
   if (ui.user && mail.toLowerCase() === String(ui.user.email || "").toLowerCase()) return ' <span class="lvsel">Niveau 5 · Administrator</span>';
   var cur = lvOf(mail), opts = (a && a.lejlighed === "900" ? [1, 2, 3, 4] : [2, 3, 4]);
   if (opts.indexOf(cur) < 0) opts.unshift(cur);
-  return '<label class="lvsel">Niveau <select data-lvmail="' + esc(mail.toLowerCase()) + '">' + opts.map(function (n) { return '<option value="' + n + '"' + (n === cur ? " selected" : "") + ">" + n + " · " + LEVELS[n][1] + "</option>"; }).join("") + "</select></label>";
+  var row = editorData.filter(function (x) { return x.email === mail.toLowerCase(); })[0];
+  return '<label class="lvsel">Niveau <select data-lvmail="' + esc(mail.toLowerCase()) + '">' + opts.map(function (n) { return '<option value="' + n + '"' + (n === cur ? " selected" : "") + ">" + n + " · " + LEVELS[n][1] + "</option>"; }).join("") + "</select></label>" +
+    (cur >= 4 ? ' <label class="lvsel akcheck"><input type="checkbox" data-bestil="' + esc(mail.toLowerCase()) + '"' + (row && row.bestiller ? " checked" : "") + "> Bestiller håndværkere</label>" : "");
 }
 async function setPersonLevel(mail, n) {
   var r = n === 2 ? await sb.from("access_levels").delete().eq("email", mail) : await sb.from("access_levels").upsert({ email: mail, level: n }, { onConflict: "email" });
@@ -2279,7 +2609,7 @@ async function addStaff(f, kind) {
 async function addEditor(f) { var e = f.elements.email.value; if (!e) return; var r = await sb.from("access_levels").insert({ email: e.toLowerCase(), level: parseInt(f.elements.level.value, 10) || 3 }); if (r.error) ui.msg = "Det blev ikke gemt: " + r.error.message; editorData = null; rerenderAdmin(); }
 async function rmEditor(e) { await sb.from("access_levels").delete().eq("email", e); editorData = null; rerenderAdmin(); }
 async function setLevel(e, n) { var r = await sb.from("access_levels").update({ level: n }).eq("email", e); if (r.error) ui.msg = "Det blev ikke gemt: " + r.error.message; editorData = null; rerenderAdmin(); }
-document.addEventListener("change", function (e) { var k = e.target.dataset && e.target.dataset.lvset; if (k) setLevel(k, parseInt(e.target.value, 10)); var lm = e.target.dataset && e.target.dataset.lvmail; if (lm) setPersonLevel(lm, parseInt(e.target.value, 10)); });
+document.addEventListener("change", function (e) { var bm = e.target.dataset && e.target.dataset.bestil; if (bm) { sb.from("access_levels").update({ bestiller: e.target.checked }).eq("email", bm).then(function (r) { if (r.error) adminData.err = "Det blev ikke gemt: " + r.error.message; editorData = null; rerenderAdmin(); }); return; } var k = e.target.dataset && e.target.dataset.lvset; if (k) setLevel(k, parseInt(e.target.value, 10)); var lm = e.target.dataset && e.target.dataset.lvmail; if (lm) setPersonLevel(lm, parseInt(e.target.value, 10)); });
 async function loadNotices() {
   var r = await sb.from("notices").select("*").order("created_at", { ascending: false });
   noticeData = { list: r.data || [], err: r.error ? r.error.message : "" }; render();
@@ -3587,6 +3917,8 @@ function goHome() {
   navStack = []; ui.page = null; resetToStart();
 }
 window.addEventListener("popstate", function () {
+  // Telefonens tilbage-knap lukker en åben sag i den sorte bog (ikke appen)
+  if (ui.sbOpen) { sbClosePop(true); return; }
   // Telefonens egen tilbage mens man retter: bliv på siden, og luk formularen (eller spørg, hvis noget er ændret)
   if (ui.draft || ui.areaDraft) {
     try { history.pushState({ nav: navStack.length }, "", ui.place ? "#sted/" + ui.place : location.pathname + location.search); } catch (x) {}
@@ -4043,11 +4375,11 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.push) { if (t.dataset.push === "on") pushOn(); else if (t.dataset.push === "off") pushOff(); else pushTest(); return; }
   if (t.dataset.sbsync) { sbSync(); return; }
   if (t.dataset.sbw) { sbNav(t.dataset.sbw); return; }
-  if (t.dataset.sbkind) { ui.sb.kind = t.dataset.sbkind; ui.sb.err = ""; render(); return; }
-  if (t.dataset.sbarea) { ui.sb.area = t.dataset.sbarea; ui.sb.err = ""; render(); return; }
-  if (t.dataset.sbprio) { ui.sb.prio = t.dataset.sbprio; ui.sb.err = ""; render(); return; }
-  if (t.dataset.sbpic) { (t.dataset.sbpic === "cam" ? sbCam : sbPick).click(); return; }
-  if (t.dataset.sbrm != null) { var rf = ui.sb.files.splice(+t.dataset.sbrm, 1)[0]; if (rf) try { URL.revokeObjectURL(rf.url); } catch (x) {} render(); return; }
+  if (t.dataset.sbkind) { var sw = sbW(); if (sw) { sw.kind = t.dataset.sbkind; sw.err = ""; } render(); return; }
+  if (t.dataset.sbarea) { var sw2 = sbW(); if (sw2) { sw2.area = t.dataset.sbarea; sw2.err = ""; } render(); return; }
+  if (t.dataset.sbprio) { var sw3 = sbW(); if (sw3) { sw3.prio = t.dataset.sbprio; sw3.err = ""; } render(); return; }
+  if (t.dataset.sbpic) { ui.sbPicFor = t.dataset.sbfor || "wiz"; (t.dataset.sbpic === "cam" ? sbCam : sbPick).click(); return; }
+  if (t.dataset.sbrm != null) { var fo = sbFilesFor(t.dataset.sbfor || "wiz"), rf = fo && fo.files.splice(+t.dataset.sbrm, 1)[0]; if (rf) try { URL.revokeObjectURL(rf.url); } catch (x) {} render(); return; }
   if (t.dataset.sbf) { ui.sbFilter = t.dataset.sbf; render(); return; }
   if (t.dataset.sbdel) { if (ui.sbDelConfirm === t.dataset.sbdel) sbDelete(t.dataset.sbdel); else { ui.sbDelConfirm = t.dataset.sbdel; render(); } return; }
   if (t.dataset.akpick != null) { ui.akPick = t.dataset.akpick || null; ui.akDelConfirm = null; ui.akConfirm = null; render(); if (ui.akPick) { var pe = document.querySelector(".akpick"); if (pe) pe.scrollIntoView({ block: "center", behavior: "smooth" }); } return; }
@@ -4176,7 +4508,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 245;
+var APP_VERSION = 246;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
