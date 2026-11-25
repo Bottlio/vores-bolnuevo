@@ -1214,3 +1214,8 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 .sbsteps2 .sep{color:var(--line);font-weight:700}
 .sbstatbox .now{margin:6px 0 0;font-size:.88rem;color:var(--fg)}
 .sbstatbox .now span{color:var(--muted)}
+/* Status-boks: "STATUS: Bestilt – tilbud bestilt" på første linje (v252) */
+.sbstatbox .now{margin:0 0 8px;font-size:.92rem}
+.sbstatbox .now .lbl{display:inline;margin:0;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.sbstatbox .now .dt{color:var(--muted)}
+.sbstatbox .sbsteps2{font-size:.86rem}

@@ -2083,7 +2083,7 @@ function sbProgHtml(d) {
   var steps = names.map(function (n, i) { var done = i < cur && (i !== 2 || waited); return (i ? '<li class="sep" aria-hidden="true">›</li>' : "") + '<li class="' + (done ? "done" : i === cur ? "on" : "") + '"' + (i === cur ? ' aria-current="step"' : "") + ">" + n + "</li>"; }).join("");
   // Bemærkningen til den nuværende status: fra statusskiftet i appen, ellers opfølgningen fra det gamle regneark
   var note = ev.length && ev[ev.length - 1].body ? ev[ev.length - 1].body : d.source === "regneark" && d.handling ? d.handling : "";
-  return '<div class="sbstatbox"><p class="lbl">Status</p><ol class="sbsteps2">' + steps + '</ol><p class="now"><b>' + esc(now) + "</b>" + (note ? " – " + esc(sbShort(note, 140)) : "") + (dt ? " <span>" + (cur === 3 ? dt : "· siden " + dt) + "</span>" : "") + "</p></div>";
+  return '<div class="sbstatbox"><p class="now"><span class="lbl">Status:</span> <b>' + esc(now) + "</b>" + (note ? " – " + esc(sbShort(note, 140)) : "") + (dt ? ' <span class="dt">' + (cur === 3 ? dt : "· siden " + dt) + "</span>" : "") + '</p><ol class="sbsteps2">' + steps + "</ol></div>";
 }
 // (gammel) Forløbslinje med dato under hvert trin – bruges ikke længere
 function sbStepsHtml(d) {
@@ -4568,7 +4568,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 251;
+var APP_VERSION = 252;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
