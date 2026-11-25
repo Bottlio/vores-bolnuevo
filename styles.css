@@ -1202,3 +1202,15 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 .sbsheet button small{display:block;color:var(--muted);font-size:.8rem}
 .sbsheet button.danger{color:var(--danger);border-bottom:0}
 @media (min-width:601px){.pacts .btn.primary{flex:0 1 auto;min-width:220px}}
+/* Den sorte bog: status-boks i popuppen (v249) */
+.sbstatbox{margin:12px 0 2px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface)}
+.sbstatbox .lbl{font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:0 0 6px}
+.sbsteps2{display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px;font-size:.92rem;margin:0;padding:0;list-style:none}
+.sbsteps2 li{color:var(--muted);white-space:nowrap}
+.sbsteps2 li.done{color:var(--fg)}
+.sbsteps2 li.done::before{content:"✓ ";color:var(--sea);font-weight:700}
+.sbsteps2 li.on{color:var(--sea);font-weight:700}
+.sbsteps2 li.on::before{content:"● "}
+.sbsteps2 .sep{color:var(--line);font-weight:700}
+.sbstatbox .now{margin:6px 0 0;font-size:.88rem;color:var(--fg)}
+.sbstatbox .now span{color:var(--muted)}

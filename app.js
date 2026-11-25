@@ -1812,7 +1812,10 @@ async function loadSb() {
 function sbWhere(d) {
   return d.where_kind === "lejlighed" ? "Lejl. " + (d.where_lejl || "?") : d.where_kind === "udstyr" ? (d.where_text || "Udstyr") : (d.where_text || "Fællesområde");
 }
+function sbShort(t, n) { t = String(t || "").split(/\n/)[0].trim(); n = n || 60; if (t.length <= n) return t; var c = t.slice(0, n); var i = c.lastIndexOf(" "); return (i > n * 0.6 ? c.slice(0, i) : c).replace(/[\s,.;:–-]+$/, "") + "…"; }
 function sbTitle(d) { return sbWhere(d) + (d.item ? " · " + d.item : ""); }
+// Titel der også siger, hvad sagen går ud på – de gamle sager fra regnearket har intet "Hvad", så brug starten af beskrivelsen
+function sbTitleFull(d) { return sbWhere(d) + " · " + (d.item || sbShort(d.description, 60)); }
 function sbPics(id) { return (sbData.photos || []).filter(function (x) { return x.target === id; }); }
 function sbFollowing(id) { var f = sbData && sbData.follows[id]; return !!(f && f.following); }
 function sbIsNew(d) {
@@ -2052,8 +2055,8 @@ function sbPopHtml() {
   var T = function (k, long, short, n) { return '<button type="button" role="tab" class="' + (tab === k ? "on" : "") + '" data-sbtab="' + k + '" aria-selected="' + (tab === k) + '"><span class="tlong">' + long + '</span><span class="tshort">' + short + "</span>" + (n ? '<span class="cnt">' + n + "</span>" : "") + "</button>"; };
   var h = '<div class="wizwrap"><div class="rback" data-sbclose="1"></div><section class="helpmodal sbpop" role="dialog" aria-modal="true" aria-label="' + esc(sbTitle(d)) + '">' +
     '<div class="phead"><button type="button" class="hclose" data-sbclose="1" aria-label="Luk">×</button>' + sbBackHtml() +
-    '<div class="sbtop">' + sbPrioWord(d.priority) + '<span class="sbstat ' + d.status + '">' + SB_STATUS[d.status] + "</span></div>" +
-    "<h2>" + esc(sbTitle(d)) + '</h2><p class="psub">' + (d.source === "regneark" ? "Fra det gamle regneark · skrevet af " + esc(d.reporter_name || "?") + " · " + sbDate(d.created_at) : "Meldt af " + esc(sbWho(d.reporter_name, d.andel_id)) + " · " + sbDate(d.created_at) + " kl. " + p2(new Date(d.created_at).getHours()) + ":" + p2(new Date(d.created_at).getMinutes())) + "</p>" +
+    '<div class="sbtop">' + sbPrioWord(d.priority) + "</div>" +
+    "<h2>" + esc(sbTitleFull(d)) + '</h2><p class="psub">' + (d.source === "regneark" ? "Fra det gamle regneark · skrevet af " + esc(d.reporter_name || "?") + " · " + sbDate(d.created_at) : "Meldt af " + esc(sbWho(d.reporter_name, d.andel_id)) + " · " + sbDate(d.created_at) + " kl. " + p2(new Date(d.created_at).getHours()) + ":" + p2(new Date(d.created_at).getMinutes())) + "</p>" +
     sbProgHtml(d) +
     '<div class="pacts">' + acts + (links.length ? '<span class="plinks">' + links.join("") + "</span>" : "") + "</div>" +
     (ui.sbNudge ? sbNudgeHtml("Vil du have besked på telefonen, når der sker noget i sagen?") : "") +
@@ -2069,11 +2072,15 @@ function sbPopHtml() {
 }
 // Forløb som tynd bjælke i fire dele + én linje: "Trin 3 af 4: Afventer – Håndværker bestilt (27. nov.)"
 function sbProgHtml(d) {
+  // Status-boks: ✓ Meldt › ✓ I gang › ● Afventer › Løst – og én linje om, hvad der sker nu
   var cur = sbStep(d.status), ev = sbData.comments.filter(function (c) { return c.defect_id === d.id && c.kind === "status" && c.status === d.status; });
   var at = cur === 0 ? d.created_at : ev.length ? ev[ev.length - 1].created_at : d.status === "loest" && d.solved_at ? d.solved_at + "T12:00" : null;
   var names = ["Meldt", "I gang", "Afventer", "Løst"], dt = at ? (function (x) { return x.getDate() + ". " + DA_MON[x.getMonth()]; })(new Date(at)) : "";
-  var txt = "<b>Trin " + (cur + 1) + " af 4: " + names[cur] + (cur === 2 && SB_WAIT[d.status] ? " – " + esc(SB_WAIT[d.status]) : "") + "</b>" + (dt ? " (" + dt + ")" : "") + (cur < 3 ? " · næste: " + names[cur + 1] : "");
-  return '<div class="sbprog" aria-hidden="true">' + names.map(function (n, i) { return '<span class="' + (i <= cur ? "on" : "") + '"></span>'; }).join("") + '</div><p class="sbprogtxt">' + txt + "</p>";
+  var now = cur === 0 ? "Meldt – endnu ikke påbegyndt" : cur === 2 ? (SB_WAIT[d.status] || "Afventer") : names[cur];
+  // "Afventer" får kun ✓, hvis sagen faktisk har ventet på noget
+  var waited = sbData.comments.some(function (c) { return c.defect_id === d.id && c.kind === "status" && SB_WAIT[c.status]; });
+  var steps = names.map(function (n, i) { var done = i < cur && (i !== 2 || waited); return (i ? '<li class="sep" aria-hidden="true">›</li>' : "") + '<li class="' + (done ? "done" : i === cur ? "on" : "") + '"' + (i === cur ? ' aria-current="step"' : "") + ">" + n + "</li>"; }).join("");
+  return '<div class="sbstatbox"><p class="lbl">Status</p><ol class="sbsteps2">' + steps + '</ol><p class="now">' + esc(now) + (dt ? " <span>" + (cur === 3 ? dt : "· siden " + dt) + "</span>" : "") + "</p></div>";
 }
 // (gammel) Forløbslinje med dato under hvert trin – bruges ikke længere
 function sbStepsHtml(d) {
@@ -2093,7 +2100,7 @@ function sbStepsHtml(d) {
 function sbBackHtml() {
   var st = ui.sbStack || []; if (!st.length) return "";
   var p = sbData.list.filter(function (x) { return x.id === st[st.length - 1].id; })[0];
-  return '<button type="button" class="sbback" data-sbback="1">‹ Tilbage til ' + esc(p ? sbTitle(p) : "forrige sag") + "</button>";
+  return '<button type="button" class="sbback" data-sbback="1">‹ Tilbage til ' + esc(p ? sbTitleFull(p) : "forrige sag") + "</button>";
 }
 function sbInfoHtml(d) {
   var pr = SB_PRIO[d.priority] || ["", "", ""], pics = sbPics(d.id);
@@ -2152,7 +2159,7 @@ function sbComposerHtml(d) {
 }
 function sbHistHtml(d, list) {
   return '<input class="sbhq" data-sbhq="1" placeholder="Søg i alle sager, fx «vaskemaskine»" value="' + esc(ui.sbHistQ || "") + '">' +
-    (list.length ? '<table class="sbhist"><tbody>' + list.map(function (x) { return '<tr data-sbopen="' + esc(x.id) + '"' + (x === d ? ' class="me"' : "") + "><td>" + sbDate(x.created_at) + "</td><td>" + esc(sbTitle(x)) + (x === d ? '<br><span class="hint">denne sag</span>' : "") + '</td><td class="st ' + x.status + '">' + SB_STATUS[x.status] + "</td></tr>"; }).join("") + "</tbody></table>" : '<p class="hint">Ingen sager fundet.</p>') +
+    (list.length ? '<table class="sbhist"><tbody>' + list.map(function (x) { return '<tr data-sbopen="' + esc(x.id) + '"' + (x === d ? ' class="me"' : "") + "><td>" + sbDate(x.created_at) + "</td><td>" + esc(sbTitleFull(x)) + (x.item ? '<br><span class="hint">' + esc(sbShort(x.description, 70)) + "</span>" : "") + (x === d ? '<br><span class="hint">denne sag</span>' : "") + '</td><td class="st ' + x.status + '">' + SB_STATUS[x.status] + "</td></tr>"; }).join("") + "</tbody></table>" : '<p class="hint">Ingen sager fundet.</p>') +
     '<p class="hint">Tryk på en linje for at åbne sagen.</p>';
 }
 function sbDlgHtml(d) {
@@ -4558,7 +4565,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 248;
+var APP_VERSION = 249;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
