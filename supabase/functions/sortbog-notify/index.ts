@@ -6,6 +6,7 @@
 //                                  · melderens rettelser kun til drift; rettet til rød giver også mail
 //                                  · melderen lukker selv sin sag: også til drift
 // { action: "test" }             → en prøvebesked til den, der kalder
+// Mails om røde sager er slået fra, så længe den sorte bog er i test (sæt secret SORTBOG_LIVE=1 for at slå dem til)
 // Beskeder og mails linker direkte til sagen: APP?menu=test#sortbog-<id>[/kommentarer]
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import webpush from "npm:web-push@3.6.7";
@@ -50,7 +51,11 @@ async function push(sb: ReturnType<typeof createClient>, subs: Sub[], msg: Row) 
   return { ok, gone };
 }
 
+// Den sorte bog er i test (Christian 25/11 2026): der må IKKE sendes mails til kontoret.
+// Mail sendes kun, hvis SORTBOG_LIVE=1 er sat som secret, når den sorte bog går live.
+const LIVE = Deno.env.get("SORTBOG_LIVE") === "1";
 async function redMail(d: Row, title: string, who: string) {
+  if (!LIVE) return "ikke sendt (den sorte bog er i test)";
   const key = Deno.env.get("RESEND_API_KEY");
   if (!key) return "ikke sendt (ingen nøgle)";
   const where = whereOf(d), url = caseUrl(d.id);
