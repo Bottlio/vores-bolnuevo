@@ -1419,6 +1419,9 @@ var MENU = [
   ["sortbog", ICON_BOOK, "Den sorte bog", "Er noget gået i stykker, eller mangler der noget?"],
   ["ahbooking", ICON_KEYBED, "AHbooking", "Book uger i lejlighederne, point og år-rul"]
 ];
+// Tydelig testbesked øverst i de dele, der endnu kun er til afprøvning
+function testNote(txt) { return '<div class="testnote" role="note"><p class="tn-h">Test – ikke i brug endnu</p><p>' + esc(txt) + "</p></div>"; }
+var MENU_TEST = { udstyr: 1, akt: 1, sortbog: 1 };
 function renderMenu() {
   setTop(headerHtml() + heroHtml()); toolbar(false);
   var html = "";
@@ -1433,7 +1436,7 @@ function renderMenu() {
     sortbog: '<span class="micon mright">' + ICON_BOOK + "</span>"
   };
   html += '<nav class="menugrid" aria-label="Startmenu">' + MENU.map(function (m) {
-    var inner = (deco[m[0]] ? "" : '<span class="micon">' + m[1] + "</span>") + '<span class="mtext"><span class="mtitle">' + m[2] + (m[0] === "ahbooking" ? ' <span class="mext" aria-hidden="true">↗</span>' : "") + '</span><span class="msub">' + m[3] + "</span></span>" + (deco[m[0]] ? '<span class="mdeco">' + deco[m[0]] + "</span>" : "");
+    var inner = (deco[m[0]] ? "" : '<span class="micon">' + m[1] + "</span>") + '<span class="mtext"><span class="mtitle">' + m[2] + (m[0] === "ahbooking" ? ' <span class="mext" aria-hidden="true">↗</span>' : "") + (MENU_TEST[m[0]] ? ' <span class="mtest">Test</span>' : "") + '</span><span class="msub">' + m[3] + "</span></span>" + (deco[m[0]] ? '<span class="mdeco">' + deco[m[0]] + "</span>" : "");
     return m[0] === "ahbooking"
       ? '<a class="mtile m-ah" href="https://ahbooking.dk/" target="_blank" rel="noopener">' + inner + "</a>"
       : '<button class="mtile m-' + m[0] + '" type="button" data-menu="' + m[0] + '">' + inner + "</button>";
@@ -1535,7 +1538,7 @@ function aktFormHtml() {
 function aktPageHtml() {
   if (!aktData) { loadAkt(); return '<p class="loading">Henter aktiviteter…</p>'; }
   var h = '<section class="akhead"><h2>Fælles aktiviteter</h2>' + (ui.editor && !ui.akForm ? '<button class="fab" type="button" data-aknew="1"><span aria-hidden="true">+</span> Ny aktivitet</button>' : "") + "</section>";
-  h += '<p class="notice">Test: aktiviteter, du opretter her, er rigtige og kan ses af alle andre testere.</p>';
+  h += testNote("Aktiviteter her gælder ikke – de er kun til afprøvning. Brug de nuværende løsninger til aktiviteter og tilmelding, indtil andet bliver meldt ud.");
   if (aktData.err) h += '<p class="error">' + esc(aktData.err) + "</p>";
   if (ui.akForm) h += aktFormHtml();
   var pick = ui.akPick && aktData.list.filter(function (a) { return a.id === ui.akPick; })[0];
@@ -1729,7 +1732,7 @@ function bkFormHtml() {
 function udstyrPageHtml() {
   if (!bkData) { loadBk(); return '<section class="akhead"><h2>Booking af udstyr</h2></section><p class="loading">Henter…</p>'; }
   var h = '<section class="akhead"><h2>Booking af udstyr</h2>' + (ui.editor && !ui.bkForm ? '<button class="fab" type="button" data-bknew="1"><span aria-hidden="true">+</span> Book udstyr</button>' : "") + "</section>";
-  h += '<p class="notice">Test: bookinger her er rigtige og kan ses på skærmen i receptionen.</p>';
+  h += testNote("Bookinger her gælder ikke – de er kun til afprøvning. Book udstyr, som I plejer, indtil andet bliver meldt ud.");
   if (bkData.err) h += '<p class="error">' + esc(bkData.err) + "</p>";
   if (ui.bkForm) h += bkFormHtml();
   if (ui.bkPick) {   // valgt booking (evt. flere ting booket sammen): vis detaljer og Aflys
@@ -1848,7 +1851,7 @@ function sbCard(d) {
 function sortbogPageHtml() {
   if (!sbData) { loadSb(); return '<section class="akhead"><h2>Den sorte bog</h2></section><p class="loading">Henter…</p>'; }
   var h = '<section class="akhead"><h2>Den sorte bog</h2>' + (sbCanWrite() ? '<button class="fab" type="button" data-sbnew="1"><span aria-hidden="true">+</span> Ny sag</button>' : "") + "</section>";
-  h += '<p class="notice">Test: sager, du opretter her, er rigtige og kan ses af alle andre testere.</p>';
+  h += testNote("Sager her bliver ikke fulgt op – de er kun til afprøvning. Meld fejl og mangler, som I plejer, indtil andet bliver meldt ud. Haster det, så ring til Stig på +45 20 16 12 17.");
   h += '<p class="hint">Er noget gået i stykker, eller mangler der noget? Opret en sag, så den ansvarlige kan følge op. Har du brug for akut hjælp, så ring eller skriv til Stig på WhatsApp/telefon +45 20 16 12 17.</p>';
   if (sbData.err) h += '<p class="error">' + esc(sbData.err) + "</p>";
   if (lvl() >= 4) h += pushBoxHtml("drift");
@@ -4715,7 +4718,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 270;
+var APP_VERSION = 271;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
