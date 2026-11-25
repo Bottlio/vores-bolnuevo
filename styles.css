@@ -1250,3 +1250,17 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 .hico.hq{font-weight:700;color:var(--sea);font-size:.95rem}
 .hicons{list-style:none;padding:0;margin:0;display:grid;gap:10px}
 .hicons li{display:flex;align-items:center;gap:10px}
+/* Hjælpens faner: én linje, tynd kasse om hver, ikon over tekst på op til to linjer (v260) */
+.helptabs{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:6px;margin:12px 0 16px}
+.htab{font:inherit;font-size:.78rem;line-height:1.2;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:5px;padding:9px 3px 8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);cursor:pointer;text-align:center;min-width:0}
+.htab .licon{width:20px;height:20px;color:var(--muted);flex:none}
+.htab span{display:block;overflow-wrap:anywhere;hyphens:auto}
+.htab:hover{border-color:var(--sea)}
+.htab.on{border-color:var(--sea);color:var(--sea);font-weight:700;box-shadow:inset 0 0 0 1px var(--sea)}
+.htab.on .licon{color:var(--sea)}
+@media (max-width:600px){.helptabs{gap:4px}.htab{font-size:.68rem;padding:8px 2px 7px;border-radius:8px}.htab .licon{width:18px;height:18px}}
+@media (max-width:600px){
+  .helptabs{gap:3px;margin-left:-10px;margin-right:-10px}
+  .htab{font-size:.64rem;padding:8px 1px 7px;letter-spacing:-.01em}
+  .htab span{overflow-wrap:normal;hyphens:manual}
+}

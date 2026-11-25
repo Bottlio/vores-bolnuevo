@@ -4253,9 +4253,9 @@ function helpTabs() {
   var g = function (id) { return HELP_FAQ.filter(function (x) { return x[0] === id; })[0]; }, t = TEST_MENU && ui.member;
   // Med menuen forklares knapperne under "Menuen" – det gamle svar om tilbage/hus passer ikke længere
   var st = g("start"); if (t && st) st = [st[0], st[1], st[2].filter(function (q) { return q[0] !== "Hvordan kommer jeg tilbage?"; })];
-  var tabs = [["start", ICON_HELP, "Kom i gang" + (t ? " og menuen" : ""), [st].concat(t ? [HELP_MENU] : []), ["start"]]];
-  if (t) tabs.push(["akt", ICON_CAL, "Aktiviteter", [HELP_AKT], []], ["udstyr", ICON_BIKE, "Booking", [HELP_BK], []]);
-  tabs.push(["guide", ICON_COMPASS, "Guide", [g("find"), g("stjerner"), g("billeder"), g("avanceret")], ["find", "stjerner", "billeder", "avanceret"]]);
+  var tabs = [["start", ICON_HELP, "Kom i gang", [st].concat(t ? [HELP_MENU] : []), ["start"]]];
+  if (t) tabs.push(["akt", ICON_CAL, "Fælles aktiviteter", [HELP_AKT], []], ["udstyr", ICON_BIKE, "Book udstyr", [HELP_BK], []]);
+  tabs.push(["guide", ICON_COMPASS, "Guide til området", [g("find"), g("stjerner"), g("billeder"), g("avanceret")], ["find", "stjerner", "billeder", "avanceret"]]);
   if (t) tabs.push(["sortbog", ICON_BOOK, "Den sorte bog", [HELP_SORTBOG].concat(lvl() >= 4 ? [HELP_SORTBOG_DRIFT] : []), []]);
   tabs.push(["andel", ICON_GEAR, "Vores andel", [g("andel")], ["andel"]]);
   return tabs.map(function (x) { x[3] = x[3].filter(Boolean); return x; });
@@ -4271,7 +4271,7 @@ function helpPageHtml() {
   ui.helpTab = cur[0];
   var body = cur[3].map(function (sec) { return faq(sec, cur[3].length > 1); }).join("").replace("{{PUSHBOX}}", pushBoxHtml(lvl() >= 4 ? "drift" : "follow"));
   return '<section class="panel helppage"><p class="eyebrow">Hjælp</p><h2>Sådan bruger du appen</h2>' +
-    '<div class="helptabs" role="tablist">' + tabs.map(function (x) { return '<button type="button" role="tab" class="chip' + (x === cur ? " on" : "") + '" data-helptab="' + x[0] + '" aria-selected="' + (x === cur) + '">' + x[1] + "<span>" + esc(x[2]) + "</span></button>"; }).join("") + "</div>" +
+    '<div class="helptabs" role="tablist" style="--n:' + tabs.length + '">' + tabs.map(function (x) { return '<button type="button" role="tab" class="htab' + (x === cur ? " on" : "") + '" data-helptab="' + x[0] + '" aria-selected="' + (x === cur) + '">' + x[1] + "<span>" + esc(x[2]) + "</span></button>"; }).join("") + "</div>" +
     '<p class="hint">Tryk på et spørgsmål for at se svaret.</p>' + body +
     '<div class="helpcontact"><h3>Kan du ikke finde svaret?</h3><p>Skriv til Christian på <a href="mailto:' + HELP_MAIL + '">' + HELP_MAIL + "</a>. Skriv gerne, hvad du prøvede at gøre, og hvad der skete.</p></div></section>";
 }
@@ -4657,7 +4657,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 259;
+var APP_VERSION = 260;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
