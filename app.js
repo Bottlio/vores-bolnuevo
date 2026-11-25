@@ -1534,7 +1534,7 @@ function aktFormHtml() {
 }
 function aktPageHtml() {
   if (!aktData) { loadAkt(); return '<p class="loading">Henter aktiviteter…</p>'; }
-  var h = '<section class="akhead"><h2>Fælles aktiviteter</h2>' + (ui.editor && !ui.akForm ? '<button class="btn primary" type="button" data-aknew="1">+ Opret aktivitet</button>' : "") + "</section>";
+  var h = '<section class="akhead"><h2>Fælles aktiviteter</h2>' + (ui.editor && !ui.akForm ? '<button class="fab" type="button" data-aknew="1"><span aria-hidden="true">+</span> Ny aktivitet</button>' : "") + "</section>";
   h += '<p class="notice">Test: aktiviteter, du opretter her, er rigtige og kan ses af alle andre testere.</p>';
   if (aktData.err) h += '<p class="error">' + esc(aktData.err) + "</p>";
   if (ui.akForm) h += aktFormHtml();
@@ -1728,7 +1728,7 @@ function bkFormHtml() {
 }
 function udstyrPageHtml() {
   if (!bkData) { loadBk(); return '<section class="akhead"><h2>Booking af udstyr</h2></section><p class="loading">Henter…</p>'; }
-  var h = '<section class="akhead"><h2>Booking af udstyr</h2>' + (ui.editor && !ui.bkForm ? '<button class="btn primary" type="button" data-bknew="1">+ Book udstyr</button>' : "") + "</section>";
+  var h = '<section class="akhead"><h2>Booking af udstyr</h2>' + (ui.editor && !ui.bkForm ? '<button class="fab" type="button" data-bknew="1"><span aria-hidden="true">+</span> Book udstyr</button>' : "") + "</section>";
   h += '<p class="notice">Test: bookinger her er rigtige og kan ses på skærmen i receptionen.</p>';
   if (bkData.err) h += '<p class="error">' + esc(bkData.err) + "</p>";
   if (ui.bkForm) h += bkFormHtml();
@@ -1847,7 +1847,7 @@ function sbCard(d) {
 }
 function sortbogPageHtml() {
   if (!sbData) { loadSb(); return '<section class="akhead"><h2>Den sorte bog</h2></section><p class="loading">Henter…</p>'; }
-  var h = '<section class="akhead"><h2>Den sorte bog</h2>' + (sbCanWrite() ? '<button class="btn primary" type="button" data-sbnew="1">+ Ny sag</button>' : "") + "</section>";
+  var h = '<section class="akhead"><h2>Den sorte bog</h2>' + (sbCanWrite() ? '<button class="fab" type="button" data-sbnew="1"><span aria-hidden="true">+</span> Ny sag</button>' : "") + "</section>";
   h += '<p class="notice">Test: sager, du opretter her, er rigtige og kan ses af alle andre testere.</p>';
   h += '<p class="hint">Er noget gået i stykker, eller mangler der noget? Opret en sag, så den ansvarlige kan følge op. Har du brug for akut hjælp, så ring eller skriv til Stig på WhatsApp/telefon +45 20 16 12 17.</p>';
   if (sbData.err) h += '<p class="error">' + esc(sbData.err) + "</p>";
@@ -4199,7 +4199,7 @@ var HELP_FAQ = [
 /* Hjælp til den sorte bog (vises, når man trykker ? i den sorte bog) */
 var HELP_SORTBOG = ["sortbog", "Den sorte bog", [
   ["Hvad er den sorte bog?", "<p>Her melder du, når noget er gået i stykker eller mangler – i en lejlighed, på fællesområderne eller ved udstyr, der lånes ud, fx en cykel eller et golfsæt.</p><p>Drift følger op på sagerne, og du kan følge med i, hvad der sker.</p>"],
-  ["Hvordan melder jeg en fejl?", "<ol><li>Tryk på <strong>+ Ny sag</strong> øverst.</li><li><strong>Hvor er det?</strong> Vælg lejlighed, fællesområde eller udstyr.</li><li><strong>Hvad er galt?</strong> Skriv hvad det drejer sig om, og beskriv problemet.</li><li><strong>Billeder:</strong> Tag et billede eller vælg et fra telefonen. Det er ikke et krav, men det hjælper meget.</li><li><strong>Hvor haster det?</strong> Vælg Haster, Bør ordnes snart eller Kan vente.</li><li>Tryk <strong>Opret sag</strong>.</li></ol>"],
+  ["Hvordan melder jeg en fejl?", "<ol><li>Tryk på <strong>+ Ny sag</strong> nederst til højre.</li><li><strong>Hvor er det?</strong> Vælg lejlighed, fællesområde eller udstyr.</li><li><strong>Hvad er galt?</strong> Skriv hvad det drejer sig om, og beskriv problemet.</li><li><strong>Billeder:</strong> Tag et billede eller vælg et fra telefonen. Det er ikke et krav, men det hjælper meget.</li><li><strong>Hvor haster det?</strong> Vælg Haster, Bør ordnes snart eller Kan vente.</li><li>Tryk <strong>Opret sag</strong>.</li></ol>"],
   ["Det haster – hvad gør jeg?", "<p>Opret en sag og vælg <strong>Haster</strong>. Så får Drift også en mail.</p><p>Ring eller skriv også til Stig på WhatsApp/telefon <strong>+45 20 16 12 17</strong>.</p>"],
   ["Hvad betyder Haster, Bør ordnes snart og Kan vente?", "<p>Det er, hvor meget det haster. Du kan se det på farven i venstre kant af kortet og på ordet øverst:</p><ul><li><strong style=\"color:#b3402f\">Haster</strong> (rød) – fx vandskade, noget der er farligt, eller lejligheden kan ikke bruges.</li><li><strong style=\"color:#8a6510\">Bør ordnes snart</strong> (gul) – fx en sprunget pære eller en maskine, der ikke virker ordentligt.</li><li><strong style=\"color:#2e7d4f\">Kan vente</strong> (grøn) – fx en ridse i gulvet eller noget, der mangler at blive købt.</li></ul>"],
   ["Hvad betyder status?", "<p>Når du åbner en sag, står der øverst <strong>STATUS</strong> og fire trin:</p><ul><li><strong>Meldt</strong> – sagen er oprettet, men ingen er gået i gang endnu.</li><li><strong>I gang</strong> – Drift arbejder på det.</li><li><strong>Afventer</strong> – der ventes på noget. Der står hvad: at en håndværker skal tilkaldes, at en håndværker er bestilt, eller at varer er bestilt.</li><li><strong>Løst</strong> – sagen er lukket.</li></ul><p>Der står ✓ ved de trin, der er klaret, og en prik ved det trin, sagen står på nu.</p>"],
@@ -4235,7 +4235,7 @@ var HELP_AKT = ["akt", "Fælles aktiviteter", [
   ["Hvordan finder jeg rundt i kalenderen?", "<ul><li>Øverst står <strong>Denne uge</strong>. Tryk på pilene <strong>‹ ›</strong> – eller stryg til siden – for at se næste uge. Du kan se 8 uger frem.</li><li>Dagene står i en strimmel. Små prikker viser, at der sker noget den dag. Tryk på en dag for at se den.</li><li>På en computer vises hele ugen som et skema.</li></ul>"],
   ["Hvordan tilmelder jeg mig?", "<ol><li>Tryk på aktiviteten.</li><li>Vælg hvor mange personer, I kommer.</li><li>Tryk <strong>Tilmeld</strong>.</li></ol><p>Står der <strong>Ingen tilmelding – bare mød op</strong>, skal du ikke gøre noget. Står der <strong>Fuldt booket</strong>, er der ikke flere pladser.</p>"],
   ["Hvordan afmelder jeg mig?", "<p>Tryk på aktiviteten og tryk <strong>Afmeld</strong>.</p>"],
-  ["Hvordan opretter jeg en aktivitet?", "<ol><li>Tryk <strong>+ Opret aktivitet</strong> øverst – eller tryk på en tom plads i skemaet, så er dag og klokkeslæt udfyldt.</li><li>Skriv hvad der skal ske, vælg dato og tid og skriv hvor.</li><li>Skal man tilmelde sig, så lad fluebenet <strong>Man skal tilmelde sig</strong> stå. Er der et højeste antal pladser, så skriv det i <strong>Højst antal</strong>.</li><li>Tryk <strong>Opret aktivitet</strong>.</li></ol>"],
+  ["Hvordan opretter jeg en aktivitet?", "<ol><li>Tryk <strong>+ Ny aktivitet</strong> nederst til højre – eller tryk på en tom plads i skemaet, så er dag og klokkeslæt udfyldt.</li><li>Skriv hvad der skal ske, vælg dato og tid og skriv hvor.</li><li>Skal man tilmelde sig, så lad fluebenet <strong>Man skal tilmelde sig</strong> stå. Er der et højeste antal pladser, så skriv det i <strong>Højst antal</strong>.</li><li>Tryk <strong>Opret aktivitet</strong>.</li></ol>"],
   ["Hvordan retter, aflyser eller sletter jeg en aktivitet?", "<p>Tryk på aktiviteten. Ved dine egne aktiviteter står <strong>Ret</strong>, <strong>Aflys</strong> og <strong>Slet</strong>.</p><ul><li><strong>Aflys</strong> – aktiviteten bliver stående som <em>Aflyst</em>, så de tilmeldte kan se det.</li><li><strong>Slet</strong> – aktiviteten forsvinder helt.</li></ul><p>Du kan kun ændre dine egne aktiviteter. Dem med niveau Kommunikation og op kan ændre alle.</p>"],
   ["Hvem kan se, hvem der er tilmeldt?", "<p>Alle kan se navn og lejlighed på dem, der er tilmeldt – også på skærmen i receptionen.</p>"],
   ["Hvad betyder \"Oprettet på skærmen\"?", "<p>At aktiviteten er lavet på skærmen i receptionen. Der står også, hvem der lavede den.</p>"],
@@ -4244,7 +4244,7 @@ var HELP_AKT = ["akt", "Fælles aktiviteter", [
 var HELP_BK = ["udstyr", "Booking af udstyr", [
   ["Hvad kan jeg låne?", "<p>Cykler og golfsæt – det, der står på listen, når du trykker <strong>+ Book udstyr</strong>.</p><p>Bookingerne er de samme som på skærmen i receptionen. Du kan også booke hjemmefra, fx to cykler til næste uge.</p>"],
   ["Hvordan finder jeg rundt i oversigten?", "<p>Den virker som kalenderen under Fælles aktiviteter: <strong>Denne uge</strong>, pilene <strong>‹ ›</strong> og dagene i strimlen. Skemaet går fra kl. 8 til 20. Hver booking står som en blok med lejlighed og hvad der er booket.</p>"],
-  ["Hvordan booker jeg?", "<ol><li>Tryk <strong>+ Book udstyr</strong> – eller tryk på en tom plads i skemaet.</li><li>Vælg dato og <strong>Fra kl.</strong> og <strong>Til kl.</strong></li><li>Tryk på det, du vil låne. Du kan vælge flere ting på én gang.</li><li>Tryk <strong>Book</strong>.</li></ol>"],
+  ["Hvordan booker jeg?", "<ol><li>Tryk <strong>+ Book udstyr</strong> nederst til højre – eller tryk på en tom plads i skemaet.</li><li>Vælg dato og <strong>Fra kl.</strong> og <strong>Til kl.</strong></li><li>Tryk på det, du vil låne. Du kan vælge flere ting på én gang.</li><li>Tryk <strong>Book</strong>.</li></ol>"],
   ["Hvorfor er noget gråt eller \"optaget\"?", "<p>Så er det allerede booket i det tidsrum. Vælg et andet tidspunkt eller noget andet udstyr.</p>"],
   ["Hvordan aflyser jeg en booking?", "<p>Tryk på blokken i skemaet og tryk <strong>Aflys</strong> ud for det, der skal aflyses. Har du booket flere ting, kan du aflyse én ad gangen.</p>"],
   ["Hvem kan se mine bookinger?", "<p>Alle kan se navn og lejlighed – også på skærmen i receptionen.</p>"],
@@ -4306,15 +4306,15 @@ var WELCOMES = {
     [ICON_CAL, "Fælles aktiviteter", "Her kan du se, hvad der sker blandt andelshaverne – og selv sætte noget i gang."],
     [ICON_CAL, "Se hvad der sker", "Bladr mellem ugerne med pilene <strong>‹ ›</strong> og tryk på en dag for at se, hvad der sker."],
     [WI_CHECK, "Tilmeld dig", "Tryk på en aktivitet, vælg antal personer og tryk <strong>Tilmeld</strong>."],
-    [WI_PLUS, "Opret en aktivitet", "Tryk <strong>+ Opret aktivitet</strong> – fx padel, en cykeltur eller kortspil.</p><p>Aktiviteterne vises også på skærmen i receptionen."]] },
+    [WI_PLUS, "Opret en aktivitet", "Tryk <strong>+ Ny aktivitet</strong> nederst til højre – fx padel, en cykeltur eller kortspil.</p><p>Aktiviteterne vises også på skærmen i receptionen."]] },
   udstyr: { eyebrow: "Velkommen", help: "udstyr", screens: [
     [ICON_BIKE, "Book udstyr", "Her kan du låne cykler og golfsæt – også hjemmefra, fx to cykler til næste uge."],
     [ICON_CAL, "Se hvad der er booket", "Skemaet viser dagens bookinger. Bladr mellem ugerne med pilene <strong>‹ ›</strong>."],
-    [WI_PLUS, "Book", "Tryk <strong>+ Book udstyr</strong>, vælg dag og tidsrum, og tryk på det, du vil låne. Du kan vælge flere ting på én gang."],
+    [WI_PLUS, "Book", "Tryk <strong>+ Book udstyr</strong> nederst til højre, vælg dag og tidsrum, og tryk på det, du vil låne. Du kan vælge flere ting på én gang."],
     [WI_X, "Aflys", "Tryk på din booking i skemaet og tryk <strong>Aflys</strong>.</p><p>Bookingerne er de samme som på skærmen i receptionen."]] },
   sortbog: { eyebrow: "Velkommen", help: "sortbog", screens: [
     [ICON_BOOK, "Den sorte bog", "Her melder du, hvis noget er gået i stykker eller mangler – i en lejlighed, på fællesområderne eller ved udstyr, der lånes ud."],
-    [WI_PLUS, "Meld en fejl", "Tryk <strong>+ Ny sag</strong> og følg de fire trin. Et billede hjælper meget.</p><p>Haster det, så ring eller skriv også til Stig på +45 20 16 12 17."],
+    [WI_PLUS, "Meld en fejl", "Tryk <strong>+ Ny sag</strong> nederst til højre og følg de fire trin. Et billede hjælper meget.</p><p>Haster det, så ring eller skriv også til Stig på +45 20 16 12 17."],
     [WI_CHAT, "Følg med", "Du følger automatisk dine egne sager. Under <strong>Kommentarer</strong> kan du se, hvad der sker, og skrive til Drift."],
     [WI_BELL, "Få besked", "Tryk <strong>Slå beskeder til</strong>, så får du besked på telefonen, når der sker noget i dine sager."]] },
   guide: { eyebrow: "", last: "Kom i gang", screens: null }
@@ -4715,7 +4715,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 267;
+var APP_VERSION = 268;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

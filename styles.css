@@ -1275,3 +1275,5 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 .welcome-modal .wlist.plain li::before{content:"•";position:absolute;left:0;color:var(--sea)}
 .welcome-modal .wicon .menu4{width:40px;height:40px;gap:3px}.welcome-modal .wicon .menu4 svg{width:13px;height:13px}
 .wagain{margin:18px 0 0}
+/* "+ Ny aktivitet", "+ Book udstyr", "+ Ny sag" nede i højre hjørne som "+ Nyt sted" i Guiden (v268) – plads til knappen under det sidste indhold */
+#root:has(.akhead .fab){padding-bottom:84px}
