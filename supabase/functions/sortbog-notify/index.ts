@@ -6,7 +6,7 @@
 //                                  · melderens rettelser kun til drift; rettet til rød giver også mail
 //                                  · melderen lukker selv sin sag: også til drift
 // { action: "test" }             → en prøvebesked til den, der kalder
-// Mails om røde sager er slået fra, så længe den sorte bog er i test (sæt secret SORTBOG_LIVE=1 for at slå dem til)
+// Mails om røde sager går til Christian med [TEST], så længe den sorte bog er i test (sæt secret SORTBOG_LIVE=1 for at sende til kontoret)
 // Beskeder og mails linker direkte til sagen: APP?menu=test#sortbog-<id>[/kommentarer]
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import webpush from "npm:web-push@3.6.7";
@@ -52,21 +52,24 @@ async function push(sb: ReturnType<typeof createClient>, subs: Sub[], msg: Row) 
 }
 
 // Den sorte bog er i test (Christian 25/11 2026): der må IKKE sendes mails til kontoret.
-// Mail sendes kun, hvis SORTBOG_LIVE=1 er sat som secret, når den sorte bog går live.
+// Under testen går mailen i stedet til Christian med [TEST] foran emnet.
+// Mail til kontoret sendes kun, hvis SORTBOG_LIVE=1 er sat som secret, når den sorte bog går live.
 const LIVE = Deno.env.get("SORTBOG_LIVE") === "1";
+const TEST_TO = Deno.env.get("SORTBOG_TEST_MAIL_TO") || "c" + "@sorgenfrey.net";
 async function redMail(d: Row, title: string, who: string) {
-  if (!LIVE) return "ikke sendt (den sorte bog er i test)";
+  const to = LIVE ? MAIL_TO : TEST_TO, pre = LIVE ? "" : "[TEST] ";
   const key = Deno.env.get("RESEND_API_KEY");
   if (!key) return "ikke sendt (ingen nøgle)";
   const where = whereOf(d), url = caseUrl(d.id);
   const html = '<div style="font-family:Arial,sans-serif;max-width:560px;border:1px solid #ddd;border-radius:8px;padding:18px">' +
+    (LIVE ? "" : '<p style="color:#b3402f;font-weight:bold;margin:0 0 10px">TEST – denne sag er oprettet i testmiljøet og gælder ikke. Mailen er kun sendt til dig, ikke til kontoret.</p>') +
     '<h2 style="color:#b3402f;margin:0 0 10px">' + esc(title) + "</h2>" +
     "<p><b>Hvor:</b> " + esc(where) + (d.item ? "<br><b>Hvad:</b> " + esc(d.item) : "") + "<br><b>" + esc(who) + "</b></p>" +
     '<p style="white-space:pre-wrap">' + esc(d.description) + "</p>" +
     '<p><a href="' + esc(url) + '" style="color:#0f5c6b;font-weight:bold">Åbn sagen i appen</a> – her kan du også se billederne.</p></div>';
   const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: MAIL_FROM, to: [MAIL_TO], subject: "Rød sag i den sorte bog: " + where + (d.item ? " – " + d.item : ""), html, text: title + "\n\nHvor: " + where + (d.item ? "\nHvad: " + d.item : "") + "\n" + who + "\n\n" + (d.description || "") + "\n\nÅbn sagen: " + url }) });
-  return r.ok ? "sendt" : "fejl " + r.status + " " + (await r.text()).slice(0, 160);
+    body: JSON.stringify({ from: MAIL_FROM, to: [to], subject: pre + "Rød sag i den sorte bog: " + where + (d.item ? " – " + d.item : ""), html, text: (LIVE ? "" : "TEST – sagen er oprettet i testmiljøet og gælder ikke.\n\n") + title +"\n\nHvor: " + where + (d.item ? "\nHvad: " + d.item : "") + "\n" + who + "\n\n" + (d.description || "") + "\n\nÅbn sagen: " + url }) });
+  return r.ok ? "sendt til " + (LIVE ? "kontoret" : "Christian (test)") : "fejl " + r.status + " " + (await r.text()).slice(0, 160);
 }
 
 Deno.serve(async (req) => {
