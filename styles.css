@@ -1091,3 +1091,4 @@ footer.foot .footlabel:first-child{margin-top:0}
 .lvsel{display:inline-flex;flex-direction:row;align-items:center;gap:6px;margin-left:10px;font-size:.8rem;color:var(--muted)}
 .lvsel select{font:inherit;font-size:.8rem;padding:2px 6px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
 hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
+.sbcard.sbfocus{outline:2px solid var(--accent,#0f5c6b);outline-offset:3px}

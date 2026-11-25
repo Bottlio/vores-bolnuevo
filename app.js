@@ -47,7 +47,8 @@ try {
   else TEST_MENU = localStorage.getItem("bol_testmenu") === "1";
 } catch (x) {}
 ui.menu = TEST_MENU && ui.cat === "hjem" && !ui.place;
-if (h === "sortbog" && TEST_MENU) { ui.menu = false; ui.page = "sortbog"; }
+var sbHash = /^sortbog(?:-([0-9a-f-]{36}))?$/.exec(h || "");
+if (sbHash && TEST_MENU) { ui.menu = false; ui.page = "sortbog"; ui.sbFocus = sbHash[1] || null; }
 var root = document.getElementById("root");
 var newInput = document.getElementById("new-photos");
 
@@ -1799,7 +1800,7 @@ function sbWhere(d) {
 function sbCard(d) {
   var pr = SB_PRIO[d.priority] || ["", ""], st = new Date(d.created_at), mine = ui.user && d.created_by === ui.user.id, adm = lvl() >= 4;
   var pics = (sbData.photos || []).filter(function (x) { return x.target === d.id; });
-  var h = '<article class="sbcard ' + d.status + '"><div class="sbtop"><span class="sbprio ' + d.priority + '">' + pr[0] + '</span><span class="sbstat ' + d.status + '">' + SB_STATUS[d.status] + (d.status === "loest" && d.solved_at ? " " + new Date(d.solved_at).toLocaleDateString("da-DK", { day: "numeric", month: "short" }) : "") + "</span>" +
+  var h = '<article class="sbcard ' + d.status + '" id="sb-' + esc(d.id) + '"><div class="sbtop"><span class="sbprio ' + d.priority + '">' + pr[0] + '</span><span class="sbstat ' + d.status + '">' + SB_STATUS[d.status] + (d.status === "loest" && d.solved_at ? " " + new Date(d.solved_at).toLocaleDateString("da-DK", { day: "numeric", month: "short" }) : "") + "</span>" +
     '<span class="sbdate">' + st.getDate() + ". " + DA_MON[st.getMonth()] + " " + st.getFullYear() + "</span></div>" +
     "<h3>" + esc(sbWhere(d)) + (d.item ? " · " + esc(d.item) : "") + "</h3>" +
     '<p class="sbdesc">' + esc(d.description) + "</p>" +
@@ -1822,6 +1823,12 @@ function sortbogPageHtml() {
   if (sbData.err) h += '<p class="error">' + esc(sbData.err) + "</p>";
   if (lvl() >= 4) h += pushBoxHtml();
   if (lvl() >= 4) h += '<div class="row sbtools"><button class="btn small" type="button" data-sbxls="1">Hent som regneark</button><button class="btn small" type="button" data-sbsync="1"' + (ui.sbSyncing ? " disabled" : "") + ">" + (ui.sbSyncing ? "Henter fra regnearket…" : "Opdater fra det gamle regneark") + "</button></div>" + (ui.sbSyncMsg ? '<p class="hint">' + esc(ui.sbSyncMsg) + "</p>" : "");
+  if (ui.sbFocus) {
+    // Åbnet fra et link i en besked: vis den rigtige fane og rul hen til sagen
+    var fd = sbData.list.filter(function (x) { return x.id === ui.sbFocus; })[0], fid = ui.sbFocus; ui.sbFocus = null;
+    if (fd) { ui.sbFilter = fd.status === "loest" ? "done" : "open"; setTimeout(function () { var el = document.getElementById("sb-" + fid); if (el) { el.classList.add("sbfocus"); el.scrollIntoView({ block: "center" }); } }, 60); }
+    else h += '<p class="notice">Sagen fra linket findes ikke længere.</p>';
+  }
   var f = ui.sbFilter || "open", open = sbData.list.filter(function (d) { return d.status !== "loest"; }), done = sbData.list.filter(function (d) { return d.status === "loest"; });
   var ord = { rod: 0, gul: 1, gron: 2 };
   var srt = ui.sbSort || "date";
@@ -4169,7 +4176,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 244;
+var APP_VERSION = 245;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
