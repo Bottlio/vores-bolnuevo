@@ -814,7 +814,7 @@ function screenNote() {
 }
 function inAppNote() {
   if (!IN_APP || ui.inAppHide) return "";
-  return '<div class="notice inappnote"><p><strong>Du har åbnet guiden inde i en anden app</strong> (fx Messenger). Herfra kan den ikke lægges på hjemmeskærmen.</p>' +
+  return '<div class="notice inappnote"><p><strong>Du har åbnet Vores Laderita inde i en anden app</strong> (fx Messenger). Herfra kan den ikke lægges på hjemmeskærmen.</p>' +
     '<p>Tryk på de tre prikker <strong>•••</strong> øverst til højre og vælg <strong>' + (IS_ANDROID ? "Åbn i browser" : "Åbn i Safari") + '</strong>. ' +
     (IS_ANDROID ? 'Tryk så på de tre prikker i Chrome og vælg <strong>Føj til startskærm</strong>.' : 'Tryk så på Del-knappen og vælg <strong>Føj til hjemmeskærm</strong>.') + '</p>' +
     '<button class="linkbtn" type="button" id="inapp-hide">Skjul</button></div>';
@@ -1387,7 +1387,7 @@ function renderGate() {
     if (!ui.login) ui.login = { mode: "login" };
     html += loginHtml();
   } else if (!ui.member) {
-    html += '<section class="panel"><h2>Ingen invitation endnu</h2><p>Du er logget ind som <strong>' + esc(ui.user.email) + "</strong>, men den mail er ikke inviteret til guiden.</p>" +
+    html += '<section class="panel"><h2>Ingen invitation endnu</h2><p>Du er logget ind som <strong>' + esc(ui.user.email) + "</strong>, men den mail er ikke inviteret til Vores Laderita.</p>" +
       "<p>Bed en andelshaver om at invitere dig med præcis denne mailadresse. Når invitationen er sendt, så tryk på knappen herunder.</p>" +
       '<div class="row"><button class="btn primary" type="button" id="recheck">Jeg er inviteret nu – prøv igen</button><button class="btn" type="button" id="logout">Log ud</button></div></section>';
   }
@@ -2445,12 +2445,12 @@ function andelPageHtml() {
   }
   var owners = d.members.filter(function (m) { return m.role === "ejer"; }), guests = d.members.filter(function (m) { return m.role !== "ejer"; });
   var nums = (andelNums[me.andel] || [{ l: String(me.label).split("-")[0], n: String(me.label).split("-")[1] }]);
-  var ownerBody = '<ul class="members">' + owners.map(personRow).join("") + "</ul>" + '<p class="hint">Ejere og gæster ser og kan det samme i guiden. Kun ejere kan give og fjerne adgang.</p>';
+  var ownerBody = '<ul class="members">' + owners.map(personRow).join("") + "</ul>" + '<p class="hint">Ejere og gæster ser og kan det samme i appen. Kun ejere kan give og fjerne adgang.</p>';
   nums.forEach(function (x) {
     h += foldBox("andel-" + x.l + "-" + x.n, "<strong>Andel " + esc(x.l + "-" + x.n) + "</strong>", ["Lejlighed " + x.l, x.r ? "rul " + x.r : "", owners.length === 1 ? "1 ejer" : owners.length + " ejere"].filter(Boolean).join(" · "), ownerBody);
   });
   var gBody = (guests.length ? '<ul class="members">' + guests.map(personRow).join("") + "</ul>" : "") +
-    (owner ? '<form id="invite-form" class="invite"><h3>Låner nogen jeres lejlighed? ' + helpBtn("invite", "inline") + '</h3><p class="hint">Giv familie eller venner, der skal låne lejligheden, adgang til guiden, så de kan finde rundt i området.</p><div class="grid"><label>Fornavn<input id="i-name" required placeholder="Fx Emma"></label><label>Mail<input id="i-email" type="email" required placeholder="navn@mail.dk"></label></div>' +
+    (owner ? '<form id="invite-form" class="invite"><h3>Låner nogen jeres lejlighed? ' + helpBtn("invite", "inline") + '</h3><p class="hint">Giv familie eller venner, der skal låne lejligheden, adgang til Vores Laderita.</p><div class="grid"><label>Fornavn<input id="i-name" required placeholder="Fx Emma"></label><label>Mail<input id="i-email" type="email" required placeholder="navn@mail.dk"></label></div>' +
       '<button class="btn primary" type="submit">Invitér</button></form>' : "") +
     (d.err ? '<p class="err">' + esc(d.err) + "</p>" : "");
   h += foldBox("gaester", "<strong>Gæster</strong>", guests.length ? (guests.length === 1 ? "1 gæst" : guests.length + " gæster") + " · Låner nogen jeres lejlighed?" : "Låner nogen jeres lejlighed?", gBody);
@@ -2528,17 +2528,17 @@ function isReadAndel(d, id) { var a = (d.andele || []).filter(function (x) { ret
 function roleName(r) { return r === "ejer" ? "Ejer" : r === "laeser" ? "Læseadgang" : "Gæst"; }
 function inviteMsg(name, email, andel, lend, readOnly) {
   return "Hej" + (name ? " " + name : "") + ".\n\n" + (readOnly
-    ? "Du har fået læseadgang til Laderita de Bolnuevo guide – en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer. Du kan se det hele, men ikke ændre noget eller give vurderinger."
+    ? "Du har fået læseadgang til Vores Laderita – andelshavernes app for Laderita de Bolnuevo med bl.a. en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer. Du kan se det hele, men ikke ændre noget eller give vurderinger."
     : lend
-    ? "Du er inviteret til Laderita de Bolnuevo guide, fordi du skal låne " + lend + ". Guiden viser steder i området omkring hotellet med billeder og andelshavernes kommentarer."
-    : "Du er inviteret til Laderita de Bolnuevo guide – en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer" + (andel ? ". Du er med som ejer af " + (/,| og /.test(andel) ? "andelene " : "andel ") + andel : "") + ".") + "\n\n" +
+    ? "Du er inviteret til Vores Laderita – andelshavernes app for Laderita de Bolnuevo – fordi du skal låne " + lend + ". Her finder du bl.a. en guide til området omkring hotellet med billeder og andelshavernes kommentarer."
+    : "Du er inviteret til Vores Laderita – andelshavernes app for Laderita de Bolnuevo med bl.a. en guide til området omkring hotellet med steder, billeder og andelshavernes kommentarer" + (andel ? ". Du er med som ejer af " + (/,| og /.test(andel) ? "andelene " : "andel ") + andel : "") + ".") + "\n\n" +
     "Sådan kommer du i gang:\n" +
     "1. Åbn " + location.origin + location.pathname + "\n" +
     "2. Tryk på \"Første gang: opret adgangskode\".\n" +
     "3. Skriv din mail (" + email + ") og vælg en adgangskode på mindst 8 tegn.\n" +
     "4. Du får en mail. Tryk på linket i mailen.\n" +
-    "5. Gå tilbage til guiden og log ind med din mail og adgangskode.\n\n" +
-    "Tip: Læg guiden på telefonens hjemmeskærm, så den åbner som en app. Har du brug for hjælp, så tryk på ? øverst i guiden – den virker også, før du er logget ind.";
+    "5. Gå tilbage til Vores Laderita og log ind med din mail og adgangskode.\n\n" +
+    "Tip: Læg Vores Laderita på telefonens hjemmeskærm, så den åbner som en app. Har du brug for hjælp, så tryk på ? øverst i appen – den virker også, før du er logget ind.";
 }
 async function invite() {
   var name = document.getElementById("i-name").value.trim(), email = document.getElementById("i-email").value.trim().toLowerCase(), role = "gaest";
@@ -2547,7 +2547,7 @@ async function invite() {
   if (r.error && /duplicate|unique/i.test(r.error.message)) {
     // Allerede på listen: har personen ikke logget ind endnu, vises invitationen igen, så den kan sendes
     var ex = ((andelData && andelData.members) || []).filter(function (m) { return (m.email || "").toLowerCase() === email; })[0];
-    if (ex && ex.user_id) { andelData.err = (ex.name || email) + " har allerede adgang til guiden."; render(); return; }
+    if (ex && ex.user_id) { andelData.err = (ex.name || email) + " har allerede adgang til Vores Laderita."; render(); return; }
     andelData.err = ""; ui.inviteText = role === "ejer" ? inviteMsg(name, email, myAndelTxt()) : inviteMsg(name, email, "", myLendTxt()); ui.inviteTo = email; ui.inviteName = name; render(); openInvite(); return;
   }
   if (r.error) { andelData.err = "Invitationen blev ikke gemt: " + r.error.message; render(); return; }
@@ -2990,7 +2990,7 @@ function loginHtml() {
     '<label>Skriv den igen<input type="password" id="l-pass2" autocomplete="new-password" required minlength="8"></label>' + msg +
     '<div class="row"><button class="btn primary" type="submit"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Gemmer…" : "Gem ny adgangskode") + "</button></div></form>";
   if (l.mode === "reset") return '<form class="panel" id="login-form"><h2>Glemt adgangskode</h2>' +
-    '<p class="hint">Skriv den mail, du bruger til guiden. Du får en mail med et link, hvor du kan vælge en ny adgangskode.</p>' +
+    '<p class="hint">Skriv den mail, du bruger til Vores Laderita. Du får en mail med et link, hvor du kan vælge en ny adgangskode.</p>' +
     '<label>Mail<input type="email" id="l-email" autocomplete="email" required value="' + esc(l.email || "") + '"></label>' + msg +
     '<div class="row"><button class="btn primary" type="submit"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Sender…" : "Send link") + '</button><button class="btn" type="button" id="to-login">Tilbage til log ind</button></div></form>';
   return '<form class="panel" id="login-form"><h2>Log ind</h2>' +
@@ -3024,7 +3024,7 @@ async function submitLogin() {
     var rr = await sb.auth.resetPasswordForEmail(em, { redirectTo: location.origin + location.pathname });
     ui.busy = false;
     if (rr.error) { ui.login.err = /rate|seconds|many/i.test(rr.error.message) ? "Der er sendt for mange mails lige nu. Vent lidt, og prøv igen." : "Det lykkedes ikke: " + rr.error.message; render(); return; }
-    ui.login.info = "Hvis mailen er med i guiden, har vi nu sendt et link til " + em + ". Åbn mailen og tryk på linket. Kan du ikke finde den, så kig også i uønsket post (spam)."; render(); return;
+    ui.login.info = "Hvis mailen er med i Vores Laderita, har vi nu sendt et link til " + em + ". Åbn mailen og tryk på linket. Kan du ikke finde den, så kig også i uønsket post (spam)."; render(); return;
   }
   var email = document.getElementById("l-email").value.trim(), pass = document.getElementById("l-pass").value;
   ui.login.email = email; ui.login.err = ""; ui.login.info = "";
@@ -3032,7 +3032,7 @@ async function submitLogin() {
   if (ui.login.mode === "signup") {
     if (pass !== document.getElementById("l-pass2").value) { ui.login.err = "De to adgangskoder er ikke ens. Skriv dem igen."; render(); return; }
     var s = await sb.auth.signUp({ email: email, password: pass, options: { emailRedirectTo: location.origin + location.pathname } });
-    if (s.error) { ui.login.err = /rate|seconds|many/i.test(s.error.message) ? "Der er sendt for mange mails fra guiden lige nu. Vent en halv time, og prøv igen – din adgangskode er ikke gemt endnu." : "Det lykkedes ikke: " + s.error.message; render(); return; }
+    if (s.error) { ui.login.err = /rate|seconds|many/i.test(s.error.message) ? "Der er sendt for mange mails fra Vores Laderita lige nu. Vent en halv time, og prøv igen – din adgangskode er ikke gemt endnu." : "Det lykkedes ikke: " + s.error.message; render(); return; }
     if (s.data.user && s.data.user.identities && s.data.user.identities.length === 0) {   // mailen har allerede en adgangskode
       ui.login.mode = "login"; ui.login.info = "Du har allerede oprettet en adgangskode med " + email + ". Log ind her. Har du glemt den, så tryk \"Glemt adgangskode\"."; render(); return;
     }
@@ -4102,7 +4102,7 @@ var HELP_TIPS = {
   whoseeapt: ["Hvem kan se det?", "<p><strong>Hvem kan se stedet?</strong> <em>Lejligheden</em> – alle andele i samme lejlighed. <em>Vores andel</em> – kun jer. <em>Kun mig</em> – kun dig.</p><p><strong>Hvem kan se vores stjerner og tekst?</strong> Om jeres stjerner og kommentar vises for alle, der kan se stedet, eller kun for jeres andel.</p>", "stjerner"],
   whosee: ["Hvem kan se det?", "<p><strong>Hvem kan se stedet?</strong> Om alle andelshavere kan se stedet, kun jeres andel eller kun dig.</p><p><strong>Hvem kan se vores stjerner og tekst?</strong> Om jeres stjerner og kommentar vises for alle eller kun for jeres andel.</p>", "stjerner"],
   advanced: ["Avanceret redigering", "<p>Her kan man rette stedets navn, by, kategori, links og hvem der kan se det.</p><p>Vil du bare skrive en kommentar, er knappen <strong>Tilføj kommentar</strong> på stedet nemmere.</p>", "avanceret"],
-  invite: ["Når nogen låner jeres lejlighed", "<p>1. Tryk på <strong>Gæster</strong> under Vores andel.<br>2. Skriv personens fornavn og mail.<br>3. Tryk <strong>Invitér</strong>.<br>4. Der kommer et vindue: tryk <strong>Mail</strong>, <strong>SMS</strong>, <strong>WhatsApp</strong> eller <strong>Messenger</strong>. Beskeden er skrevet på forhånd – du vælger personen og trykker send.</p><p>Gæster kan det samme i guiden som ejere, men kan ikke invitere andre.</p>", "andel"]
+  invite: ["Når nogen låner jeres lejlighed", "<p>1. Tryk på <strong>Gæster</strong> under Vores andel.<br>2. Skriv personens fornavn og mail.<br>3. Tryk <strong>Invitér</strong>.<br>4. Der kommer et vindue: tryk <strong>Mail</strong>, <strong>SMS</strong>, <strong>WhatsApp</strong> eller <strong>Messenger</strong>. Beskeden er skrevet på forhånd – du vælger personen og trykker send.</p><p>Gæster kan det samme i appen som ejere, men kan ikke invitere andre.</p>", "andel"]
 };
 function helpBtn(key, cls) { return '<button type="button" class="qhelp' + (cls ? " " + cls : "") + '" data-help="' + key + '" aria-label="Hjælp: ' + esc(HELP_TIPS[key][0]) + '" title="Hjælp">?</button>'; }
 var helpBox = null;
@@ -4133,12 +4133,12 @@ var DEMO = {
 };
 var HELP_FAQ = [
   ["start", "Kom i gang", [
-    ["Hvordan logger jeg ind første gang?", "<ol><li>Åbn linket fra den invitation, du har fået.</li><li>Tryk på <strong>Første gang: opret adgangskode</strong>.</li><li>Skriv den mail, du er inviteret med, og vælg en adgangskode (mindst 8 tegn).</li><li>Du får en mail. Den er på engelsk og hedder <em>Confirm your signup</em>. Tryk på linket <em>Confirm your mail</em> i mailen.</li><li>Kom tilbage til guiden og log ind med mail og adgangskode.</li></ol>"],
+    ["Hvordan logger jeg ind første gang?", "<ol><li>Åbn linket fra den invitation, du har fået.</li><li>Tryk på <strong>Første gang: opret adgangskode</strong>.</li><li>Skriv den mail, du er inviteret med, og vælg en adgangskode (mindst 8 tegn).</li><li>Du får en mail. Den er på engelsk og hedder <em>Confirm your signup</em>. Tryk på linket <em>Confirm your mail</em> i mailen.</li><li>Kom tilbage til Vores Laderita og log ind med mail og adgangskode.</li></ol>"],
     ["Jeg har glemt min adgangskode", "<ol><li>Tryk på <strong>Glemt adgangskode?</strong> under feltet til adgangskoden på log ind-siden.</li><li>Skriv din mail og tryk <strong>Send link</strong>.</li><li>Åbn mailen. Den er på engelsk og hedder <em>Reset your password</em>. Tryk på linket <em>Reset password</em>. Kan du ikke finde mailen, så kig i uønsket post (spam).</li><li>Skriv din nye adgangskode to gange og tryk <strong>Gem ny adgangskode</strong>.</li></ol><p>Så er du logget ind igen.</p>"],
-    ["Hvordan får jeg guiden som \"app\" på min telefon?", "<p>Guiden er ikke en app, du henter i App Store eller Google Play. Det er en hjemmeside. Men du kan lægge den på telefonens hjemmeskærm med sit eget ikon. Så åbner den med ét tryk og ser ud og opfører sig som en app – og du skal ikke logge ind hver gang.</p>" +
-      "<p><strong>Åbnede du linket fra Messenger, Facebook eller en mail-app?</strong> Så åbner guiden inde i den app, og der kan den ikke lægges på hjemmeskærmen. Tryk først på de tre prikker øverst og vælg <strong>Åbn i browser</strong> (Android) eller <strong>Åbn i Safari</strong> (iPhone).</p>" +
-      "<p><strong>iPhone og iPad</strong> – åbn guiden i <strong>Safari</strong>:</p><ol><li>Tryk på Del-knappen " + DEMO.share + " nederst (på iPad øverst).</li><li>Rul lidt ned og tryk <strong>Føj til hjemmeskærm</strong> " + DEMO.addhome + ".</li><li>Tryk <strong>Tilføj</strong> øverst til højre.</li></ol>" +
-      "<p><strong>Android</strong> – åbn guiden i <strong>Chrome</strong>:</p><ol><li>Tryk på de tre prikker " + DEMO.dots + " øverst til højre.</li><li>Tryk <strong>Føj til startskærm</strong> (eller <strong>Installer app</strong>).</li><li>Tryk <strong>Tilføj</strong>.</li></ol><p>Nu ligger guiden som et ikon sammen med dine andre apps.</p>"],
+    ["Hvordan får jeg Vores Laderita som \"app\" på min telefon?", "<p>Vores Laderita er ikke en app, du henter i App Store eller Google Play. Det er en hjemmeside. Men du kan lægge den på telefonens hjemmeskærm med sit eget ikon. Så åbner den med ét tryk og ser ud og opfører sig som en app – og du skal ikke logge ind hver gang.</p>" +
+      "<p><strong>Åbnede du linket fra Messenger, Facebook eller en mail-app?</strong> Så åbner Vores Laderita inde i den app, og der kan den ikke lægges på hjemmeskærmen. Tryk først på de tre prikker øverst og vælg <strong>Åbn i browser</strong> (Android) eller <strong>Åbn i Safari</strong> (iPhone).</p>" +
+      "<p><strong>iPhone og iPad</strong> – åbn Vores Laderita i <strong>Safari</strong>:</p><ol><li>Tryk på Del-knappen " + DEMO.share + " nederst (på iPad øverst).</li><li>Rul lidt ned og tryk <strong>Føj til hjemmeskærm</strong> " + DEMO.addhome + ".</li><li>Tryk <strong>Tilføj</strong> øverst til højre.</li></ol>" +
+      "<p><strong>Android</strong> – åbn Vores Laderita i <strong>Chrome</strong>:</p><ol><li>Tryk på de tre prikker " + DEMO.dots + " øverst til højre.</li><li>Tryk <strong>Føj til startskærm</strong> (eller <strong>Installer app</strong>).</li><li>Tryk <strong>Tilføj</strong>.</li></ol><p>Nu ligger Vores Laderita som et ikon sammen med dine andre apps.</p>"],
     ["Hvordan kommer jeg tilbage?", "<p>" + DEMO.back + " øverst til højre går et skridt tilbage.</p><p>" + DEMO.home + " går til forsiden.</p>"],
     ["Hvor finder jeg hjælp?", "<p>Tryk på " + DEMO.help + " øverst til højre. Den virker også, før du er logget ind.</p>"],
     ["Kan jeg se velkomsten igen?", "<p>Ja: <button type=\"button\" class=\"linkbtn\" id=\"show-welcome\">Vis velkomsten igen</button>.</p>"]
@@ -4187,7 +4187,7 @@ var HELP_FAQ = [
   ]],
   ["andel", "Vores andel og konto", [
     ["Familie eller venner skal låne vores lejlighed – hvordan får de adgang?", "<p>Gå til <strong>Vores andel</strong> nederst på siden.</p>" + HELP_TIPS.invite[1] + "<p>Beskeden indeholder en kort vejledning i at logge ind. Kun ejere kan invitere.</p>"],
-    ["Hvad er forskellen på Ejer og Gæst?", "<p>Begge kan se og bruge alt i guiden. Kun <strong>ejere</strong> kan invitere andre og fjerne adgang.</p>"],
+    ["Hvad er forskellen på Ejer og Gæst?", "<p>Begge kan se og bruge alt i appen. Kun <strong>ejere</strong> kan invitere andre og fjerne adgang.</p>"],
     ["Hvordan sletter jeg min konto?", "<p>Gå til <strong>Vores andel</strong> nederst på siden og tryk <strong>Slet min konto</strong>. Det, du har lagt ind, bliver hos andelen.</p>"]
   ]]
 ];
@@ -4255,7 +4255,7 @@ function helpTabs() {
   var st = g("start"); if (t && st) st = [st[0], st[1], st[2].filter(function (q) { return q[0] !== "Hvordan kommer jeg tilbage?"; })];
   var tabs = [["start", ICON_HELP, "Kom i gang", [st].concat(t ? [HELP_MENU] : []), ["start"]]];
   if (t) tabs.push(["akt", ICON_CAL, "Fælles aktiviteter", [HELP_AKT], []], ["udstyr", ICON_BIKE, "Book udstyr", [HELP_BK], []]);
-  tabs.push(["guide", ICON_COMPASS, "Guide til området", [g("find"), g("stjerner"), g("billeder"), g("avanceret")], ["find", "stjerner", "billeder", "avanceret"]]);
+  tabs.push(["guide", ICON_PIN, "Guide til området", [g("find"), g("stjerner"), g("billeder"), g("avanceret")], ["find", "stjerner", "billeder", "avanceret"]]);
   if (t) tabs.push(["sortbog", ICON_BOOK, "Den sorte bog", [HELP_SORTBOG].concat(lvl() >= 4 ? [HELP_SORTBOG_DRIFT] : []), []]);
   tabs.push(["andel", ICON_GEAR, "Vores andel", [g("andel")], ["andel"]]);
   return tabs.map(function (x) { x[3] = x[3].filter(Boolean); return x; });
@@ -4583,7 +4583,7 @@ document.addEventListener("click", async function (e) {
     var da = await sb.rpc("delete_my_account"); ui.busy = false; ui.confirmDelAcc = false;
     if (da.error) { ui.delAccErr = da.error.message; render(); return; }
     await sb.auth.signOut(); ui.user = null; ui.editor = false; ui.member = false; me = null; ui.draft = null; ui.page = null; places = []; raw = { places: [], towns: [], regions: [], exps: [], photos: [] };
-    ui.msg = "Din konto er slettet. Tak for din tid i guiden."; render(); return;
+    ui.msg = "Din konto er slettet. Tak for din tid i Vores Laderita."; render(); return;
   }
   if (t.dataset.usedup) { useExisting(t.dataset.usedup); return; }
   if (t.id === "dup-new") { syncDraft(); ui.draft.dupOk = true; ui.draft.dups = null; saveDraft(); return; }
@@ -4657,7 +4657,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 260;
+var APP_VERSION = 261;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
