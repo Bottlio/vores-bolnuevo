@@ -2287,7 +2287,7 @@ var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform ==
 async function pushCheck() {
   pushState.checked = true;
   try { var reg = await navigator.serviceWorker.getRegistration(); var sub = reg && await reg.pushManager.getSubscription(); pushState.on = !!sub && Notification.permission === "granted"; } catch (e) { pushState.on = false; }
-  if (ui.page === "sortbog") render();
+  if (ui.page === "sortbog" || ui.page === "hjaelp") render();
 }
 function pushBoxHtml(role, canDismiss) {
   var what = role === "drift" ? "når der oprettes en ny sag, og når der sker noget i sager, du følger" : "når der sker noget i sager, du følger";
@@ -4201,7 +4201,13 @@ var HELP_SORTBOG = ["sortbog", "Den sorte bog", [
   ["Hvad betyder status?", "<p>Når du åbner en sag, står der øverst <strong>STATUS</strong> og fire trin:</p><ul><li><strong>Meldt</strong> – sagen er oprettet, men ingen er gået i gang endnu.</li><li><strong>I gang</strong> – Drift arbejder på det.</li><li><strong>Afventer</strong> – der ventes på noget. Der står hvad: at en håndværker skal tilkaldes, at en håndværker er bestilt, eller at varer er bestilt.</li><li><strong>Løst</strong> – sagen er lukket.</li></ul><p>Der står ✓ ved de trin, der er klaret, og en prik ved det trin, sagen står på nu.</p>"],
   ["Hvad er fanerne Nye og i gang, Afventer og Løste?", "<ul><li><strong>Nye og i gang</strong> – nye sager og sager, Drift arbejder på.</li><li><strong>Afventer</strong> – sager, der venter på en håndværker eller på varer.</li><li><strong>Løste</strong> – lukkede sager. De bliver liggende, så man kan se, hvordan noget blev løst sidst.</li></ul><p>Med <strong>Sortér</strong> kan du vælge nyeste først, ældste først eller efter hvor meget det haster.</p>"],
   ["Hvordan følger jeg med i min sag?", "<p>Du <strong>følger</strong> automatisk de sager, du selv har meldt, og dem, du har skrevet en kommentar i. Du kan også følge andre sager: åbn sagen og tryk <strong>Følg</strong>.</p><p>På kortet står der <strong>✓ Følger</strong>. Er der sket noget, siden du sidst kiggede, står der også <strong>Nyt</strong>.</p><p>Tryk på kortet for at åbne sagen. Under <strong>Kommentarer</strong> kan du se alt, hvad der er sket.</p>"],
-  ["Hvordan får jeg besked på telefonen?", "<p>Tryk <strong>Slå beskeder til</strong>, og sig ja, når telefonen spørger. Så får du besked, når der sker noget i de sager, du følger.</p><p><strong>iPhone:</strong> Beskeder virker kun, hvis appen er lagt på hjemmeskærmen. Åbn den i Safari, tryk på Del-knappen " + DEMO.share + " og vælg <strong>Føj til hjemmeskærm</strong> " + DEMO.addhome + ". Åbn den derfra, og slå beskeder til.</p>"],
+  ["Hvordan får jeg besked på telefonen?", "<p>Du kan få en besked på telefonen, når der sker noget i de sager, du følger – fx når Drift skriver en kommentar, eller sagen er løst.</p>" +
+    "<p><strong>Du kan slå det til lige her:</strong></p>{{PUSHBOX}}" +
+    "<p>Tryk på <strong>Slå beskeder til</strong>. Telefonen spørger så, om appen må sende beskeder – tryk <strong>Tillad</strong>. Tryk bagefter på <strong>Send en prøvebesked</strong> for at se, at det virker.</p>" +
+    "<p><strong>Hvor står knappen ellers?</strong></p><ul><li>Lige efter du har oprettet en sag.</li><li>Første gang du trykker <strong>Følg</strong> eller skriver en kommentar.</li><li>Øverst i den sorte bog, i den hvide boks <em>Få besked på denne enhed</em> – når du følger mindst én sag. Har du trykket <strong>Ikke nu</strong>, kommer boksen ikke igen der, men du kan altid slå beskeder til her i hjælpen.</li></ul>" +
+    "<p><strong>Det skal gøres på hver telefon eller iPad</strong>, du vil have beskeder på.</p>" +
+    "<p><strong>iPhone og iPad:</strong> Beskeder virker kun, når appen er lagt på hjemmeskærmen. Åbn den i Safari, tryk på Del-knappen " + DEMO.share + " og vælg <strong>Føj til hjemmeskærm</strong> " + DEMO.addhome + ". Åbn appen fra ikonet på hjemmeskærmen og slå beskeder til.</p>" +
+    "<p><strong>Står der, at beskeder er blokeret?</strong> Så har du tidligere sagt nej. Gå til telefonens <strong>Indstillinger</strong>, find browseren eller appen, og slå beskeder til igen.</p>"],
   ["Hvordan skriver jeg en kommentar?", "<ol><li>Tryk på sagen for at åbne den.</li><li>Tryk på fanen <strong>Kommentarer</strong>.</li><li>Skriv i feltet nederst og tryk <strong>Send</strong>. Tryk på kameraet, hvis du vil sætte et billede på.</li></ol><p>Du kan rette eller slette din kommentar i 15 minutter. Derefter bliver den stående, så historikken passer.</p>"],
   ["Kan jeg rette, lukke eller slette min sag?", "<ul><li><strong>Rette:</strong> Åbn sagen og tryk <strong>Ret sagen</strong>. Det kan du, indtil sagen er løst. Din rettelse bliver skrevet i Kommentarer.</li><li><strong>Lukke:</strong> Er problemet væk, eller har du selv ordnet det? Tryk <strong>Ret sagen</strong> og derefter <strong>Luk sagen</strong> nederst. Skriv kort hvorfor. Drift får besked.</li><li><strong>Slette:</strong> Kun mens sagen står som Ny – fx hvis du har oprettet den ved en fejl.</li></ul>"],
   ["Hvad er \"Tidligere sager\"?", "<p>Når du har åbnet en sag, viser fanen <strong>Tidligere</strong> andre sager fra samme lejlighed, samme sted eller samme udstyr – både åbne og løste. Så kan man se, om det er sket før, og hvordan det blev løst.</p><p>I søgefeltet kan du søge i alle sager, fx <em>vaskemaskine</em>. Tryk på en linje for at åbne sagen. Med <strong>‹ Tilbage til …</strong> øverst kommer du tilbage til den sag, du kom fra.</p>"]
@@ -4210,13 +4216,16 @@ var HELP_SORTBOG_DRIFT = ["sortbog-drift", "Den sorte bog – kun for Drift", [
   ["Hvordan følger jeg op på en sag?", "<p>Åbn sagen. Den store knap er det næste naturlige skridt:</p><ul><li><strong>Påbegynd</strong> – sagen går til I gang.</li><li><strong>Færdigmeld</strong> – skriv kort, hvad der blev gjort (skal udfyldes, så andre kan se det næste gang). Du kan sætte et billede på.</li><li><strong>Håndværker er bestilt</strong> – når en håndværker er bestilt.</li></ul><p>Resten ligger under <strong>Flere</strong>: Håndværker skal tilkaldes, Varer bestilt, Følg sagen, Ret sagen, Sendt til Limaser og Slet sagen. En løst sag kan genåbnes under Flere.</p>"],
   ["Hvem får besked hvornår?", "<ul><li><strong>Ny sag:</strong> Drift og administrator får besked på telefonen, hvis de har slået beskeder til. Er sagen rød (Haster), sendes der også en mail til kontoret.</li><li><strong>Kommentar eller nyt statusskift:</strong> alle, der følger sagen.</li><li><strong>Håndværker skal tilkaldes:</strong> dem, der har fluebenet <strong>Bestiller håndværkere</strong> (sættes af administratoren under Andelshavere). Har ingen fluebenet, får hele Drift besked.</li><li><strong>Melderen retter eller lukker selv sin sag:</strong> Drift får besked. Rettes en sag til rød, sendes der også en mail.</li></ul>"]
 ]];
+// Husk hvilke svar der er åbne, så de bliver åbne, når siden tegnes igen (fx når beskeder slås til)
+document.addEventListener("toggle", function (e) { var d = e.target; if (d && d.dataset && d.dataset.faq) { ui.helpOpen = ui.helpOpen || {}; ui.helpOpen[d.dataset.faq] = d.open; } }, true);
 function helpSectionOf() { return ui.page === "sortbog" ? "sortbog" : ""; }
 function helpPageHtml() {
   // Hjælp til den del, man kom fra (fx den sorte bog) – med "Se al hjælp" nederst
-  var faq = function (sec) { var x = '<h3 id="hjaelp-' + sec[0] + '">' + esc(sec[1]) + "</h3>"; sec[2].forEach(function (q) { x += '<details class="faq"><summary><span class="fq">' + (q[2] ? rowIcon(q[2]) : "") + esc(q[0]) + '</span></summary><div class="faqa">' + q[1] + "</div></details>"; }); return x; };
+  ui.helpOpen = ui.helpOpen || {};
+  var faq = function (sec) { var x = '<h3 id="hjaelp-' + sec[0] + '">' + esc(sec[1]) + "</h3>"; sec[2].forEach(function (q, i) { var k = sec[0] + "-" + i; x += '<details class="faq" data-faq="' + k + '"' + (ui.helpOpen[k] ? " open" : "") + '><summary><span class="fq">' + (q[2] ? rowIcon(q[2]) : "") + esc(q[0]) + '</span></summary><div class="faqa">' + q[1] + "</div></details>"; }); return x; };
   if (ui.helpFor === "sortbog" && !ui.helpAll) {
     return '<section class="panel helppage"><p class="eyebrow">Hjælp</p><h2>Hjælp til den sorte bog</h2><p class="hint">Tryk på et spørgsmål for at se svaret.</p>' +
-      faq(HELP_SORTBOG) + (lvl() >= 4 ? faq(HELP_SORTBOG_DRIFT) : "") +
+      faq(HELP_SORTBOG).replace("{{PUSHBOX}}", pushBoxHtml(lvl() >= 4 ? "drift" : "follow")) + (lvl() >= 4 ? faq(HELP_SORTBOG_DRIFT) : "") +
       '<div class="row helpall"><button class="btn" type="button" data-helpall="1">Se al hjælp</button></div>' +
       '<div class="helpcontact"><h3>Kan du ikke finde svaret?</h3><p>Skriv til Christian på <a href="mailto:' + HELP_MAIL + '">' + HELP_MAIL + "</a>. Skriv gerne, hvad du prøvede at gøre, og hvad der skete.</p></div></section>";
   }
@@ -4227,7 +4236,7 @@ function helpPageHtml() {
     sec[2].forEach(function (q) { h += '<details class="faq"><summary><span class="fq">' + (q[2] ? rowIcon(q[2]) : "") + esc(q[0]) + '</span></summary><div class="faqa">' + q[1] + "</div></details>"; });
   });
   // Den sorte bog er under test: dens hjælp vises kun med testmenuen
-  if (TEST_MENU && ui.member) h += faq(HELP_SORTBOG) + (lvl() >= 4 ? faq(HELP_SORTBOG_DRIFT) : "");
+  if (TEST_MENU && ui.member) h += faq(HELP_SORTBOG).replace("{{PUSHBOX}}", pushBoxHtml(lvl() >= 4 ? "drift" : "follow")) + (lvl() >= 4 ? faq(HELP_SORTBOG_DRIFT) : "");
   h += '<div class="helpcontact"><h3>Kan du ikke finde svaret?</h3><p>Skriv til Christian på <a href="mailto:' + HELP_MAIL + '">' + HELP_MAIL + "</a>. Skriv gerne, hvad du prøvede at gøre, og hvad der skete.</p></div></section>";
   return h;
 }
@@ -4613,7 +4622,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 256;
+var APP_VERSION = 257;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
