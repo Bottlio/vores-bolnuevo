@@ -2191,13 +2191,12 @@ function adminPageHtml() {
   var addnum = '<form id="addnum-form" class="invite"><h3>Tilføj et ekstra andelsnummer til en husstand</h3><p class="hint">Til andelshavere med flere andele (fx Trærup: 203-002, 102-025 og 102-039). Stjerner, kommentarer og favoritter er fælles for husstanden, og de ser alle deres lejligheder under Hotellet.</p>' +
     '<div class="grid"><label>Husstand<select id="x-andel" required><option value="">Vælg …</option>' + d.andele.filter(function (a) { return a.aktiv; }).map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.lejlighed + "-" + a.nummer) + " · " + esc(d.members.filter(function (m) { return m.andel_id === a.id; }).map(function (m) { return m.name || m.email; }).join(", ")) + "</option>"; }).join("") + "</select></label>" +
     '<label>Lejlighed<input id="x-lejl" required placeholder="102" inputmode="numeric"></label><label>Andelsnummer<input id="x-num" required placeholder="025" inputmode="numeric"></label></div><button class="btn" type="submit">Tilføj nummer</button></form>';
-  h += foldBox("adm-num", "<strong>Ekstra andelsnummer</strong>", "Til husstande med flere andele", addnum);
   var newandel = '<form id="newandel-form" class="invite"><h3>Opret andel og invitér første ejer</h3><div class="grid"><label>Lejlighed<input id="n-lejl" required placeholder="101" inputmode="numeric"></label><label>Andelshavernummer<input id="n-num" required placeholder="043" inputmode="numeric"></label></div>' +
     '<div class="grid"><label>Ejerens fornavn<input id="n-name" required></label><label>Ejerens mail<input id="n-email" type="email" required></label></div><button class="btn primary" type="submit">Opret andel</button></form>' +
     '<p class="hint">"Marker som solgt" (under Andelshavere) lukker andelens adgang. Deres private indhold følger ikke med til køberen, som får en ny andel med samme nummer.</p>';
-  h += foldBox("adm-new", "<strong>Opret ny andel</strong>", "Ny andel og invitation til første ejer – fx ved salg", newandel);
   h += foldBox("adm-levels", "<strong>Udvidet adgang</strong>", "Seks niveauer: gæst, personale, andelshaver, kommunikation, drift og administrator", levelsHtml(d));
   h += foldBox("adm-notes", "<strong>Opslag på skærmen</strong>", "Korte beskeder i receptionen, fx \"Poolen er lukket torsdag\"", noticesAdminHtml());
+  h += foldBox("adm-sale", "<strong>Salg og ekstra andele</strong>", "Bruges sjældent: ny ejer ved salg, eller når en husstand får en andel mere", newandel + '<hr class="sep">' + addnum);
   return h;
 }
 /* ---------- Opslag til skærmen i receptionen (administratoren og udvalgte personer skriver dem) ---------- */
@@ -4170,7 +4169,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 243;
+var APP_VERSION = 244;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
