@@ -1086,3 +1086,5 @@ footer.foot .footlabel:first-child{margin-top:0}
 .helpmodal.pickbox{width:min(720px,calc(100vw - 20px))}
 #pick-map .licon{width:16px;height:16px;vertical-align:-3px;margin-right:4px}
 .sbtools{gap:8px;flex-wrap:wrap;margin:6px 0}
+.pushbox{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0;background:var(--surface)}
+.pushbox p{margin:0 0 6px}.pushbox .row{gap:8px;flex-wrap:wrap}

@@ -47,6 +47,7 @@ try {
   else TEST_MENU = localStorage.getItem("bol_testmenu") === "1";
 } catch (x) {}
 ui.menu = TEST_MENU && ui.cat === "hjem" && !ui.place;
+if (h === "sortbog" && TEST_MENU) { ui.menu = false; ui.page = "sortbog"; }
 var root = document.getElementById("root");
 var newInput = document.getElementById("new-photos");
 
@@ -1819,6 +1820,7 @@ function sortbogPageHtml() {
   h += '<p class="notice">Test: sager, du opretter her, er rigtige og kan ses af alle andre testere.</p>';
   h += '<p class="hint">Er noget gået i stykker, eller mangler der noget? Opret en sag, så den ansvarlige kan følge op. Har du brug for akut hjælp, så ring eller skriv til Stig på WhatsApp/telefon +45 20 16 12 17.</p>';
   if (sbData.err) h += '<p class="error">' + esc(sbData.err) + "</p>";
+  if (lvl() >= 4) h += pushBoxHtml();
   if (lvl() >= 4) h += '<div class="row sbtools"><button class="btn small" type="button" data-sbxls="1">Hent som regneark</button><button class="btn small" type="button" data-sbsync="1"' + (ui.sbSyncing ? " disabled" : "") + ">" + (ui.sbSyncing ? "Henter fra regnearket…" : "Opdater fra det gamle regneark") + "</button></div>" + (ui.sbSyncMsg ? '<p class="hint">' + esc(ui.sbSyncMsg) + "</p>" : "");
   var f = ui.sbFilter || "open", open = sbData.list.filter(function (d) { return d.status !== "loest"; }), done = sbData.list.filter(function (d) { return d.status === "loest"; });
   var ord = { rod: 0, gul: 1, gron: 2 };
@@ -1905,8 +1907,57 @@ async function sbSave() {
       var paths = await uploadFiles("sortbog-" + r.data.id, w.files.map(function (x) { return x.file; }), function (i, n) { w.prog = "Uploader billede " + i + " af " + n + "…"; render(); });
       await addPhotoRows("defect", r.data.id, paths.map(function (p) { return { path: p, vis: "alle" }; }));
     }
+    try { sb.functions.invoke("sortbog-notify", { body: { action: "new", id: r.data.id } }); } catch (e) {}
     sbClose(); ui.sbFilter = "open"; ui.msg = "Sagen er oprettet. Tak!"; sbData = null; render(); window.scrollTo({ top: 0 });
   } catch (x) { w.busy = false; w.prog = ""; w.err = x.message || "Det lykkedes ikke at gemme sagen."; render(); }
+}
+/* Push-beskeder på telefonen: drift og administrator kan få besked, når der oprettes en ny sag */
+var pushState = { checked: false, on: false, busy: false, msg: "" };
+function pushSupported() { return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
+var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+async function pushCheck() {
+  pushState.checked = true;
+  try { var reg = await navigator.serviceWorker.getRegistration(); var sub = reg && await reg.pushManager.getSubscription(); pushState.on = !!sub && Notification.permission === "granted"; } catch (e) { pushState.on = false; }
+  if (ui.page === "sortbog") render();
+}
+function pushBoxHtml() {
+  var h = '<div class="pushbox">';
+  if (!pushSupported()) {
+    h += isIOS && !isApp ? '<p><b>Få besked på telefonen, når der kommer en ny sag.</b> På iPhone skal appen først lægges på hjemmeskærmen: tryk på Del-knappen i Safari → "Føj til hjemmeskærm", og åbn appen derfra. Så kan beskeder slås til her.</p>'
+      : '<p>Denne browser kan ikke vise beskeder. Åbn appen i Chrome eller Safari (på iPhone fra hjemmeskærmen).</p>';
+    return h + "</div>";
+  }
+  if (!pushState.checked) { pushCheck(); return h + '<p class="hint">Tjekker beskeder…</p></div>'; }
+  if (Notification.permission === "denied") h += '<p>Beskeder er blokeret for appen på denne enhed. Slå dem til i telefonens indstillinger for browseren/appen, og prøv igen.</p>';
+  else if (pushState.on) h += '<p><b>✓ Du får besked på denne enhed</b>, når der oprettes en ny sag.</p><div class="row"><button class="btn small" type="button" data-push="test"' + (pushState.busy ? " disabled" : "") + '>Send en prøvebesked</button><button class="btn small" type="button" data-push="off"' + (pushState.busy ? " disabled" : "") + ">Slå fra</button></div>";
+  else h += '<p><b>Få besked på denne enhed</b>, når der oprettes en ny sag i den sorte bog.</p><button class="btn small primary" type="button" data-push="on"' + (pushState.busy ? " disabled" : "") + ">" + (pushState.busy ? "Slår til…" : "Slå beskeder til") + "</button>";
+  return h + (pushState.msg ? '<p class="hint">' + esc(pushState.msg) + "</p>" : "") + "</div>";
+}
+function b64u(s) { var p = "=".repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, "+").replace(/_/g, "/")), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+async function pushOn() {
+  pushState.busy = true; pushState.msg = ""; render();
+  try {
+    var perm = await Notification.requestPermission();
+    if (perm !== "granted") throw new Error("Du skal tillade beskeder for at få dem.");
+    var reg = await navigator.serviceWorker.register("sw.js"); await navigator.serviceWorker.ready;
+    var k = await sb.functions.invoke("sortbog-notify", { body: { action: "pubkey" } }); if (!k.data || !k.data.key) throw new Error("Kunne ikke hente nøglen til beskeder.");
+    var sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(k.data.key) });
+    var j = sub.toJSON();
+    var r = await sb.from("push_subs").upsert({ user_id: ui.user.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, topic: "sortbog" }, { onConflict: "endpoint" });
+    if (r.error) throw new Error(r.error.message);
+    pushState.on = true; pushState.msg = "Beskeder er slået til. Tryk «Send en prøvebesked» for at se, at det virker.";
+  } catch (e) { pushState.msg = e.message || "Det lykkedes ikke at slå beskeder til."; }
+  pushState.busy = false; render();
+}
+async function pushOff() {
+  pushState.busy = true; render();
+  try { var reg = await navigator.serviceWorker.getRegistration(); var sub = reg && await reg.pushManager.getSubscription(); if (sub) { await sb.from("push_subs").delete().eq("endpoint", sub.endpoint); await sub.unsubscribe(); } pushState.on = false; pushState.msg = "Beskeder er slået fra på denne enhed."; } catch (e) { pushState.msg = "Det lykkedes ikke at slå beskeder fra."; }
+  pushState.busy = false; render();
+}
+async function pushTest() {
+  pushState.busy = true; render();
+  try { var r = await sb.functions.invoke("sortbog-notify", { body: { action: "test" } }); pushState.msg = r.data && r.data.ok > 0 ? "Prøvebeskeden er sendt – den kommer om lidt." : "Der blev ikke sendt nogen besked. Prøv at slå beskeder fra og til igen."; } catch (e) { pushState.msg = "Det lykkedes ikke at sende prøvebeskeden."; }
+  pushState.busy = false; render();
 }
 // Alle sager som regneark (åbner i Excel/Numbers/Google Sheets) – samme kolonner som det gamle regneark
 function sbExport() {
@@ -3947,6 +3998,7 @@ document.addEventListener("click", async function (e) {
   if (t.dataset.bkpick != null) { ui.bkPick = t.dataset.bkpick || null; ui.bkDelConfirm = null; render(); if (ui.bkPick) { var pe = document.querySelector(".bkpick"); if (pe) pe.scrollIntoView({ block: "center", behavior: "smooth" }); } return; }
   if (t.dataset.sbnew) { sbOpen(); return; }
   if (t.dataset.sbxls) { sbExport(); return; }
+  if (t.dataset.push) { if (t.dataset.push === "on") pushOn(); else if (t.dataset.push === "off") pushOff(); else pushTest(); return; }
   if (t.dataset.sbsync) { sbSync(); return; }
   if (t.dataset.sbw) { sbNav(t.dataset.sbw); return; }
   if (t.dataset.sbkind) { ui.sb.kind = t.dataset.sbkind; ui.sb.err = ""; render(); return; }
@@ -4081,7 +4133,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 240;
+var APP_VERSION = 241;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
