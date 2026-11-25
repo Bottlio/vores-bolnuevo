@@ -2127,7 +2127,8 @@ function sbEditHtml(d) {
     '<div class="row"><button type="button" class="btn small" data-sbpic="cam" data-sbfor="edit">Tag et billede</button><button type="button" class="btn small" data-sbpic="pick" data-sbfor="edit">Vælg billeder</button></div>' +
     (w.err ? '<p class="err" role="alert">' + esc(w.err) + "</p>" : "") +
     '<p class="hint">Din rettelse bliver skrevet i Kommentarer, så andre kan se, hvad der er ændret.</p>' +
-    '<div class="row wizfoot"><button type="button" class="btn" data-sbedit="0">Annuller</button><button type="button" class="btn primary" data-sbesave="1"' + (w.busy ? " disabled" : "") + ">" + (w.busy ? "Gemmer…" : "Gem rettelsen") + "</button></div>";
+    '<div class="row wizfoot"><button type="button" class="btn" data-sbedit="0">Annuller</button><button type="button" class="btn primary" data-sbesave="1"' + (w.busy ? " disabled" : "") + ">" + (w.busy ? "Gemmer…" : "Gem rettelsen") + "</button></div>" +
+    (lvl() < 4 && ui.user && d.created_by === ui.user.id && d.status !== "loest" ? '<div class="sbcloseown"><p class="hint">Er problemet væk, eller har du selv ordnet det? Så kan du lukke sagen.</p><button type="button" class="btn" data-sbdlg="mluk">✓ Luk sagen</button></div>' : "");
 }
 function sbThreadHtml(d) {
   var h = "", myId = ui.user && ui.user.id, adm = lvl() >= 4;
@@ -2145,7 +2146,7 @@ function sbThreadHtml(d) {
         h += '<div class="sbc"><p class="who"><b>' + who + "</b> · " + when + '</p><textarea data-sbcetext="1" maxlength="2000">' + esc(ui.sbCEdit.text) + '</textarea><div class="row"><button type="button" class="btn small" data-sbcedit="">Annuller</button><button type="button" class="btn small primary" data-sbcesave="1">Gem</button></div></div>';
       } else h += '<div class="sbc"><p class="who"><b>' + who + "</b> · " + when + (c.edited_at ? " · rettet" : "") + (tools.length ? '<span class="sbctools">' + tools.join("") + "</span>" : "") + "</p><p>" + esc(c.body) + "</p>" + picHtml + "</div>";
     } else if (c.kind === "status" && c.body) {
-      var head = c.status === "loest" ? who + " færdigmeldte sagen" : SB_WAIT[c.status] ? who + ": " + esc(SB_WAIT[c.status]) : who + " satte sagen til «" + esc(SB_STATUS[c.status] || c.status) + "»";
+      var head = c.status === "loest" ? who + (c.author && c.author === d.created_by ? " lukkede selv sagen" : " færdigmeldte sagen") : SB_WAIT[c.status] ? who + ": " + esc(SB_WAIT[c.status]) : who + " satte sagen til «" + esc(SB_STATUS[c.status] || c.status) + "»";
       h += '<div class="sbc sbstatus"><p class="who"><b>' + head + "</b> · " + when + "</p><p>" + esc(c.body) + "</p>" + picHtml + "</div>";
     } else if (c.kind === "status") h += '<p class="sbev">' + who + " satte sagen til «" + esc(SB_STATUS[c.status] || c.status) + "» · " + when + "</p>";
     else if (c.kind === "edit") h += '<p class="sbev">' + who + " rettede " + esc(joinDa((c.fields || []).map(function (f) { return SB_FIELDS[f] || f; }))) + (c.red ? " – sagen er nu rød" : "") + " · " + when + "</p>";
@@ -2153,11 +2154,13 @@ function sbThreadHtml(d) {
   });
   return h;
 }
+// Skrivefeltet vokser med teksten (op til ca. halvdelen af skærmen), så man kan se, hvad man skriver
+function sbGrow(t) { t.style.height = "auto"; var max = Math.round(window.innerHeight * 0.45); t.style.height = Math.min(Math.max(t.scrollHeight + 2, 96), max) + "px"; t.style.overflowY = t.scrollHeight > max ? "auto" : "hidden"; if (ui.sbC) ui.sbC.h = t.style.height; }
 function sbComposerHtml(d) {
   if (!sbCanWrite()) return '<div class="pfoot"><p class="hint">Du kan læse kommentarerne, men ikke skrive.</p></div>';
   var c = ui.sbC || { text: "", files: [] };
   return '<div class="pfoot">' + (c.err ? '<p class="err">' + esc(c.err) + "</p>" : "") + sbFilesHtml(c.files, "cmt") +
-    '<div class="pfrow"><button type="button" class="btn" data-sbpic="pick" data-sbfor="cmt" aria-label="Tilføj billede" title="Tilføj billede">' + ICON_CAM + '</button><textarea data-sbctext="1" maxlength="2000" placeholder="Skriv en kommentar…" rows="1">' + esc(c.text) + "</textarea>" +
+    '<div class="pfrow"><button type="button" class="btn" data-sbpic="pick" data-sbfor="cmt" aria-label="Tilføj billede" title="Tilføj billede">' + ICON_CAM + '</button><textarea data-sbctext="1" maxlength="2000" placeholder="Skriv en kommentar…" rows="1"' + (c.h ? ' style="height:' + esc(c.h) + '"' : "") + ">" + esc(c.text) + "</textarea>" +
     '<button type="button" class="btn primary" data-sbcsend="1"' + (c.busy ? " disabled" : "") + ">" + (c.busy ? "Sender…" : "Send") + "</button></div></div>";
 }
 function sbHistHtml(d, list) {
@@ -2166,14 +2169,14 @@ function sbHistHtml(d, list) {
     '<p class="hint">Tryk på en linje for at åbne sagen.</p>';
 }
 function sbDlgHtml(d) {
-  var g = ui.sbDlg, done = g.kind === "loest", varer = g.kind === "varer";
+  var g = ui.sbDlg, mluk = g.kind === "mluk", done = g.kind === "loest" || mluk, varer = g.kind === "varer";
   return '<div class="wizwrap sbdlgwrap"><div class="rback"></div><section class="helpmodal wiz sbdlg" role="dialog" aria-modal="true"><button type="button" class="hclose" data-sbdlg="" aria-label="Luk">×</button>' +
-    "<h2>" + (done ? "Færdigmeld sagen" : varer ? "Varer bestilt" : "Håndværker skal tilkaldes") + "</h2>" +
-    "<label>" + (done ? 'Hvad blev der gjort? <span class="hint">(skal udfyldes – hjælper næste gang)</span>' : varer ? "Hvad er bestilt, og af hvem?" : "Hvad skal håndværkeren se på?") + '<textarea data-sbdtext="1" maxlength="2000"' + (varer ? ' placeholder="Fx Lili bestiller 6 håndklæder"' : "") + ">" + esc(g.text || "") + "</textarea></label>" +
+    "<h2>" + (mluk ? "Luk sagen" : done ? "Færdigmeld sagen" : varer ? "Varer bestilt" : "Håndværker skal tilkaldes") + "</h2>" +
+    "<label>" + (mluk ? 'Hvorfor lukker du sagen? <span class="hint">(skal udfyldes)</span>' : done ? 'Hvad blev der gjort? <span class="hint">(skal udfyldes – hjælper næste gang)</span>' : varer ? "Hvad er bestilt, og af hvem?" : "Hvad skal håndværkeren se på?") + '<textarea data-sbdtext="1" maxlength="2000"' + (varer ? ' placeholder="Fx Lili bestiller 6 håndklæder"' : mluk ? ' placeholder="Fx Det løste sig selv, eller jeg har selv skiftet batteriet"' : "") + ">" + esc(g.text || "") + "</textarea></label>" +
     (done ? sbFilesHtml(g.files, "dlg") + '<div class="wizrow"><button type="button" class="btn" data-sbpic="cam" data-sbfor="dlg">' + ICON_CAM + 'Tag et billede</button><button type="button" class="btn" data-sbpic="pick" data-sbfor="dlg">' + ICON_CAM + "Vælg billeder</button></div>" : "") +
-    '<p class="hint">' + (done ? "Teksten lægges i Kommentarer, og alle der følger sagen får besked." : varer ? "Sagen får status «Afventer · Varer bestilt». Teksten lægges i Kommentarer." : "Sendes til den, der bestiller håndværkere. Sagen får status «Afventer · Håndværker skal tilkaldes».") + "</p>" +
+    '<p class="hint">' + (mluk ? "Sagen flyttes til Løste. Teksten lægges i Kommentarer, og Drift får besked." : done ? "Teksten lægges i Kommentarer, og alle der følger sagen får besked." : varer ? "Sagen får status «Afventer · Varer bestilt». Teksten lægges i Kommentarer." : "Sendes til den, der bestiller håndværkere. Sagen får status «Afventer · Håndværker skal tilkaldes».") + "</p>" +
     (g.err ? '<p class="err" role="alert">' + esc(g.err) + "</p>" : "") +
-    '<div class="row wizfoot"><button type="button" class="btn" data-sbdlg="">Annuller</button><button type="button" class="btn primary" data-sbdsave="1"' + (g.busy ? " disabled" : "") + ">" + (g.busy ? "Gemmer…" : done ? "Luk sagen som løst" : varer ? "Gem" : "Send videre") + "</button></div></section></div>";
+    '<div class="row wizfoot"><button type="button" class="btn" data-sbdlg="">Annuller</button><button type="button" class="btn primary" data-sbdsave="1"' + (g.busy ? " disabled" : "") + ">" + (g.busy ? "Gemmer…" : mluk ? "Luk sagen" : done ? "Luk sagen som løst" : varer ? "Gem" : "Send videre") + "</button></div></section></div>";
 }
 
 /* ---------- Handlinger i popuppen ---------- */
@@ -2195,9 +2198,10 @@ async function sbSetStatus(st, note, files) {
 }
 async function sbDlgSave() {
   var g = ui.sbDlg; if (!g || g.busy) return;
-  if ((g.text || "").trim().length < 3) { g.err = g.kind === "loest" ? "Skriv kort, hvad der blev gjort." : g.kind === "varer" ? "Skriv kort, hvad der er bestilt." : "Skriv kort, hvad håndværkeren skal se på."; render(); return; }
+  if ((g.text || "").trim().length < 3) { g.err = g.kind === "mluk" ? "Skriv kort, hvorfor du lukker sagen." : g.kind === "loest" ? "Skriv kort, hvad der blev gjort." : g.kind === "varer" ? "Skriv kort, hvad der er bestilt." : "Skriv kort, hvad håndværkeren skal se på."; render(); return; }
   g.busy = true; g.err = ""; render();
-  await sbSetStatus(g.kind, g.text.trim(), g.files);
+  if (g.kind === "mluk") ui.sbEdit = null;
+  await sbSetStatus(g.kind === "mluk" ? "loest" : g.kind, g.text.trim(), g.files);
 }
 async function sbFollow(on) {
   var id = ui.sbOpen, row = { user_id: ui.user.id, defect_id: id, following: on, seen_at: new Date().toISOString() };
@@ -2364,7 +2368,7 @@ function sbFilesFor(w) { return w === "edit" ? ui.sbEdit : w === "cmt" ? ui.sbC 
 document.addEventListener("input", function (e) {
   var ds = e.target.dataset || {};
   if (ds.sbf2) { var o = sbW(); if (o) o[ds.sbf2] = e.target.value; return; }
-  if (ds.sbctext && ui.sbC) { ui.sbC.text = e.target.value; return; }
+  if (ds.sbctext && ui.sbC) { ui.sbC.text = e.target.value; sbGrow(e.target); return; }
   if (ds.sbcetext && ui.sbCEdit) { ui.sbCEdit.text = e.target.value; return; }
   if (ds.sbdtext && ui.sbDlg) { ui.sbDlg.text = e.target.value; return; }
   if (ds.sbhq) { ui.sbHistQ = e.target.value; var pos = e.target.selectionStart; render(); var q = document.querySelector("[data-sbhq]"); if (q) { q.focus(); try { q.setSelectionRange(pos, pos); } catch (x) {} } }
@@ -4568,7 +4572,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 253;
+var APP_VERSION = 254;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

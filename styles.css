@@ -1221,3 +1221,13 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 .sbstatbox .sbsteps2{font-size:.86rem}
 /* Markering på kort og i popup, når man følger en sag (v253) */
 .sbfol{font-size:.78rem;font-weight:700;color:var(--sea);white-space:nowrap}
+/* Skrivefelt til kommentarer: større, når man skriver (v254) */
+.pfrow textarea{resize:none;line-height:1.4}
+.pfrow textarea:focus{min-height:96px}
+.sbcloseown{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.sbcloseown .btn{margin-top:6px}
+@media (max-width:600px){
+  .pfrow{flex-wrap:wrap}
+  .pfrow textarea{flex:1 1 100%;order:-1}
+  .pfrow .btn.primary{margin-left:auto;min-width:110px;justify-content:center}
+}

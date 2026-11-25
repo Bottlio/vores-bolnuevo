@@ -4,6 +4,7 @@
 // { action: "event", id }       → en ny linje i sagens tråd (kommentar, statusskift, rettelse): push til dem, der følger sagen
 //                                  · "Håndværker skal tilkaldes" også til dem, der bestiller håndværkere
 //                                  · melderens rettelser kun til drift; rettet til rød giver også mail
+//                                  · melderen lukker selv sin sag: også til drift
 // { action: "test" }             → en prøvebesked til den, der kalder
 // Beskeder og mails linker direkte til sagen: APP?menu=test#sortbog-<id>[/kommentarer]
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
@@ -116,6 +117,12 @@ Deno.serve(async (req) => {
       else if (c.kind === "status") text = who + " satte sagen til «" + (STATUS[String(c.status)] || c.status) + "»" + (c.body ? ": " + c.body : "");
       else if (c.kind === "limaser") text = who + " har sendt sagen til Limaser";
       else text = who + " har opdateret sagen";
+      // Melderen har selv lukket sin sag: Drift får også besked
+      if (c.kind === "status" && c.status === "loest" && c.author === d.created_by) {
+        const drift = (((await sb.rpc("push_targets_srv", { p_topic: "sortbog" })).data || []) as Sub[]).filter((s) => s.user_id !== author);
+        subs = subs.concat(drift);
+        text = who + " lukkede selv sagen" + (c.body ? ": " + c.body : "");
+      }
       if (c.kind === "status" && c.status === "venter") {
         const role = (((await sb.rpc("push_role_targets_srv")).data || []) as Sub[]).filter((s) => s.user_id !== author);
         subs = subs.concat(role);
