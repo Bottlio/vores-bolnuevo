@@ -4216,29 +4216,64 @@ var HELP_SORTBOG_DRIFT = ["sortbog-drift", "Den sorte bog – kun for Drift", [
   ["Hvordan følger jeg op på en sag?", "<p>Åbn sagen. Den store knap er det næste naturlige skridt:</p><ul><li><strong>Påbegynd</strong> – sagen går til I gang.</li><li><strong>Færdigmeld</strong> – skriv kort, hvad der blev gjort (skal udfyldes, så andre kan se det næste gang). Du kan sætte et billede på.</li><li><strong>Håndværker er bestilt</strong> – når en håndværker er bestilt.</li></ul><p>Resten ligger under <strong>Flere</strong>: Håndværker skal tilkaldes, Varer bestilt, Følg sagen, Ret sagen, Sendt til Limaser og Slet sagen. En løst sag kan genåbnes under Flere.</p>"],
   ["Hvem får besked hvornår?", "<ul><li><strong>Ny sag:</strong> Drift og administrator får besked på telefonen, hvis de har slået beskeder til. Er sagen rød (Haster), sendes der også en mail til kontoret.</li><li><strong>Kommentar eller nyt statusskift:</strong> alle, der følger sagen.</li><li><strong>Håndværker skal tilkaldes:</strong> dem, der har fluebenet <strong>Bestiller håndværkere</strong> (sættes af administratoren under Andelshavere). Har ingen fluebenet, får hele Drift besked.</li><li><strong>Melderen retter eller lukker selv sin sag:</strong> Drift får besked. Rettes en sag til rød, sendes der også en mail.</li></ul>"]
 ]];
+/* Hjælp til menuen, Fælles aktiviteter og Booking af udstyr */
+var HI_BACK = '<span class="hico" aria-label="tilbage-pilen">' + ICON_BACK + "</span>", HI_HOME = '<span class="hico" aria-label="huset">' + ICON_HOME + "</span>",
+  HI_MENU = '<span class="hico" aria-label="menuknappen">' + ICON_MENU4 + "</span>", HI_HELP = '<span class="hico hq" aria-label="spørgsmålstegnet">?</span>';
+var HELP_MENU = ["menu", "Menuen", [
+  ["Hvad er menuen?", "<p>Menuen er appens forside med fem felter:</p><ul><li><strong>Fælles aktiviteter</strong> – se hvad der sker, og tilmeld dig.</li><li><strong>Booking af udstyr</strong> – lån cykler og golfsæt.</li><li><strong>Guide til området</strong> – spisesteder, strande, udflugter og andelshavernes tips.</li><li><strong>Den sorte bog</strong> – meld, hvis noget er gået i stykker eller mangler.</li><li><strong>AHbooking</strong> – Andelshotellets eget bookingsystem.</li></ul><p>Tryk på et felt for at komme ind.</p>"],
+  ["Hvordan kommer jeg tilbage til menuen?", "<p>Tryk på knappen med de fire små farvede felter " + HI_MENU + " øverst til højre. Den virker overalt i appen.</p>"],
+  ["Hvad betyder knapperne øverst til højre?", "<ul class=\"hicons\"><li>" + HI_MENU + " <span><strong>Menuen</strong> – tilbage til forsiden med de fem felter.</span></li><li>" + HI_HOME + " <span><strong>Huset</strong> – kun inde i Guiden: tilbage til Guidens forside.</span></li><li>" + HI_BACK + " <span><strong>Pilen</strong> – ét skridt tilbage, til der hvor du var før.</span></li><li>" + HI_HELP + " <span><strong>Spørgsmålstegnet</strong> – hjælp til den del, du står i.</span></li></ul>"],
+  ["Hvad er AHbooking?", "<p>AHbooking er Andelshotellets eget system, hvor man booker uger i lejlighederne og ser point og år-rul. Det har sit eget login og åbner i et nyt vindue. Det er ikke en del af denne app, så spørgsmål om AHbooking skal gå til Andelshotellet.</p>"],
+  ["Hvor finder jeg Vores andel, Hjælp og Regler?", "<p>Rul helt ned på siden. Under <strong>Indstillinger og hjælp</strong> står felterne <strong>Vores andel</strong>, <strong>Hjælp</strong> og <strong>Regler og privatliv</strong>.</p>"]
+]];
+var HELP_AKT = ["akt", "Fælles aktiviteter", [
+  ["Hvad er Fælles aktiviteter?", "<p>En fælles kalender over ting, man kan være med til – fx padel, en cykeltur til Puerto eller kortspil. Alle andelshavere kan oprette en aktivitet, og alle kan se, hvad der sker.</p><p>De samme aktiviteter vises på skærmen i receptionen.</p>"],
+  ["Hvordan finder jeg rundt i kalenderen?", "<ul><li>Øverst står <strong>Denne uge</strong>. Tryk på pilene <strong>‹ ›</strong> – eller stryg til siden – for at se næste uge. Du kan se 8 uger frem.</li><li>Dagene står i en strimmel. Små prikker viser, at der sker noget den dag. Tryk på en dag for at se den.</li><li>På en computer vises hele ugen som et skema.</li></ul>"],
+  ["Hvordan tilmelder jeg mig?", "<ol><li>Tryk på aktiviteten.</li><li>Vælg hvor mange personer, I kommer.</li><li>Tryk <strong>Tilmeld</strong>.</li></ol><p>Står der <strong>Ingen tilmelding – bare mød op</strong>, skal du ikke gøre noget. Står der <strong>Fuldt booket</strong>, er der ikke flere pladser.</p>"],
+  ["Hvordan afmelder jeg mig?", "<p>Tryk på aktiviteten og tryk <strong>Afmeld</strong>.</p>"],
+  ["Hvordan opretter jeg en aktivitet?", "<ol><li>Tryk <strong>+ Opret aktivitet</strong> øverst – eller tryk på en tom plads i skemaet, så er dag og klokkeslæt udfyldt.</li><li>Skriv hvad der skal ske, vælg dato og tid og skriv hvor.</li><li>Skal man tilmelde sig, så lad fluebenet <strong>Man skal tilmelde sig</strong> stå. Er der et højeste antal pladser, så skriv det i <strong>Højst antal</strong>.</li><li>Tryk <strong>Opret aktivitet</strong>.</li></ol>"],
+  ["Hvordan retter, aflyser eller sletter jeg en aktivitet?", "<p>Tryk på aktiviteten. Ved dine egne aktiviteter står <strong>Ret</strong>, <strong>Aflys</strong> og <strong>Slet</strong>.</p><ul><li><strong>Aflys</strong> – aktiviteten bliver stående som <em>Aflyst</em>, så de tilmeldte kan se det.</li><li><strong>Slet</strong> – aktiviteten forsvinder helt.</li></ul><p>Du kan kun ændre dine egne aktiviteter. Dem med niveau Kommunikation og op kan ændre alle.</p>"],
+  ["Hvem kan se, hvem der er tilmeldt?", "<p>Alle kan se navn og lejlighed på dem, der er tilmeldt – også på skærmen i receptionen.</p>"],
+  ["Hvad betyder \"Oprettet på skærmen\"?", "<p>At aktiviteten er lavet på skærmen i receptionen. Der står også, hvem der lavede den.</p>"],
+  ["Hvem kan oprette og tilmelde sig?", "<p>Andelshavere og deres gæster. Personale og dem med kun læseadgang kan se aktiviteterne, men ikke oprette eller tilmelde sig.</p>"]
+]];
+var HELP_BK = ["udstyr", "Booking af udstyr", [
+  ["Hvad kan jeg låne?", "<p>Cykler og golfsæt – det, der står på listen, når du trykker <strong>+ Book udstyr</strong>.</p><p>Bookingerne er de samme som på skærmen i receptionen. Du kan også booke hjemmefra, fx to cykler til næste uge.</p>"],
+  ["Hvordan finder jeg rundt i oversigten?", "<p>Den virker som kalenderen under Fælles aktiviteter: <strong>Denne uge</strong>, pilene <strong>‹ ›</strong> og dagene i strimlen. Skemaet går fra kl. 8 til 20. Hver booking står som en blok med lejlighed og hvad der er booket.</p>"],
+  ["Hvordan booker jeg?", "<ol><li>Tryk <strong>+ Book udstyr</strong> – eller tryk på en tom plads i skemaet.</li><li>Vælg dato og <strong>Fra kl.</strong> og <strong>Til kl.</strong></li><li>Tryk på det, du vil låne. Du kan vælge flere ting på én gang.</li><li>Tryk <strong>Book</strong>.</li></ol>"],
+  ["Hvorfor er noget gråt eller \"optaget\"?", "<p>Så er det allerede booket i det tidsrum. Vælg et andet tidspunkt eller noget andet udstyr.</p>"],
+  ["Hvordan aflyser jeg en booking?", "<p>Tryk på blokken i skemaet og tryk <strong>Aflys</strong> ud for det, der skal aflyses. Har du booket flere ting, kan du aflyse én ad gangen.</p>"],
+  ["Hvem kan se mine bookinger?", "<p>Alle kan se navn og lejlighed – også på skærmen i receptionen.</p>"],
+  ["Hvad betyder \"booket på skærmen\"?", "<p>At bookingen er lavet på skærmen i receptionen.</p>"],
+  ["Er der noget galt med en cykel eller et golfsæt?", "<p>Meld det i den sorte bog: tryk <strong>+ Ny sag</strong>, vælg <strong>Udstyr, der lånes ud</strong> og den cykel eller det golfsæt, det drejer sig om.</p><p><button class=\"btn small\" type=\"button\" data-menu=\"sortbog\">Gå til den sorte bog</button></p>"],
+  ["Hvem kan booke?", "<p>Andelshavere og deres gæster. Personale og dem med kun læseadgang kan se bookingerne, men ikke booke. Drift kan aflyse alle bookinger.</p>"]
+]];
+// Hjælpens faner – hver fane viser kun sine egne spørgsmål
+function helpTabs() {
+  var g = function (id) { return HELP_FAQ.filter(function (x) { return x[0] === id; })[0]; }, t = TEST_MENU && ui.member;
+  // Med menuen forklares knapperne under "Menuen" – det gamle svar om tilbage/hus passer ikke længere
+  var st = g("start"); if (t && st) st = [st[0], st[1], st[2].filter(function (q) { return q[0] !== "Hvordan kommer jeg tilbage?"; })];
+  var tabs = [["start", ICON_HELP, "Kom i gang" + (t ? " og menuen" : ""), [st].concat(t ? [HELP_MENU] : []), ["start"]]];
+  if (t) tabs.push(["akt", ICON_CAL, "Aktiviteter", [HELP_AKT], []], ["udstyr", ICON_BIKE, "Booking", [HELP_BK], []]);
+  tabs.push(["guide", ICON_COMPASS, "Guide", [g("find"), g("stjerner"), g("billeder"), g("avanceret")], ["find", "stjerner", "billeder", "avanceret"]]);
+  if (t) tabs.push(["sortbog", ICON_BOOK, "Den sorte bog", [HELP_SORTBOG].concat(lvl() >= 4 ? [HELP_SORTBOG_DRIFT] : []), []]);
+  tabs.push(["andel", ICON_GEAR, "Vores andel", [g("andel")], ["andel"]]);
+  return tabs.map(function (x) { x[3] = x[3].filter(Boolean); return x; });
+}
+function helpTabOfSec(sec) { var r = "start"; helpTabs().forEach(function (x) { if (x[4].indexOf(sec) >= 0) r = x[0]; }); return r; }
+function helpSectionOf() { return ui.page === "sortbog" ? "sortbog" : ui.page === "akt" ? "akt" : ui.page === "udstyr" ? "udstyr" : ui.menu && !ui.page ? "start" : !ui.page ? "guide" : "start"; }
 // Husk hvilke svar der er åbne, så de bliver åbne, når siden tegnes igen (fx når beskeder slås til)
 document.addEventListener("toggle", function (e) { var d = e.target; if (d && d.dataset && d.dataset.faq) { ui.helpOpen = ui.helpOpen || {}; ui.helpOpen[d.dataset.faq] = d.open; } }, true);
-function helpSectionOf() { return ui.page === "sortbog" ? "sortbog" : ""; }
 function helpPageHtml() {
-  // Hjælp til den del, man kom fra (fx den sorte bog) – med "Se al hjælp" nederst
   ui.helpOpen = ui.helpOpen || {};
-  var faq = function (sec) { var x = '<h3 id="hjaelp-' + sec[0] + '">' + esc(sec[1]) + "</h3>"; sec[2].forEach(function (q, i) { var k = sec[0] + "-" + i; x += '<details class="faq" data-faq="' + k + '"' + (ui.helpOpen[k] ? " open" : "") + '><summary><span class="fq">' + (q[2] ? rowIcon(q[2]) : "") + esc(q[0]) + '</span></summary><div class="faqa">' + q[1] + "</div></details>"; }); return x; };
-  if (ui.helpFor === "sortbog" && !ui.helpAll) {
-    return '<section class="panel helppage"><p class="eyebrow">Hjælp</p><h2>Hjælp til den sorte bog</h2><p class="hint">Tryk på et spørgsmål for at se svaret.</p>' +
-      faq(HELP_SORTBOG).replace("{{PUSHBOX}}", pushBoxHtml(lvl() >= 4 ? "drift" : "follow")) + (lvl() >= 4 ? faq(HELP_SORTBOG_DRIFT) : "") +
-      '<div class="row helpall"><button class="btn" type="button" data-helpall="1">Se al hjælp</button></div>' +
-      '<div class="helpcontact"><h3>Kan du ikke finde svaret?</h3><p>Skriv til Christian på <a href="mailto:' + HELP_MAIL + '">' + HELP_MAIL + "</a>. Skriv gerne, hvad du prøvede at gøre, og hvad der skete.</p></div></section>";
-  }
-  var h = '<section class="panel helppage"><p class="eyebrow">Hjælp</p><h2>Sådan bruger du guiden</h2>' +
-    '<p class="hint">Tryk på et spørgsmål for at se svaret. Du kan også trykke på <span class="qhelp inline" aria-hidden="true">?</span> rundt omkring i guiden.</p>';
-  HELP_FAQ.forEach(function (sec) {
-    h += '<h3 id="hjaelp-' + sec[0] + '">' + esc(sec[1]) + "</h3>";
-    sec[2].forEach(function (q) { h += '<details class="faq"><summary><span class="fq">' + (q[2] ? rowIcon(q[2]) : "") + esc(q[0]) + '</span></summary><div class="faqa">' + q[1] + "</div></details>"; });
-  });
-  // Den sorte bog er under test: dens hjælp vises kun med testmenuen
-  if (TEST_MENU && ui.member) h += faq(HELP_SORTBOG).replace("{{PUSHBOX}}", pushBoxHtml(lvl() >= 4 ? "drift" : "follow")) + (lvl() >= 4 ? faq(HELP_SORTBOG_DRIFT) : "");
-  h += '<div class="helpcontact"><h3>Kan du ikke finde svaret?</h3><p>Skriv til Christian på <a href="mailto:' + HELP_MAIL + '">' + HELP_MAIL + "</a>. Skriv gerne, hvad du prøvede at gøre, og hvad der skete.</p></div></section>";
-  return h;
+  var faq = function (sec, many) { var x = many ? '<h3 id="hjaelp-' + sec[0] + '">' + esc(sec[1]) + "</h3>" : '<span id="hjaelp-' + sec[0] + '"></span>'; sec[2].forEach(function (q, i) { var k = sec[0] + "-" + i; x += '<details class="faq" data-faq="' + k + '"' + (ui.helpOpen[k] ? " open" : "") + '><summary><span class="fq">' + (q[2] ? rowIcon(q[2]) : "") + esc(q[0]) + '</span></summary><div class="faqa">' + q[1] + "</div></details>"; }); return x; };
+  var tabs = helpTabs(), cur = tabs.filter(function (x) { return x[0] === ui.helpTab; })[0] || tabs[0];
+  ui.helpTab = cur[0];
+  var body = cur[3].map(function (sec) { return faq(sec, cur[3].length > 1); }).join("").replace("{{PUSHBOX}}", pushBoxHtml(lvl() >= 4 ? "drift" : "follow"));
+  return '<section class="panel helppage"><p class="eyebrow">Hjælp</p><h2>Sådan bruger du appen</h2>' +
+    '<div class="helptabs" role="tablist">' + tabs.map(function (x) { return '<button type="button" role="tab" class="chip' + (x === cur ? " on" : "") + '" data-helptab="' + x[0] + '" aria-selected="' + (x === cur) + '">' + x[1] + "<span>" + esc(x[2]) + "</span></button>"; }).join("") + "</div>" +
+    '<p class="hint">Tryk på et spørgsmål for at se svaret.</p>' + body +
+    '<div class="helpcontact"><h3>Kan du ikke finde svaret?</h3><p>Skriv til Christian på <a href="mailto:' + HELP_MAIL + '">' + HELP_MAIL + "</a>. Skriv gerne, hvad du prøvede at gøre, og hvad der skete.</p></div></section>";
 }
 
 /* Velkomst første gang (gemmes pr. bruger på enheden) */
@@ -4463,8 +4498,8 @@ document.addEventListener("click", async function (e) {
     navigator.geolocation.getCurrentPosition(function (pos) { ui.nearMe = [pos.coords.latitude, pos.coords.longitude]; ui.nearErr = ""; render(); }, function () { ui.nearErr = "Placeringen blev ikke givet."; render(); }, { timeout: 15000 });
     return;
   }
-  if (t.dataset.helpall) { ui.helpAll = true; render(); window.scrollTo({ top: 0 }); return; }
-  if (t.dataset.page != null) { var pg = t.dataset.page; if (pg === "hjaelp") { ui.helpFor = t.dataset.helpfor || ""; ui.helpAll = false; if (ui.sbOpen) document.body.classList.remove("modal-open"); } ui.inviteText = ""; andelData = null; adminData = null; if (!pg && navStack.length) { goBack(); return; } nav(function () { ui.page = pg || null; }); return; }
+  if (t.dataset.helptab) { ui.helpTab = t.dataset.helptab; render(); var hp = document.querySelector(".helppage"); if (hp && hp.getBoundingClientRect().top < 0) window.scrollTo({ top: hp.getBoundingClientRect().top + window.scrollY - 12 }); return; }
+  if (t.dataset.page != null) { var pg = t.dataset.page; if (pg === "hjaelp") { ui.helpTab = t.dataset.helpfor || "start"; if (ui.sbOpen) document.body.classList.remove("modal-open"); } ui.inviteText = ""; andelData = null; adminData = null; if (!pg && navStack.length) { goBack(); return; } nav(function () { ui.page = pg || null; }); return; }
   if (t.dataset.rmmember) { removeMember(t.dataset.rmmember); return; }
   if (t.dataset.irole) { ui.irole = t.dataset.irole; render(); return; }
   if (t.dataset.setvis) { setPhotoVis(t.dataset.setvis, t.dataset.v); return; }
@@ -4622,7 +4657,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 257;
+var APP_VERSION = 258;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -4676,7 +4711,7 @@ document.addEventListener("click", function (e) {
   if (helpBox && !helpBox.hidden && helpBox.contains(e.target)) {
     if (e.target.closest("[data-helpclose]")) { closeHelpTip(); return; }
     var m = e.target.closest("[data-helpmore]");
-    if (m) { var sec = m.dataset.helpmore; closeHelpTip(); nav(function () { ui.page = "hjaelp"; }); setTimeout(function () { var h = document.getElementById("hjaelp-" + sec); if (h) window.scrollTo({ top: h.getBoundingClientRect().top + window.scrollY - 12, behavior: "smooth" }); }, 60); }
+    if (m) { var sec = m.dataset.helpmore; closeHelpTip(); ui.helpTab = helpTabOfSec(sec); nav(function () { ui.page = "hjaelp"; }); setTimeout(function () { var h = document.getElementById("hjaelp-" + sec); if (h) window.scrollTo({ top: h.getBoundingClientRect().top + window.scrollY - 12, behavior: "smooth" }); }, 60); }
     return;
   }
   if (inviteBox && !inviteBox.hidden && inviteBox.contains(e.target)) {

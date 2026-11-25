@@ -1237,3 +1237,16 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 .menu4 svg{width:8px;height:8px}
 .menu4 .m4a{background:#b3402f}.menu4 .m4b{background:#0d5c6b}.menu4 .m4c{background:#2e7d4f}.menu4 .m4d{background:#1f2a2c}
 @media (prefers-color-scheme:dark){.menu4 .m4d{background:#4a5a5d}}
+/* Hjælp med faner (v258) */
+.helptabs{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 14px}
+.helptabs .chip{display:inline-flex;align-items:center;gap:6px}
+.helptabs .chip .licon{width:17px;height:17px;color:var(--sea)}
+.helptabs .chip.on{background:var(--sea);border-color:var(--sea);color:var(--surface)}
+.helptabs .chip.on .licon{color:var(--surface)}
+.hico{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--fg);vertical-align:middle;flex:none}
+.hico svg{width:16px;height:16px}
+.hico .menu4{width:18px;height:18px}
+.hico .menu4 svg{width:6px;height:6px}
+.hico.hq{font-weight:700;color:var(--sea);font-size:.95rem}
+.hicons{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.hicons li{display:flex;align-items:center;gap:10px}
