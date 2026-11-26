@@ -1289,3 +1289,11 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 /* Hjælpefanerne: altid samme to linjer, også på smal skærm */
 .htab span{white-space:nowrap;overflow-wrap:normal;hyphens:manual}
 .htab{min-height:62px}
+
+/* Opslag fra receptionen på menuen: hvid boks med tynd grå kant, farve kun i overskriften */
+.mnote{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:12px 0}
+.mnote-eb{margin:0 0 4px;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:6px}
+.mnote h3{margin:2px 0 4px;font-family:var(--display);color:var(--danger);font-size:1.15rem}
+.mnote-b{margin:0;line-height:1.45;white-space:pre-wrap}
+.mnote-b.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mnote .linkbtn{margin-top:6px}

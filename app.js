@@ -1416,6 +1416,26 @@ var MENU = [
 // Tydelig testbesked øverst i de dele, der endnu kun er til afprøvning
 function testNote(txt) { return '<div class="testnote" role="note"><p class="tn-h">Test – ikke i brug endnu</p><p>' + esc(txt) + "</p></div>"; }
 var MENU_TEST = { udstyr: 1, akt: 1, sortbog: 1 };
+var menuNotes = null, menuNotesAt = 0;
+async function loadMenuNotes() {
+  menuNotesAt = Date.now();
+  var r = await sb.rpc("screen_notices");
+  menuNotes = r.error ? [] : (r.data || []);
+  if (ui.menu && !ui.page) render();
+}
+var PIN_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4.5l-4 4l-4 1.5l-1.5 1.5l7 7l1.5 -1.5l1.5 -4l4 -4"/><path d="M9 15l-4.5 4.5"/><path d="M14.5 4l5.5 5.5"/></svg>';
+function menuNotesHtml() {
+  // Hentes, når menuen åbnes (højst hvert 5. minut)
+  if (Date.now() - menuNotesAt > 5 * 60 * 1000) loadMenuNotes();
+  if (!menuNotes || !menuNotes.length) return "";
+  ui.noteOpen = ui.noteOpen || {};
+  return menuNotes.map(function (n) {
+    var open = !!ui.noteOpen[n.id], long = (n.body || "").length > 110;
+    return '<section class="mnote"><p class="mnote-eb">' + PIN_SVG + ' Fra receptionen</p><h3>' + esc(n.title) + "</h3>" +
+      (n.body ? '<p class="mnote-b' + (long && !open ? " clamp" : "") + '">' + esc(n.body) + "</p>" : "") +
+      (long ? '<button class="linkbtn" type="button" data-mnote="' + esc(n.id) + '">' + (open ? "Vis mindre" : "Læs mere") + "</button>" : "") + "</section>";
+  }).join("");
+}
 function renderMenu() {
   setTop(headerHtml() + heroHtml()); toolbar(false);
   var html = "";
@@ -1429,6 +1449,7 @@ function renderMenu() {
     udstyr: '<span class="micon mright">' + ICON_BIKE + "</span>",
     sortbog: '<span class="micon mright">' + ICON_BOOK + "</span>"
   };
+  html += menuNotesHtml();
   html += '<nav class="menugrid" aria-label="Startmenu">' + MENU.map(function (m) {
     var inner = (deco[m[0]] ? "" : '<span class="micon">' + m[1] + "</span>") + '<span class="mtext"><span class="mtitle">' + m[2] + (m[0] === "ahbooking" ? ' <span class="mext" aria-hidden="true">↗</span>' : "") + (MENU_TEST[m[0]] ? ' <span class="mtest">Test</span>' : "") + '</span><span class="msub">' + m[3] + "</span></span>" + (deco[m[0]] ? '<span class="mdeco">' + deco[m[0]] + "</span>" : "");
     return m[0] === "ahbooking"
@@ -4648,6 +4669,7 @@ document.addEventListener("click", async function (e) {
   if (t.id === "screen-hide") { ui.screenHide = true; render(); return; }
   if (t.id === "inapp-hide") { ui.inAppHide = true; render(); return; }
   if (t.dataset.rstart) { if (ui.confirmStart !== t.dataset.rstart) { ui.confirmStart = t.dataset.rstart; rerenderAdmin(); return; } adminStartOver(t.dataset.rstart); return; }
+  if (t.dataset.mnote) { ui.noteOpen = ui.noteOpen || {}; ui.noteOpen[t.dataset.mnote] = !ui.noteOpen[t.dataset.mnote]; render(); return; }
   if (t.dataset.addk != null) { ui.addK = t.dataset.addk || null; ui.editK = null; rerenderAdmin(); return; }
   if (t.dataset.editk != null) { ui.editK = t.dataset.editk || null; ui.editKInv = !!t.dataset.andinv; var q0 = (document.getElementById("adm-q") || {}).value || ""; render(); var qi0 = document.getElementById("adm-q"); if (qi0) { qi0.value = q0; filterAdmList(); } return; }
   if (t.dataset.legend) { ui.mapFocus = ui.mapFocus === t.dataset.legend ? null : t.dataset.legend; applyMapFocus(); return; }
@@ -4753,7 +4775,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 279;
+var APP_VERSION = 280;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
