@@ -1313,7 +1313,8 @@ function fitCar(car) {
   var r = img.naturalWidth / img.naturalHeight, w = car.clientWidth - 8, h = Math.min(w / r, w * 0.75, 640);
   car.style.setProperty("--h", Math.round(h) + "px");
   var side = Math.max(0, (w - h * r) / 2) + 4, count = car.querySelector(".count"), prev = car.querySelector(".arrow.prev"), next = car.querySelector(".arrow.next");
-  if (count) count.style.right = (side + 8) + "px"; if (prev) prev.style.left = (side + 8) + "px"; if (next) next.style.right = (side + 8) + "px";
+  // Pilene bliver stående i yderkanten, så de ikke flytter sig, når man bladrer (Christian 26/11) – kun tælleren følger billedet
+  if (count) count.style.right = (side + 8) + "px";
 }
 function wireCarousels() {
   root.querySelectorAll("[data-car]").forEach(function (car) {
@@ -4783,7 +4784,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 282;
+var APP_VERSION = 283;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
