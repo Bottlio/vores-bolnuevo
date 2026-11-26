@@ -4070,7 +4070,8 @@ window.addEventListener("popstate", function () {
   var m = (location.hash || "").match(/^#sted\/(.+)$/);
   ui.place = m ? decodeURIComponent(m[1]) : null; render(); window.scrollTo({ top: 0 });
 });
-function openPlace(id) { nav(function () { ui.place = id; ui.page = null; }); }
+// Åbn et sted – også fra administrationen, anmeldelser og andre sider, man er kommet til fra menuen
+function openPlace(id) { nav(function () { ui.place = id; ui.page = null; ui.menu = false; }); }
 function closePlace() { if (navStack.length) goBack(); else { ui.place = null; try { history.replaceState(null, "", location.pathname); } catch (x) {} render(); } }
 
 /* ---------- ret by / område ---------- */
@@ -4782,7 +4783,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 281;
+var APP_VERSION = 282;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
