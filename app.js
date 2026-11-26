@@ -2306,6 +2306,12 @@ async function sbSaveEdit() {
 }
 function sbPushDismissed() { try { return localStorage.getItem("bol_sbpush_no") === "1"; } catch (x) { return false; } }
 
+// Notifikation trykket, mens appen allerede er åben: gå til sagen (beskeden kommer fra sw.js)
+if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", function (e) {
+  var d = e.data || {}; if (d.type !== "open" || !d.url) return;
+  var u = new URL(d.url, location.href); if (u.origin !== location.origin) return;
+  if (u.pathname + u.search === location.pathname + location.search) { location.hash = u.hash; location.reload(); } else location.href = u.href;
+});
 /* Push-beskeder på telefonen: drift og administrator får besked om nye sager; alle kan få besked om sager, de følger */
 var pushState = { checked: false, on: false, busy: false, msg: "" };
 function pushSupported() { return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
@@ -4793,7 +4799,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 285;
+var APP_VERSION = 286;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

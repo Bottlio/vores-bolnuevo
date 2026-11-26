@@ -8,11 +8,15 @@ self.addEventListener("push", function (e) {
     body: d.body || "", icon: "icon4-192.png", badge: "icon4-192.png", tag: d.tag || undefined, data: { url: d.url || "./" }
   }));
 });
+// Tryk på en notifikation: åbn appen og gå til sagen.
+// iPhone tillader ikke, at et åbent vindue flyttes herfra (navigate), så vinduet bringes frem og får besked om, hvor det skal hen.
 self.addEventListener("notificationclick", function (e) {
   e.notification.close();
-  var url = (e.notification.data && e.notification.data.url) || "./";
+  var url = new URL((e.notification.data && e.notification.data.url) || "./", self.registration.scope).href;
   e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (list) {
-    for (var i = 0; i < list.length; i++) { if ("focus" in list[i]) { list[i].navigate(url); return list[i].focus(); } }
-    return self.clients.openWindow(url);
-  }));
+    var c = list.filter(function (w) { return w.url.indexOf(self.registration.scope) === 0; })[0] || list[0];
+    if (!c) return self.clients.openWindow(url);
+    var f = "focus" in c ? c.focus().catch(function () {}) : Promise.resolve();
+    return f.then(function () { c.postMessage({ type: "open", url: url }); });
+  }).catch(function () { return self.clients.openWindow(url); }));
 });
