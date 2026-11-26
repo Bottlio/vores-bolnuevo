@@ -1436,7 +1436,7 @@ function renderMenu() {
       : '<button class="mtile m-' + m[0] + '" type="button" data-menu="' + m[0] + '">' + inner + "</button>";
   }).join("") + "</nav>";
   html += '<p class="hint menunote">AHbooking er Andelshotellets eget system og har sit eget login.</p>';
-  html += ui.loaded ? footerHtml() : "";
+  html += footerHtml();
   root.innerHTML = html;
   slim.innerHTML = ""; slim.classList.remove("show"); panel.hidden = true;
   setTimeout(function () { if (ui.menu && !ui.page) maybeWelcomeKind("app"); }, 400);
@@ -4753,7 +4753,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 278;
+var APP_VERSION = 279;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
@@ -4801,7 +4801,8 @@ sb.auth.onAuthStateChange(function (ev) {
 });
 if (/type=recovery/.test(location.hash)) ui.recovery = true;
 render();
-checkUser().then(load);
+// Menuen (og siderne fra den) vises med det samme; guidens steder og billeder hentes bagefter
+checkUser().then(function () { if (ui.member && !ui.place) render(); return load(); });
 /* Hjælpeboks og velkomst ligger uden for siden – egne lyttere */
 document.addEventListener("click", function (e) {
   if (helpBox && !helpBox.hidden && helpBox.contains(e.target)) {
