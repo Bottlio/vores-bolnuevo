@@ -1283,3 +1283,9 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 .testnote p{margin:0}
 .mtest{font-family:var(--body);font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#b3402f;vertical-align:middle;margin-left:4px}
 @media (prefers-color-scheme:dark){.testnote .tn-h,.mtest{color:#f08b78}}
+
+/* Tekst må ikke flytte sig, når en knap/fane vælges: i stedet for fed skrift (som er bredere) bruges en "falsk fed" skygge, der ikke ændrer bredden */
+.htab.on,.seg button[aria-pressed="true"],.pill button[aria-pressed="true"],.legend .legbtn.on,.pacts .btn[aria-pressed="true"],.ptabs button.on{font-weight:inherit;text-shadow:.35px 0 0 currentColor,-.35px 0 0 currentColor}
+/* Hjælpefanerne: altid samme to linjer, også på smal skærm */
+.htab span{white-space:nowrap;overflow-wrap:normal;hyphens:manual}
+.htab{min-height:62px}

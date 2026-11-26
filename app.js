@@ -251,10 +251,9 @@ function photoUrl(path, small) {
 }
 async function signPhotos(paths) {
   var now = Date.now(), need = paths.filter(function (p) { var s = signed[p]; return !s || s.exp - now < 24 * 3600 * 1000; });
-  for (var i = 0; i < need.length; i += 100) {
-    var r = await sb.storage.from("photos").createSignedUrls(need.slice(i, i + 100), 7 * 24 * 3600);
-    (r.data || []).forEach(function (x) { if (x.signedUrl) signed[x.path] = { u: x.signedUrl, exp: now + 7 * 24 * 3600 * 1000 }; });
-  }
+  var jobs = [];
+  for (var i = 0; i < need.length; i += 100) jobs.push(sb.storage.from("photos").createSignedUrls(need.slice(i, i + 100), 7 * 24 * 3600));
+  (await Promise.all(jobs)).forEach(function (r) { (r.data || []).forEach(function (x) { if (x.signedUrl) signed[x.path] = { u: x.signedUrl, exp: now + 7 * 24 * 3600 * 1000 }; }); });
   Object.keys(signed).forEach(function (k) { if (signed[k].exp < now) delete signed[k]; });
   try { localStorage.setItem("bol-signed", JSON.stringify(signed)); } catch (e) { /* fuld; hentes igen næste gang */ }
 }
@@ -302,9 +301,7 @@ async function load() {
   });
   if (me && andelNums[me.andel]) { me.label = andelLabels[me.andel]; me.allLabels = andelNums[me.andel].map(function (x) { return x.l + "-" + x.n; }); me.apts = andelNums[me.andel].map(function (x) { return x.l; }).filter(function (v, i, a) { return a.indexOf(v) === i; }); }
   THUMBS = {}; raw.photos.forEach(function (p) { if (p.thumb) THUMBS[p.path] = 1; });
-  await signPhotos(raw.photos.map(function (p) { return p.path; }).concat(raw.photos.filter(function (p) { return p.thumb; }).map(function (p) { return thumbPath(p.path); })));
-  await loadReportCount();
-  await loadSeen();
+  await Promise.all([signPhotos(raw.photos.map(function (p) { return p.path; }).concat(raw.photos.filter(function (p) { return p.thumb; }).map(function (p) { return thumbPath(p.path); }))), loadReportCount(), loadSeen()]);
   decorate();
   ui.loaded = true;
   render();
@@ -323,7 +320,7 @@ async function checkUser() {
   var pick = null; try { pick = localStorage.getItem("bol_andel_" + ui.user.id); } catch (x) {}
   var row = rows.filter(function (x) { return x.andel_id === pick; })[0] || rows[0];
   if (!row) return;
-  var ad = await sb.rpc("am_i_admin"), lv = await sb.rpc("my_level");
+  var adlv = await Promise.all([sb.rpc("am_i_admin"), sb.rpc("my_level")]), ad = adlv[0], lv = adlv[1];
   me = { andel: row.andel_id, label: row.andele.lejlighed + "-" + row.andele.nummer, role: row.role, name: row.name, admin: ad.data === true,
     others: rows.filter(function (x) { return x !== row; }).map(function (x) { return { id: x.andel_id, label: x.andele.lejlighed + "-" + x.andele.nummer }; }) };
   me.level = typeof lv.data === "number" ? lv.data : (me.admin ? 5 : 2);
@@ -2424,8 +2421,11 @@ document.addEventListener("click", function (e) {
 
 /* ---------- Vores andel: medlemmer, invitationer, billeder med personer ---------- */
 var andelData = null;
+var andelLoading = false;
 async function loadAndel() {
+  if (andelLoading) return; andelLoading = true;
   var m = await sb.from("members").select("*").eq("andel_id", me.andel).order("created_at");
+  andelLoading = false;
   andelData = { members: m.data || [], err: m.error ? m.error.message : "" };
   render();
 }
@@ -2587,13 +2587,20 @@ async function setPhotoVis(id, v) {
 
 /* ---------- administration (kun administrator): andele ---------- */
 var adminData = null;
+var adminLoading = false;
 async function loadAdmin() {
-  var a = await sb.from("andele").select("*").order("lejlighed").order("nummer");
-  var m = await sb.from("members").select("andel_id,email,name,role,user_id");
-  var rp = await sb.from("reports").select("*").eq("handled", false).order("created_at", { ascending: false });
-  var nn = await sb.from("andel_numre").select("*").order("lejlighed").order("nummer");
-  var kk = await sb.from("andel_kontakter").select("*").order("sort");
-  var lg = await sb.from("activity_log").select("*").order("at", { ascending: false }).limit(300);
+  if (adminLoading) return; adminLoading = true;
+  var all = await Promise.all([
+    sb.from("andele").select("*").order("lejlighed").order("nummer"),
+    sb.from("members").select("andel_id,email,name,role,user_id"),
+    sb.from("reports").select("*").eq("handled", false).order("created_at", { ascending: false }),
+    sb.from("andel_numre").select("*").order("lejlighed").order("nummer"),
+    sb.from("andel_kontakter").select("*").order("sort"),
+    sb.from("activity_log").select("*").order("at", { ascending: false }).limit(300),
+    editorData ? null : sb.from("access_levels").select("email, level, bestiller")]);
+  var a = all[0], m = all[1], rp = all[2], nn = all[3], kk = all[4], lg = all[5];
+  if (all[6]) { editorData = all[6].data || []; editorData.err = all[6].error ? all[6].error.message : ""; }
+  adminLoading = false;
   adminData = { andele: a.data || [], members: m.data || [], reports: rp.data || [], nums: nn.data || [], contacts: kk.data || [], log: lg.data || [], err: a.error ? a.error.message : "" };
   render();
 }
@@ -2622,7 +2629,12 @@ var LEVELS = [
   [4, "Drift", "Som kommunikation + følger op i den sorte bog (status, opfølgning, Limaser, slette sager) og kan aflyse andres bookinger af udstyr."],
   [5, "Administrator", "Alt – også andelshavere, invitationer, adgang, anmeldelser og ændringer."]
 ];
-async function loadEditors() { var r = await sb.from("access_levels").select("email, level, bestiller"); editorData = r.data || []; editorData.err = r.error ? r.error.message : ""; rerenderAdmin(); }
+var editorsLoading = false;
+async function loadEditors() {
+  if (editorsLoading) return; editorsLoading = true;
+  var r = await sb.from("access_levels").select("email, level, bestiller"); editorData = r.data || []; editorData.err = r.error ? r.error.message : "";
+  editorsLoading = false; rerenderAdmin();
+}
 function levelsHtml(d) {
   if (!editorData) { loadEditors(); return '<p class="hint">Henter…</p>'; }
   var byMail = {}; (d.members || []).forEach(function (m) { var k = (m.email || "").toLowerCase(); if (k && !byMail[k]) byMail[k] = m.name || k; });
@@ -2688,8 +2700,11 @@ async function addEditor(f) { var e = f.elements.email.value; if (!e) return; va
 async function rmEditor(e) { await sb.from("access_levels").delete().eq("email", e); editorData = null; rerenderAdmin(); }
 async function setLevel(e, n) { var r = await sb.from("access_levels").update({ level: n }).eq("email", e); if (r.error) ui.msg = "Det blev ikke gemt: " + r.error.message; editorData = null; rerenderAdmin(); }
 document.addEventListener("change", function (e) { var bm = e.target.dataset && e.target.dataset.bestil; if (bm) { sb.from("access_levels").update({ bestiller: e.target.checked }).eq("email", bm).then(function (r) { if (r.error) adminData.err = "Det blev ikke gemt: " + r.error.message; editorData = null; rerenderAdmin(); }); return; } var k = e.target.dataset && e.target.dataset.lvset; if (k) setLevel(k, parseInt(e.target.value, 10)); var lm = e.target.dataset && e.target.dataset.lvmail; if (lm) setPersonLevel(lm, parseInt(e.target.value, 10)); });
+var noticesLoading = false;
 async function loadNotices() {
+  if (noticesLoading) return; noticesLoading = true;
   var r = await sb.from("notices").select("*").order("created_at", { ascending: false });
+  noticesLoading = false;
   noticeData = { list: r.data || [], err: r.error ? r.error.message : "" }; render();
 }
 function noticesAdminHtml() {
@@ -3072,7 +3087,10 @@ async function afterLogin() {
 }
 
 /* ---------- nyt sted ud fra billede ---------- */
+var EXIFR_SRC = "https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js";
+function needExifr() { return window.exifr ? Promise.resolve() : loadScript(EXIFR_SRC).catch(function () {}); }
 async function readPhotoInfo(files) {
+  await needExifr();
   // Placering: midten af ALLE billedernes placeringer (medianen), så et enkelt billede taget et stykke væk ikke flytter stedet
   var info = { lat: null, lon: null, month: null, date: null }, lats = [], lons = [];
   for (var i = 0; i < files.length && i < 30; i++) {
@@ -4293,7 +4311,7 @@ function helpPageHtml() {
   ui.helpTab = cur[0];
   var body = cur[3].map(function (sec) { return faq(sec, cur[3].length > 1); }).join("").replace("{{PUSHBOX}}", pushBoxHtml(lvl() >= 4 ? "drift" : "follow"));
   return '<section class="panel helppage"><p class="eyebrow">Hjælp</p><h2>Sådan bruger du appen</h2>' +
-    '<div class="helptabs" role="tablist" style="--n:' + tabs.length + '">' + tabs.map(function (x) { return '<button type="button" role="tab" class="htab' + (x === cur ? " on" : "") + '" data-helptab="' + x[0] + '" aria-selected="' + (x === cur) + '">' + x[1] + "<span>" + esc(x[2]) + "</span></button>"; }).join("") + "</div>" +
+    '<div class="helptabs" role="tablist" style="--n:' + tabs.length + '">' + tabs.map(function (x) { return '<button type="button" role="tab" class="htab' + (x === cur ? " on" : "") + '" data-helptab="' + x[0] + '" aria-selected="' + (x === cur) + '">' + x[1] + "<span>" + esc(x[2]).replace(/^(Guide til|Book|Fælles|Den sorte|Vores) /, "$1<br>") + "</span></button>"; }).join("") + "</div>" +
     '<p class="hint">Tryk på et spørgsmål for at se svaret.</p>' + body +
     ((cur[0] === "guide" || (TEST_MENU && (WELCOMES[cur[0]] || {}).screens)) ? '<p class="wagain"><button type="button" class="btn small" data-wshow="' + cur[0] + '">Vis velkomsten til ' + esc(cur[0] === "guide" ? "Guide til området" : WELCOMES[cur[0]].screens[0][1]) + " igen</button></p>" : "") +
     '<div class="helpcontact"><h3>Kan du ikke finde svaret?</h3><p>Skriv til Christian på <a href="mailto:' + HELP_MAIL + '">' + HELP_MAIL + "</a>. Skriv gerne, hvad du prøvede at gøre, og hvad der skete.</p></div></section>";
@@ -4735,7 +4753,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 277;
+var APP_VERSION = 278;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

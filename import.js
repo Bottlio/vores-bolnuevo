@@ -104,6 +104,8 @@ async function loadPending() {
   await scan(fresh);
 }
 async function scan(fresh) {
+  // Billedværktøjet (exifr) hentes først, når der skal læses billeder
+  if (!window.exifr) await new Promise(function (res) { var sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"; sc.onload = sc.onerror = res; document.head.appendChild(sc); });
   var n = 0, q = fresh.slice();
   var meta = async function () {
     while (q.length) {
