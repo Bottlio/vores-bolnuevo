@@ -1425,7 +1425,10 @@ async function loadMenuNotes() {
   if (ui.menu && !ui.page) render();
 }
 var PIN_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4.5l-4 4l-4 1.5l-1.5 1.5l7 7l1.5 -1.5l1.5 -4l4 -4"/><path d="M9 15l-4.5 4.5"/><path d="M14.5 4l5.5 5.5"/></svg>';
-function inSpain() { try { return Intl.DateTimeFormat().resolvedOptions().timeZone === "Europe/Madrid"; } catch (e) { return false; } }
+function realInSpain() { try { return Intl.DateTimeFormat().resolvedOptions().timeZone === "Europe/Madrid"; } catch (e) { return false; } }
+// Administratoren kan se menuen, som var han i Spanien eller i Danmark (gemmes kun på denne enhed)
+function spainView() { try { return (me && me.admin && localStorage.getItem("bol_spainview")) || "auto"; } catch (e) { return "auto"; } }
+function inSpain() { var v = spainView(); return v === "es" ? true : v === "dk" ? false : realInSpain(); }
 function menuNotesHtml() {
   // Hentes, når menuen åbnes (højst hvert 5. minut)
   if (Date.now() - menuNotesAt > 5 * 60 * 1000) loadMenuNotes();
@@ -2751,7 +2754,9 @@ function noticesAdminHtml() {
     '<p class="hint">Skærmen i receptionen viser altid opslaget. "I Spanien" betyder, at telefonen står på spansk tid.</p></fieldset>' +
     (ed ? '<div class="row"><button class="btn primary" type="submit">Gem ændringer</button><button class="btn" type="button" data-nedit="">Annuller</button></div>' : '<button class="btn primary" type="submit">Sæt opslag op</button>') + "</form>" +
     (list ? '<ul class="nlist">' + list + "</ul>" : '<p class="hint">Ingen opslag endnu.</p>') +
-    '<p class="hint">Opslag vises på skærmen i receptionen inden for 2 minutter og øverst på appens menu. De nyeste står øverst.</p>';
+    '<p class="hint">Opslag vises på skærmen i receptionen inden for 2 minutter og øverst på appens menu. De nyeste står øverst.</p>' +
+    (me && me.admin ? '<h3>Se menuen som</h3><div class="seg small" role="group" aria-label="Se menuen som">' + [["auto", "Automatisk"], ["es", "I Spanien"], ["dk", "I Danmark"]].map(function (o) { return '<button type="button" data-spainview="' + o[0] + '" aria-pressed="' + (spainView() === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>" +
+      '<p class="hint">Kun for dig og kun på denne enhed. Automatisk følger telefonens tidszone – lige nu: ' + (realInSpain() ? "Spanien" : "ikke Spanien") + ".</p>" : "");
 }
 async function saveNotice(f) {
   var g = function (n) { return (f.elements[n].value || "").trim(); };
@@ -4678,6 +4683,7 @@ document.addEventListener("click", async function (e) {
   if (t.id === "screen-hide") { ui.screenHide = true; render(); return; }
   if (t.id === "inapp-hide") { ui.inAppHide = true; render(); return; }
   if (t.dataset.rstart) { if (ui.confirmStart !== t.dataset.rstart) { ui.confirmStart = t.dataset.rstart; rerenderAdmin(); return; } adminStartOver(t.dataset.rstart); return; }
+  if (t.dataset.spainview) { try { if (t.dataset.spainview === "auto") localStorage.removeItem("bol_spainview"); else localStorage.setItem("bol_spainview", t.dataset.spainview); } catch (x) {} rerenderAdmin(); return; }
   if (t.dataset.mnote) { ui.noteOpen = ui.noteOpen || {}; ui.noteOpen[t.dataset.mnote] = !ui.noteOpen[t.dataset.mnote]; render(); return; }
   if (t.dataset.addk != null) { ui.addK = t.dataset.addk || null; ui.editK = null; rerenderAdmin(); return; }
   if (t.dataset.editk != null) { ui.editK = t.dataset.editk || null; ui.editKInv = !!t.dataset.andinv; var q0 = (document.getElementById("adm-q") || {}).value || ""; render(); var qi0 = document.getElementById("adm-q"); if (qi0) { qi0.value = q0; filterAdmList(); } return; }
@@ -4784,7 +4790,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 283;
+var APP_VERSION = 284;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
