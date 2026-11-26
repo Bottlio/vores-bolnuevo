@@ -2325,7 +2325,10 @@ function pushBoxHtml(role, canDismiss) {
     return h + "</div>";
   }
   if (!pushState.checked) { pushCheck(); return h + '<p class="hint">Tjekker notifikationer…</p></div>'; }
-  if (Notification.permission === "denied") h += '<p>Notifikationer er blokeret for appen på denne enhed. Slå dem til under Notifikationer i telefonens indstillinger for browseren/appen, og prøv igen.</p>' + no;
+  // Har man sagt nej, kan appen ikke spørge igen – det skal slås til i telefonens indstillinger (Christian 26/11)
+  if (Notification.permission === "denied") h += (isIOS
+    ? '<p><b>Notifikationer er slået fra for appen på denne iPhone/iPad.</b> Appen kan ikke spørge igen, så det skal slås til i telefonens indstillinger:</p><ol class="pushsteps"><li>Åbn <b>Indstillinger</b> på telefonen.</li><li>Tryk <b>Notifikationer</b>.</li><li>Find <b>Vores Laderita</b> på listen, tryk på den, og slå <b>Tillad notifikationer</b> til.</li><li>Kom tilbage hertil. Står der stadig, at de er slået fra, så luk appen helt og åbn den igen.</li></ol><p class="hint">Står Vores Laderita ikke på listen: slet ikonet fra hjemmeskærmen, læg appen på hjemmeskærmen igen fra Safari, og tryk Tillad, når den spørger.</p>'
+    : '<p><b>Notifikationer er slået fra for appen på denne enhed.</b> Appen kan ikke spørge igen, så det skal slås til i indstillingerne: på Android under <b>Indstillinger → Apps → Chrome (eller Vores Laderita) → Notifikationer</b>; på en computer ved hængelåsen til venstre for adressen i browseren. Genindlæs bagefter siden.</p>') + no;
   else if (pushState.on) h += '<p><b>✓ Notifikationer er slået til på denne enhed</b>. Du får en notifikation, ' + what + '.</p><div class="row"><button class="btn small" type="button" data-push="test"' + (pushState.busy ? " disabled" : "") + '>Send en prøvenotifikation</button><button class="btn small" type="button" data-push="off"' + (pushState.busy ? " disabled" : "") + ">Slå fra</button></div>";
   else h += '<p><b>Notifikationer er slået fra på denne enhed.</b> Slå dem til, så får du en notifikation, ' + what + '.</p><div class="row"><button class="btn small primary" type="button" data-push="on"' + (pushState.busy ? " disabled" : "") + ">" + (pushState.busy ? "Slår til…" : "Slå notifikationer til") + "</button>" + no + "</div>";
   return h + (pushState.msg ? '<p class="hint">' + esc(pushState.msg) + "</p>" : "") + "</div>";
@@ -4282,7 +4285,7 @@ var HELP_SORTBOG = ["sortbog", "Den sorte bog", [
     "<p>Lige efter du har oprettet en sag – og første gang du følger en sag – bliver du også spurgt én gang.</p>" +
     "<p><strong>Det skal gøres på hver telefon, iPad eller computer</strong>, du vil have notifikationer på.</p>" +
     "<p><strong>iPhone og iPad:</strong> Notifikationer virker kun, når appen er lagt på hjemmeskærmen. Åbn den i Safari, tryk på Del-knappen " + DEMO.share + " og vælg <strong>Føj til hjemmeskærm</strong> " + DEMO.addhome + ". Åbn appen fra ikonet på hjemmeskærmen og slå notifikationer til.</p>" +
-    "<p><strong>Står der, at notifikationer er blokeret?</strong> Så har du tidligere sagt nej. Gå til telefonens <strong>Indstillinger → Notifikationer</strong>, find browseren eller appen, og slå dem til igen.</p>"],
+    "<p><strong>Har du trykket Tillad ikke?</strong> Så kan appen ikke spørge igen. På iPhone: <strong>Indstillinger → Notifikationer → Vores Laderita → Tillad notifikationer</strong>, og åbn appen igen. Står Vores Laderita ikke på listen, så slet ikonet fra hjemmeskærmen, læg appen på igen fra Safari og tryk Tillad.</p>"],
   ["Hvordan skriver jeg en kommentar?", "<ol><li>Tryk på sagen for at åbne den.</li><li>Tryk på fanen <strong>Kommentarer</strong>.</li><li>Skriv i feltet nederst og tryk <strong>Send</strong>. Tryk på kameraet, hvis du vil sætte et billede på.</li></ol><p>Du kan rette eller slette din kommentar i 15 minutter. Derefter bliver den stående, så historikken passer.</p>"],
   ["Kan jeg rette, lukke eller slette min sag?", "<ul><li><strong>Rette:</strong> Åbn sagen og tryk <strong>Ret sagen</strong>. Det kan du, indtil sagen er løst. Din rettelse bliver skrevet i Kommentarer.</li><li><strong>Lukke:</strong> Er problemet væk, eller har du selv ordnet det? Tryk <strong>Ret sagen</strong> og derefter <strong>Luk sagen</strong> nederst. Skriv kort hvorfor. Drift får besked.</li><li><strong>Slette:</strong> Kun mens sagen står som Ny – fx hvis du har oprettet den ved en fejl.</li></ul>"],
   ["Hvad er \"Tidligere sager\"?", "<p>Når du har åbnet en sag, viser fanen <strong>Tidligere</strong> andre sager fra samme lejlighed, samme sted eller samme udstyr – både åbne og løste. Så kan man se, om det er sket før, og hvordan det blev løst.</p><p>I søgefeltet kan du søge i alle sager, fx <em>vaskemaskine</em>. Tryk på en linje for at åbne sagen. Med <strong>‹ Tilbage til …</strong> øverst kommer du tilbage til den sag, du kom fra.</p>"]
@@ -4790,7 +4793,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 284;
+var APP_VERSION = 285;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

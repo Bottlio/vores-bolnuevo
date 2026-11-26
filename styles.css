@@ -1306,3 +1306,5 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 
 /* Pilene står fast i yderkanten og ses også, når de står uden for et billede på højkant */
 .car.fit .arrow{border:1px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+
+.pushbox .pushsteps{margin:4px 0 8px;padding-left:20px}.pushbox .pushsteps li{margin:2px 0}
