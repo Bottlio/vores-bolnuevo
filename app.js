@@ -2873,6 +2873,7 @@ function personStatus(d, a, k) {
   return !ms.length ? "ikke" : ms.some(function (m) { return m.user_id; }) ? "adgang" : "inviteret";
 }
 var STATUS_TXT = { adgang: "Har adgang", inviteret: "Inviteret – ikke logget ind endnu", ikke: "Ikke inviteret", nomail: "Mangler mail" };
+function isInternLejl(l) { return l === "900" || l === "901"; }
 function andelshaverListHtml(d) {
   var hh = d.andele.filter(function (a) { return a.aktiv && a.lejlighed !== "999"; });
   var cnt = { adgang: 0, inviteret: 0, ikke: 0 };
@@ -2882,7 +2883,7 @@ function andelshaverListHtml(d) {
     var ms = d.members.filter(function (m) { return m.andel_id === a.id; });
     var nums = hhNums(d, a);
     var sts = ks.map(function (k) { return personStatus(d, a, k); });
-    var hs = sts.indexOf("adgang") >= 0 ? "adgang" : sts.indexOf("inviteret") >= 0 ? "inviteret" : "ikke"; cnt[hs]++;
+    var hs = sts.indexOf("adgang") >= 0 ? "adgang" : sts.indexOf("inviteret") >= 0 ? "inviteret" : "ikke"; if (!isInternLejl(a.lejlighed)) cnt[hs]++;
     var extraMembers = ms.filter(function (m) { return !ks.some(function (k) { return k.mail && k.mail.toLowerCase() === (m.email || "").toLowerCase(); }); });
     var people = ks.map(function (k, i) {
         var st = sts[i];
@@ -2911,7 +2912,9 @@ function andelshaverListHtml(d) {
   });
   rows.sort(function (p, q) { return String(p.l).localeCompare(String(q.l), "da", { numeric: true }) || String(p.n).localeCompare(String(q.n), "da", { numeric: true }); });
   var items = rows.map(function (r) { return r.html; }).join("");
-  var stats = rows.length + " andelsnumre · " + hh.length + " husstande · " + cnt.adgang + " har adgang · " + cnt.inviteret + " inviteret · " + cnt.ikke + " ikke inviteret";
+  // Personale (900) og gæster med læseadgang (901) har interne pladser – de tælles ikke med som andelsnumre/husstande (Christian 26/11)
+  var realRows = rows.filter(function (r) { return !isInternLejl(r.l); }), realHh = hh.filter(function (a) { return !isInternLejl(a.lejlighed); });
+  var stats = realRows.length + " andelsnumre · " + realHh.length + " husstande · " + cnt.adgang + " har adgang · " + cnt.inviteret + " inviteret · " + cnt.ikke + " ikke inviteret";
   return foldBox("adm-list", "<strong>Andelshavere</strong>", stats,
     '<input type="search" id="adm-q" class="admq" placeholder="Søg: navn, nummer, by eller mail" autocomplete="off">' +
     '<div class="seg small admfilter" role="group" aria-label="Vis">' + [["alle", "Alle"], ["ikke", "Ikke inviteret"], ["inviteret", "Inviteret"], ["adgang", "Har adgang"]].map(function (o) { return '<button type="button" data-admf="' + o[0] + '" aria-pressed="' + ((ui.admF || "alle") === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>" +
@@ -4799,7 +4802,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 286;
+var APP_VERSION = 287;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
