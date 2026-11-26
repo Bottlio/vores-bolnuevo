@@ -1424,12 +1424,14 @@ async function loadMenuNotes() {
   if (ui.menu && !ui.page) render();
 }
 var PIN_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4.5l-4 4l-4 1.5l-1.5 1.5l7 7l1.5 -1.5l1.5 -4l4 -4"/><path d="M9 15l-4.5 4.5"/><path d="M14.5 4l5.5 5.5"/></svg>';
+function inSpain() { try { return Intl.DateTimeFormat().resolvedOptions().timeZone === "Europe/Madrid"; } catch (e) { return false; } }
 function menuNotesHtml() {
   // Hentes, når menuen åbnes (højst hvert 5. minut)
   if (Date.now() - menuNotesAt > 5 * 60 * 1000) loadMenuNotes();
-  if (!menuNotes || !menuNotes.length) return "";
+  var list = (menuNotes || []).filter(function (n) { return n.audience !== "spanien" || inSpain(); });
+  if (!list.length) return "";
   ui.noteOpen = ui.noteOpen || {};
-  return menuNotes.map(function (n) {
+  return list.map(function (n) {
     var open = !!ui.noteOpen[n.id], long = (n.body || "").length > 110;
     return '<section class="mnote"><p class="mnote-eb">' + PIN_SVG + ' Fra receptionen</p><h3>' + esc(n.title) + "</h3>" +
       (n.body ? '<p class="mnote-b' + (long && !open ? " clamp" : "") + '">' + esc(n.body) + "</p>" : "") +
@@ -2734,7 +2736,7 @@ function noticesAdminHtml() {
   var list = noticeData.list.map(function (n) {
     var gone = n.show_until && n.show_until < today;
     return '<li class="nitem' + (gone ? " gone" : "") + '"><div><strong>' + esc(n.title) + "</strong>" + (n.body ? '<p class="hint">' + esc(n.body) + "</p>" : "") +
-      '<p class="hint">' + (n.show_until ? (gone ? "Udløbet " : "Vises til og med ") + esc(n.show_until.split("-").reverse().join(".")) : "Vises indtil det slettes") + "</p></div>" +
+      '<p class="hint">' + (n.show_until ? (gone ? "Udløbet " : "Vises til og med ") + esc(n.show_until.split("-").reverse().join(".")) : "Vises indtil det slettes") + " · " + (n.audience === "spanien" ? "i appen kun for dem i Spanien" : "i appen for alle") + "</p></div>" +
       '<span class="lvact"><button class="linkbtn" type="button" data-nedit="' + esc(n.id) + '">Rediger</button><button class="linkbtn danger-t" type="button" data-ndel="' + esc(n.id) + '">' + (ui.nDelConfirm === n.id ? "Tryk igen for at slette" : "Slet") + "</button></span></li>";
   }).join("");
   var ed = ui.nEdit && noticeData.list.filter(function (n) { return n.id === ui.nEdit; })[0];
@@ -2742,19 +2744,24 @@ function noticesAdminHtml() {
     '<form id="notice-form" class="invite">' + (ed ? "<h3>Rediger opslag</h3>" : "") + '<label>Overskrift<input name="title" required maxlength="70" placeholder="Fx Poolen er lukket torsdag" value="' + esc(ed ? ed.title : "") + '"></label>' +
     '<label>Tekst (valgfri)<textarea name="body" rows="2" maxlength="240" placeholder="Fx på grund af rengøring – åbner igen fredag kl. 9.">' + esc(ed && ed.body ? ed.body : "") + "</textarea></label>" +
     '<label>Vis til og med (valgfri)<input type="date" name="until" value="' + esc(ed && ed.show_until ? ed.show_until : "") + '"></label>' +
+    '<fieldset class="naud"><legend>Hvem skal se opslaget i appen?</legend>' +
+    '<label class="chk"><input type="radio" name="audience" value="alle"' + (!ed || ed.audience !== "spanien" ? " checked" : "") + '> Alle</label>' +
+    '<label class="chk"><input type="radio" name="audience" value="spanien"' + (ed && ed.audience === "spanien" ? " checked" : "") + '> Kun dem, der er i Spanien</label>' +
+    '<p class="hint">Skærmen i receptionen viser altid opslaget. "I Spanien" betyder, at telefonen står på spansk tid.</p></fieldset>' +
     (ed ? '<div class="row"><button class="btn primary" type="submit">Gem ændringer</button><button class="btn" type="button" data-nedit="">Annuller</button></div>' : '<button class="btn primary" type="submit">Sæt opslag op</button>') + "</form>" +
     (list ? '<ul class="nlist">' + list + "</ul>" : '<p class="hint">Ingen opslag endnu.</p>') +
-    '<p class="hint">Opslag vises på skærmen i receptionen inden for 2 minutter. De nyeste står øverst.</p>';
+    '<p class="hint">Opslag vises på skærmen i receptionen inden for 2 minutter og øverst på appens menu. De nyeste står øverst.</p>';
 }
 async function saveNotice(f) {
   var g = function (n) { return (f.elements[n].value || "").trim(); };
   if (!g("title")) return;
-  var row = { title: g("title"), body: g("body") || null, show_until: g("until") || null };
+  var aud = f.querySelector('input[name="audience"]:checked');
+  var row = { title: g("title"), body: g("body") || null, show_until: g("until") || null, audience: aud && aud.value === "spanien" ? "spanien" : "alle" };
   var r = ui.nEdit ? await sb.from("notices").update(row).eq("id", ui.nEdit) : await sb.from("notices").insert(row);
   if (r.error) { noticeData.err = "Opslaget blev ikke gemt: " + r.error.message; render(); return; }
-  ui.nEdit = null; noticeData = null; rerenderAdmin();
+  ui.nEdit = null; noticeData = null; menuNotesAt = 0; rerenderAdmin();
 }
-async function delNotice(id) { await sb.from("notices").delete().eq("id", id); ui.nDelConfirm = null; noticeData = null; rerenderAdmin(); }
+async function delNotice(id) { await sb.from("notices").delete().eq("id", id); ui.nDelConfirm = null; noticeData = null; menuNotesAt = 0; rerenderAdmin(); }
 /* ---------- Ændringer: alt der oprettes, rettes og slettes (logges af databasen) ---------- */
 var LOG_FIELDS = { name: "navn", town: "by", area: "område", cat: "kategori", subcat: "type", lat: "placering", lon: "placering", visibility: "synlighed", facts: "fakta", website: "hjemmeside", link: "link", maps_url: "Google Maps-link", lejlighed: "lejlighed", guess: "navn ikke bekræftet", region: "område", note: "kommentar", visits: "besøg", last_visit: "besøg", ratings: "stjerner", rating_score: "stjerner", favorite: "hjerte", visited: "besøgt", role: "rolle", user_id: "login", aktiv: "aktiv", rul: "rul", handled: "behandlet", reason: "begrundelse", path: "fil", credit: "kilde" };
 var VIS_TXT = { alle: "Alle", andel: "Vores andel", mig: "Kun mig", lejlighed: "Lejligheden" };
@@ -4775,7 +4782,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 280;
+var APP_VERSION = 281;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
