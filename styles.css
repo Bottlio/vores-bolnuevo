@@ -1308,3 +1308,10 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 .car.fit .arrow{border:1px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.12)}
 
 .pushbox .pushsteps{margin:4px 0 8px;padding-left:20px}.pushbox .pushsteps li{margin:2px 0}
+
+/* Hjælpefanerne på telefon: 2 rækker med 3 i hver, større tekst og ikoner (Christian 27/11) */
+@media (max-width:600px){
+  .helptabs{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-left:0;margin-right:0}
+  .htab{font-size:.84rem;padding:10px 4px 9px;border-radius:10px;letter-spacing:0;min-height:68px}
+  .htab .licon{width:22px;height:22px}
+}
