@@ -814,6 +814,43 @@ function inAppNote() {
     '<button class="linkbtn" type="button" id="inapp-hide">Skjul</button></div>';
 }
 // Samme toppe med billede og "Hej …" på menuen, guidens forside og siderne fra menuen
+/* Vejret lige nu i billedet ved "Hej …" (Christian 27/11): ikon og temperatur fra Open-Meteo (gratis, ingen nøgle).
+   Midlertidigt – temperaturen skal komme fra hotellets egen Netatmo-måler, når den er delt. Vises ikke, hvis målingen mangler eller er over en time gammel. */
+var wx = null, wxAt = 0, wxLoading = false;
+try { var wxs = JSON.parse(localStorage.getItem("bol_wx") || "null"); if (wxs && wxs.at) { wx = wxs; wxAt = wxs.at; } } catch (x) {}
+async function loadWx() {
+  if (wxLoading) return; wxLoading = true;
+  try {
+    var r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=" + CFG.hotel.lat + "&longitude=" + CFG.hotel.lon + "&current=temperature_2m,weather_code,is_day&timezone=Europe%2FMadrid");
+    var j = await r.json();
+    if (j && j.current && typeof j.current.temperature_2m === "number") {
+      wx = { t: j.current.temperature_2m, c: j.current.weather_code, day: j.current.is_day !== 0, at: Date.now() };
+      try { localStorage.setItem("bol_wx", JSON.stringify(wx)); } catch (x) {}
+    }
+  } catch (e) { /* intet net – boksen vises bare ikke */ }
+  wxAt = Date.now(); wxLoading = false;
+  if (document.querySelector(".hero")) render();
+}
+var WX_SVG = function (inner) { return '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + "</svg>"; };
+var WX_SUN = '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/>';
+var WX_MOON = '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>';
+var WX_CLOUD = '<path d="M7 18h10a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.2 9.1 4.5 4.5 0 0 0 7 18z"/>';
+function wxIcon(c, day) {
+  if (c === 0) return [WX_SVG(day ? WX_SUN : WX_MOON), day ? "Sol" : "Klart"];
+  if (c === 1 || c === 2) return [WX_SVG((day ? '<circle cx="8" cy="8" r="3"/><path d="M8 2.5v1.2M2.5 8h1.2M4.2 4.2l.9.9M11.8 4.2l-.9.9"/>' : '<path d="M12.5 7.5A4.5 4.5 0 0 1 6.5 2.6a4.5 4.5 0 1 0 6 4.9z"/>') + '<path d="M9 19h8a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 8.4 11 3.8 3.8 0 0 0 9 19z"/>'), "Let skyet"];
+  if (c === 3) return [WX_SVG(WX_CLOUD), "Overskyet"];
+  if (c === 45 || c === 48) return [WX_SVG('<path d="M4 9h16M3 13h18M5 17h14"/>'), "Tåge"];
+  if (c >= 95) return [WX_SVG(WX_CLOUD.replace("18h10", "15h10") + '<path d="M12 15l-2 4h3l-2 3"/>'), "Torden"];
+  if ((c >= 71 && c <= 77) || c === 85 || c === 86) return [WX_SVG('<path d="M7 15h10a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.2 6.1 4.5 4.5 0 0 0 7 15z"/><path d="M9 19h.01M12 21h.01M15 19h.01"/>'), "Sne"];
+  if (c >= 51) return [WX_SVG('<path d="M7 15h10a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.2 6.1 4.5 4.5 0 0 0 7 15z"/><path d="M9 18l-1 3M13 18l-1 3M17 18l-1 3"/>'), "Regn"];
+  return [WX_SVG(WX_CLOUD), "Skyet"];
+}
+function wxBadgeHtml() {
+  if (Date.now() - wxAt > 15 * 60 * 1000) loadWx();
+  if (!wx || Date.now() - wx.at > 60 * 60 * 1000) return "";
+  var ic = wxIcon(wx.c, wx.day);
+  return '<div class="herowx" title="' + esc(ic[1]) + ' – vejret i Bolnuevo lige nu">' + ic[0] + '<span class="wxt">' + Math.round(wx.t) + '°</span><span class="wxl">Laderita<br>lige nu</span></div>';
+}
 function heroHtml() {
   if (!me) return "";
   var hero = "";
@@ -822,7 +859,7 @@ function heroHtml() {
     var hotel = places.filter(function (p) { return p.cat === "lejligheden" && p.photos && p.photos.length; })[0];
     hero = hotel ? photoUrl(hotel.photos[0]) : coverFor(spots);
   }
-  return '<section class="hero"' + (hero ? ' style="--hero:url(&quot;' + esc(hero) + '&quot;)"' : "") + '><div class="herotext"><p>Hej ' + esc(me.name || "") + '</p><p class="herosub">Andel ' + esc(me.label) + "</p></div></section>";
+  return '<section class="hero"' + (hero ? ' style="--hero:url(&quot;' + esc(hero) + '&quot;)"' : "") + '><div class="herotext"><p>Hej ' + esc(me.name || "") + '</p><p class="herosub">Andel ' + esc(me.label) + "</p></div>" + wxBadgeHtml() + "</section>";
 }
 function renderHome() {
   var spots = places.filter(function (p) { return !isApt(p.cat); });
@@ -4802,7 +4839,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 288;
+var APP_VERSION = 289;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
