@@ -852,7 +852,7 @@ function wxBadgeHtml() {
   if (Date.now() - wxAt > 15 * 60 * 1000) loadWx();
   if (!wx || Date.now() - wx.at > 60 * 60 * 1000) return "";
   var ic = wxIcon(wx.c, wx.day);
-  return '<div class="herowx" title="' + esc(ic[1]) + ' – vejret i Bolnuevo lige nu"><span class="wxl">Laderita lige nu</span><span class="wxrow">' + ic[0] + '<span class="wxt">' + Math.round(wx.t) + "°</span></span></div>";
+  return '<div class="herowx" title="' + esc(ic[1]) + ' – vejret i Bolnuevo lige nu"><span class="wxrow">' + ic[0] + '<span class="wxt">' + Math.round(wx.t) + "°</span></span></div>";
 }
 function heroHtml() {
   if (!me) return "";
@@ -4842,7 +4842,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 290;
+var APP_VERSION = 291;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

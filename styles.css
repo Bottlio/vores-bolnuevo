@@ -1334,3 +1334,9 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 .herowx .wxrow{display:flex;align-items:center;gap:6px}
 .herowx .wxi{width:32px;height:32px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25))}
 .herowx .wxt{font-size:1.5rem}
+
+/* Vejret uden tekst – større ikon og grader i samme størrelse boks (Christian 27/11) */
+.herowx{padding:6px 12px}
+.herowx .wxrow{gap:8px}
+.herowx .wxi{width:46px;height:46px}
+.herowx .wxt{font-size:2rem}
