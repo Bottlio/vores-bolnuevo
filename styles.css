@@ -1315,3 +1315,10 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
   .htab{font-size:.84rem;padding:10px 4px 9px;border-radius:10px;letter-spacing:0;min-height:68px}
   .htab .licon{width:22px;height:22px}
 }
+
+/* Hjælpen: kun overskriften med et stort ? til højre (Christian 27/11) */
+.helppage .helphead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px}
+.helppage .helpq{color:var(--sea);flex:none;display:flex}
+.helppage .helpq .licon{width:34px;height:34px}
+.helppage .helptabs{margin-top:4px;margin-bottom:6px}
+.helppage .helptabs + h3,.helppage .helptabs + span + details{margin-top:12px}

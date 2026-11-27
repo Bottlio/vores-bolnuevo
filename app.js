@@ -4357,9 +4357,9 @@ function helpPageHtml() {
   var tabs = helpTabs(), cur = tabs.filter(function (x) { return x[0] === ui.helpTab; })[0] || tabs[0];
   ui.helpTab = cur[0];
   var body = cur[3].map(function (sec) { return faq(sec, cur[3].length > 1); }).join("").replace("{{PUSHBOX}}", pushBoxHtml(lvl() >= 4 ? "drift" : "follow"));
-  return '<section class="panel helppage"><p class="eyebrow">Hjælp</p><h2>Sådan bruger du appen</h2>' +
+  return '<section class="panel helppage"><h2 class="helphead"><span>Sådan bruger du appen</span><span class="helpq" aria-hidden="true">' + ICON_HELP + "</span></h2>" + '' +
     '<div class="helptabs" role="tablist" style="--n:' + tabs.length + '">' + tabs.map(function (x) { return '<button type="button" role="tab" class="htab' + (x === cur ? " on" : "") + '" data-helptab="' + x[0] + '" aria-selected="' + (x === cur) + '">' + x[1] + "<span>" + esc(x[2]).replace(/^(Guide til|Book|Fælles|Den sorte|Vores) /, "$1<br>") + "</span></button>"; }).join("") + "</div>" +
-    '<p class="hint">Tryk på et spørgsmål for at se svaret.</p>' + body +
+    body +
     ((cur[0] === "guide" || (TEST_MENU && (WELCOMES[cur[0]] || {}).screens)) ? '<p class="wagain"><button type="button" class="btn small" data-wshow="' + cur[0] + '">Vis velkomsten til ' + esc(cur[0] === "guide" ? "Guide til området" : WELCOMES[cur[0]].screens[0][1]) + " igen</button></p>" : "") +
     '<div class="helpcontact"><h3>Kan du ikke finde svaret?</h3><p>Skriv til Christian på <a href="mailto:' + HELP_MAIL + '">' + HELP_MAIL + "</a>. Skriv gerne, hvad du prøvede at gøre, og hvad der skete.</p></div></section>";
 }
@@ -4802,7 +4802,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 287;
+var APP_VERSION = 288;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
