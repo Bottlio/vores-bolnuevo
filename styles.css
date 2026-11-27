@@ -1327,3 +1327,10 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 .herowx{position:absolute;top:12px;right:12px;display:flex;align-items:center;gap:7px;background:rgba(0,0,0,.38);color:#fff;border-radius:12px;padding:6px 11px;line-height:1}
 .herowx .wxt{font-family:var(--display);font-weight:700;font-size:1.35rem}
 .herowx .wxl{font-size:.72rem;opacity:.9;line-height:1.15}
+
+/* Vejret: "Laderita lige nu" øverst, ikon og grader under (Christian 27/11) */
+.herowx{flex-direction:column;align-items:center;gap:2px;padding:6px 12px 7px}
+.herowx .wxl{font-size:.72rem;opacity:.92;white-space:nowrap}
+.herowx .wxrow{display:flex;align-items:center;gap:6px}
+.herowx .wxi{width:32px;height:32px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25))}
+.herowx .wxt{font-size:1.5rem}

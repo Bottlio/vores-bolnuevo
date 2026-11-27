@@ -831,25 +831,28 @@ async function loadWx() {
   wxAt = Date.now(); wxLoading = false;
   if (document.querySelector(".hero")) render();
 }
-var WX_SVG = function (inner) { return '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + "</svg>"; };
-var WX_SUN = '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/>';
-var WX_MOON = '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>';
-var WX_CLOUD = '<path d="M7 18h10a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.2 9.1 4.5 4.5 0 0 0 7 18z"/>';
+// Farvede vejrikoner (Christian 27/11: "solen er kedelig")
+var WX_SVG = function (inner) { return '<svg class="wxi" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">' + inner + "</svg>"; };
+var WXC_RAYS = function (cx, cy, r1, r2) { var h = ""; for (var k = 0; k < 8; k++) { var a = k * Math.PI / 4; h += '<line x1="' + (cx + Math.cos(a) * r1).toFixed(1) + '" y1="' + (cy + Math.sin(a) * r1).toFixed(1) + '" x2="' + (cx + Math.cos(a) * r2).toFixed(1) + '" y2="' + (cy + Math.sin(a) * r2).toFixed(1) + '"/>'; } return '<g stroke="#FFC23A" stroke-width="2.4" stroke-linecap="round">' + h + "</g>"; };
+var WXC_SUN = function (cx, cy, r) { return WXC_RAYS(cx, cy, r + 3, r + 6.5) + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="#FFD23F" stroke="#FFB020" stroke-width="1.2"/>'; };
+var WXC_MOON = '<path d="M21.5 20.5A9 9 0 0 1 12 6.6a9.5 9.5 0 1 0 11.6 11.8 9 9 0 0 1-2.1 2.1z" fill="#FFE9A8" stroke="#F2CF6B" stroke-width="1"/>';
+var WXC_CLOUD = function (y, fill) { y = y || 0; return '<path transform="translate(0 ' + y + ')" d="M9.5 25h14a5.5 5.5 0 0 0 .8-10.94A7.5 7.5 0 0 0 10 12.6 6.2 6.2 0 0 0 9.5 25z" fill="' + (fill || "#FFFFFF") + '" stroke="#C9D3D8" stroke-width="1.1"/>'; };
+var WXC_DROPS = '<g stroke="#5BB6F0" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="25.5" x2="10.5" y2="29.5"/><line x1="17" y1="25.5" x2="15.5" y2="29.5"/><line x1="22" y1="25.5" x2="20.5" y2="29.5"/></g>';
 function wxIcon(c, day) {
-  if (c === 0) return [WX_SVG(day ? WX_SUN : WX_MOON), day ? "Sol" : "Klart"];
-  if (c === 1 || c === 2) return [WX_SVG((day ? '<circle cx="8" cy="8" r="3"/><path d="M8 2.5v1.2M2.5 8h1.2M4.2 4.2l.9.9M11.8 4.2l-.9.9"/>' : '<path d="M12.5 7.5A4.5 4.5 0 0 1 6.5 2.6a4.5 4.5 0 1 0 6 4.9z"/>') + '<path d="M9 19h8a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 8.4 11 3.8 3.8 0 0 0 9 19z"/>'), "Let skyet"];
-  if (c === 3) return [WX_SVG(WX_CLOUD), "Overskyet"];
-  if (c === 45 || c === 48) return [WX_SVG('<path d="M4 9h16M3 13h18M5 17h14"/>'), "Tåge"];
-  if (c >= 95) return [WX_SVG(WX_CLOUD.replace("18h10", "15h10") + '<path d="M12 15l-2 4h3l-2 3"/>'), "Torden"];
-  if ((c >= 71 && c <= 77) || c === 85 || c === 86) return [WX_SVG('<path d="M7 15h10a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.2 6.1 4.5 4.5 0 0 0 7 15z"/><path d="M9 19h.01M12 21h.01M15 19h.01"/>'), "Sne"];
-  if (c >= 51) return [WX_SVG('<path d="M7 15h10a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.2 6.1 4.5 4.5 0 0 0 7 15z"/><path d="M9 18l-1 3M13 18l-1 3M17 18l-1 3"/>'), "Regn"];
-  return [WX_SVG(WX_CLOUD), "Skyet"];
+  if (c === 0) return [WX_SVG(day ? WXC_SUN(16, 16, 6.5) : WXC_MOON), day ? "Sol" : "Klart"];
+  if (c === 1 || c === 2) return [WX_SVG((day ? WXC_SUN(12, 11, 5) : '<g transform="translate(-4 -4) scale(.8)">' + WXC_MOON + "</g>") + WXC_CLOUD(2)), "Let skyet"];
+  if (c === 3) return [WX_SVG('<g transform="translate(-3 -4) scale(.75)">' + WXC_CLOUD(0, "#E3E9EC") + "</g>" + WXC_CLOUD(2)), "Overskyet"];
+  if (c === 45 || c === 48) return [WX_SVG(WXC_CLOUD(-4, "#EEF2F4") + '<g stroke="#E3E9EC" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="25" x2="26" y2="25"/><line x1="9" y1="29" x2="23" y2="29"/></g>'), "Tåge"];
+  if (c >= 95) return [WX_SVG(WXC_CLOUD(-4, "#DCE3E7") + '<path d="M17 20l-4 6h4l-2 5 6-8h-4l2-3z" fill="#FFC23A" stroke="#F0A800" stroke-width=".8"/>'), "Torden"];
+  if ((c >= 71 && c <= 77) || c === 85 || c === 86) return [WX_SVG(WXC_CLOUD(-4) + '<g fill="#BFE3FF"><circle cx="11" cy="27" r="1.7"/><circle cx="16" cy="29" r="1.7"/><circle cx="21" cy="27" r="1.7"/></g>'), "Sne"];
+  if (c >= 51) return [WX_SVG(WXC_CLOUD(-4, "#E8EEF1") + WXC_DROPS), "Regn"];
+  return [WX_SVG(WXC_CLOUD(2)), "Skyet"];
 }
 function wxBadgeHtml() {
   if (Date.now() - wxAt > 15 * 60 * 1000) loadWx();
   if (!wx || Date.now() - wx.at > 60 * 60 * 1000) return "";
   var ic = wxIcon(wx.c, wx.day);
-  return '<div class="herowx" title="' + esc(ic[1]) + ' – vejret i Bolnuevo lige nu">' + ic[0] + '<span class="wxt">' + Math.round(wx.t) + '°</span><span class="wxl">Laderita<br>lige nu</span></div>';
+  return '<div class="herowx" title="' + esc(ic[1]) + ' – vejret i Bolnuevo lige nu"><span class="wxl">Laderita lige nu</span><span class="wxrow">' + ic[0] + '<span class="wxt">' + Math.round(wx.t) + "°</span></span></div>";
 }
 function heroHtml() {
   if (!me) return "";
@@ -4839,7 +4842,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 289;
+var APP_VERSION = 290;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
