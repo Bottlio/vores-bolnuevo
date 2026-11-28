@@ -1,5 +1,5 @@
 // Udetemperatur fra hotellets Netatmo-vejrstation "Laderita" (delt af Ole, andel 105-047, med Christians konto).
-// Svar: { t: 16.4, at: <ms for målingen> } eller { error }.
+// Svar: { t: 16.4, hum: 64, min: 12.1, max: 19.0, at: <ms for målingen> } eller { error }.
 // Målingen gemmes og hentes højst hvert 10. minut. Adgangsnøglen (3 timer) genbruges, til den udløber;
 // fornyelsesnøglen skifter ved hver fornyelse og gemmes i databasen (secret_set_srv "netatmo_refresh").
 // Første fornyelsesnøgle kommer fra secret NETATMO_REFRESH_TOKEN (sat af Christian).
@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
   const set = (k: string, v: string) => sb.rpc("secret_set_srv", { p_name: k, p_value: v });
 
   // 1) Gemt måling, der er frisk nok
-  try { const last = JSON.parse((await get("netatmo_last")) || "null"); if (last && Date.now() - last.fetched < CACHE_MS) return J({ t: last.t, at: last.at, cached: true }); } catch { /* */ }
+  try { const last = JSON.parse((await get("netatmo_last")) || "null"); if (last && Date.now() - last.fetched < CACHE_MS && "hum" in last) return J({ t: last.t, hum: last.hum, min: last.min, max: last.max, at: last.at, cached: true }); } catch { /* */ }
 
   const id = Deno.env.get("NETATMO_CLIENT_ID"), secret = Deno.env.get("NETATMO_CLIENT_SECRET");
   if (!id || !secret) return J({ error: "Nøglerne til Netatmo mangler" }, 500);
@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
   const out = (dev?.modules || []).find((m: Record<string, unknown>) => m.type === "NAModule1");
   const dd = out?.dashboard_data;
   if (!dd || typeof dd.Temperature !== "number") return J({ error: "Ingen udemåling", reachable: out?.reachable ?? null }, 502);
-  const res = { t: dd.Temperature, at: (dd.time_utc || 0) * 1000, fetched: Date.now() };
+  const res = { t: dd.Temperature, hum: dd.Humidity ?? null, min: dd.min_temp ?? null, max: dd.max_temp ?? null, at: (dd.time_utc || 0) * 1000, fetched: Date.now() };
   await set("netatmo_last", JSON.stringify(res));
-  return J({ t: res.t, at: res.at, cached: false });
+  return J({ t: res.t, hum: res.hum, min: res.min, max: res.max, at: res.at, cached: false });
 });

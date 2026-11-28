@@ -1348,3 +1348,25 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 .rodet{margin:6px 0 8px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
 .rodrow{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:.85rem}
 .rodrow .rstars .on{color:var(--gold,#d4a017)}
+
+/* Vejret kan trykkes på */
+button.herowx{border:0;font:inherit;cursor:pointer}
+button.herowx:focus-visible{outline:2px solid #fff;outline-offset:2px}
+/* Vejrvinduet */
+.wxback{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:900}
+.wxpop{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(380px,calc(100vw - 28px));max-height:calc(100vh - 40px);overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px 18px 14px;z-index:901;color:var(--fg)}
+.wxpop h2{margin:2px 0 8px}
+.wxpop h3{margin:14px 0 6px;font-size:1rem}
+.wxx{position:absolute;top:8px;right:10px;border:0;background:none;font-size:1.6rem;line-height:1;color:var(--muted);cursor:pointer;padding:4px 8px}
+.wxnow{display:flex;align-items:center;gap:10px;margin:0 0 8px}
+.wxnow .wxi{width:52px;height:52px}
+.wxbig{font-family:var(--display);font-weight:700;font-size:2.3rem;color:var(--sea)}
+.wxdesc{color:var(--muted)}
+.wxprow{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+.wxprow:first-child{border-top:0}
+.wxdays{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.wxday{border:1px solid var(--line);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center}
+.wxday .wxi{width:40px;height:40px}
+.wxdn{font-size:.85rem;color:var(--muted)}
+.wxdr{font-size:.8rem;color:var(--muted)}
+.wxsrc{font-size:.72rem;color:var(--muted);margin:12px 0 0}

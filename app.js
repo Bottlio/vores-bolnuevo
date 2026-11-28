@@ -829,12 +829,17 @@ async function loadWx() {
   try {
     // Ikonet (sol/sky/regn) fra Open-Meteo; temperaturen fra hotellets egen Netatmo-måler, når den er frisk (under en time)
     var both = await Promise.all([
-      fetch("https://api.open-meteo.com/v1/forecast?latitude=" + CFG.hotel.lat + "&longitude=" + CFG.hotel.lon + "&current=temperature_2m,weather_code,is_day&timezone=Europe%2FMadrid").then(function (r) { return r.json(); }).catch(function () { return null; }),
-      sb.functions.invoke("netatmo-temp", { body: {} }).then(function (r) { return r.data; }).catch(function () { return null; })]);
+      fetch("https://api.open-meteo.com/v1/forecast?latitude=" + CFG.hotel.lat + "&longitude=" + CFG.hotel.lon + "&current=temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=3&wind_speed_unit=ms&timezone=Europe%2FMadrid").then(function (r) { return r.json(); }).catch(function () { return null; }),
+      // Svarer Netatmo ikke inden for 8 sek., bruges vejrtjenestens temperatur
+      Promise.race([sb.functions.invoke("netatmo-temp", { body: {} }).then(function (r) { return r.data; }).catch(function () { return null; }), new Promise(function (res) { setTimeout(function () { res(null); }, 8000); })])]);
     var j = both[0], na = both[1];
     var naOk = na && typeof na.t === "number" && na.at && Date.now() - na.at < 60 * 60 * 1000;
     if (j && j.current && typeof j.current.temperature_2m === "number") {
-      wx = { t: naOk ? na.t : j.current.temperature_2m, own: !!naOk, c: j.current.weather_code, day: j.current.is_day !== 0, at: Date.now() };
+      var cu = j.current, dl = j.daily || {};
+      wx = { t: naOk ? na.t : cu.temperature_2m, own: !!naOk, c: cu.weather_code, day: cu.is_day !== 0, at: Date.now(),
+        feels: cu.apparent_temperature, wind: cu.wind_speed_10m, wdir: cu.wind_direction_10m,
+        hum: naOk ? na.hum : null, tmin: naOk ? na.min : null, tmax: naOk ? na.max : null, mAt: naOk ? na.at : null,
+        days: [1, 2].map(function (i) { return dl.time && dl.time[i] ? { d: dl.time[i], c: dl.weather_code[i], hi: dl.temperature_2m_max[i], lo: dl.temperature_2m_min[i], rain: dl.precipitation_probability_max ? dl.precipitation_probability_max[i] : null } : null; }).filter(Boolean) };
       try { localStorage.setItem("bol_wx", JSON.stringify(wx)); } catch (x) {}
     }
   } catch (e) { /* intet net – boksen vises bare ikke */ }
@@ -862,8 +867,40 @@ function wxBadgeHtml() {
   if (Date.now() - wxAt > 15 * 60 * 1000) loadWx();
   if (!wx || Date.now() - wx.at > 60 * 60 * 1000) return "";
   var ic = wxIcon(wx.c, wx.day);
-  return '<div class="herowx" title="' + esc(ic[1]) + (wx.own ? " – " + String(Math.round(wx.t * 10) / 10).replace(".", ",") + "° målt på hotellet" : " – vejret i Bolnuevo lige nu") + '"><span class="wxrow">' + ic[0] + '<span class="wxt">' + Math.round(wx.t) + "°</span></span></div>";
+  return '<button type="button" class="herowx" data-wxopen="1" title="' + esc(ic[1]) + (wx.own ? " – " + String(Math.round(wx.t * 10) / 10).replace(".", ",") + "° målt på hotellet" : " – vejret i Bolnuevo lige nu") + '"><span class="wxrow">' + ic[0] + '<span class="wxt">' + Math.round(wx.t) + "°</span></span></button>";
 }
+/* Vejrvindue: tryk på vejret øverst (Christian 28/11) */
+var WX_DIRS = ["nord", "nordøst", "øst", "sydøst", "syd", "sydvest", "vest", "nordvest"];
+var WX_DAYS = ["søndag", "mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag"];
+function wxNum(x, d) { return x == null ? "–" : String(Math.round(x * Math.pow(10, d || 0)) / Math.pow(10, d || 0)).replace(".", ","); }
+function wxPopHtml() {
+  if (!wx) return "";
+  var ic = wxIcon(wx.c, wx.day), row = function (a, b) { return '<div class="wxprow"><span>' + a + "</span><b>" + b + "</b></div>"; };
+  var hhmm = function (ms) { var d = new Date(ms); return p2(d.getHours()) + "." + p2(d.getMinutes()); };
+  var h = '<div class="wxback" data-wxclose="1"></div><div class="wxpop" role="dialog" aria-modal="true" aria-labelledby="wx-h"><button type="button" class="wxx" data-wxclose="1" aria-label="Luk">×</button>' +
+    '<p class="eyebrow">Vejret på Laderita</p><h2 id="wx-h">Lige nu</h2>' +
+    '<div class="wxnow">' + ic[0] + '<span class="wxbig">' + wxNum(wx.t, 1) + '°</span><span class="wxdesc">' + esc(ic[1]) + "</span></div>" +
+    '<div class="wxrows">' +
+      (wx.feels != null ? row("Føles som", wxNum(wx.feels) + "°") : "") +
+      (wx.hum != null ? row("Luftfugtighed", wxNum(wx.hum) + " %") : "") +
+      (wx.tmin != null && wx.tmax != null ? row("I dag laveste / højeste", wxNum(wx.tmin) + "° / " + wxNum(wx.tmax) + "°") : "") +
+      (wx.wind != null ? row("Vind", wxNum(wx.wind) + " m/s" + (wx.wdir != null ? " fra " + WX_DIRS[Math.round(wx.wdir / 45) % 8] : "")) : "") +
+    "</div>" +
+    (wx.mAt ? '<p class="hint">Målt på hotellet kl. ' + hhmm(wx.mAt) + ".</p>" : "") +
+    ((wx.days || []).length ? '<h3>De næste to dage</h3><div class="wxdays">' + wx.days.map(function (x, i) {
+      var di = wxIcon(x.c, true), dd = new Date(x.d + "T12:00:00");
+      return '<div class="wxday"><span class="wxdn">' + (i === 0 ? "I morgen" : WX_DAYS[dd.getDay()].replace(/^./, function (c) { return c.toUpperCase(); })) + "</span>" + di[0] + '<span class="wxdt"><b>' + wxNum(x.hi) + "°</b> / " + wxNum(x.lo) + "°</span>" + (x.rain != null ? '<span class="wxdr">' + wxNum(x.rain) + " % regn</span>" : "") + "</div>";
+    }).join("") + "</div>" : "") +
+    '<p class="wxsrc">' + (wx.own ? "Målt på hotellet med Netatmo · " : "") + "Udsigt og føles som fra Open-Meteo</p></div>";
+  return h;
+}
+function openWx() { var b = document.getElementById("wxbox"); if (!b) { b = document.createElement("div"); b.id = "wxbox"; document.body.appendChild(b); } b.innerHTML = wxPopHtml(); document.body.classList.add("modal-open"); var x = b.querySelector(".wxx"); if (x) x.focus(); }
+function closeWx() { var b = document.getElementById("wxbox"); if (b) b.innerHTML = ""; document.body.classList.remove("modal-open"); }
+document.addEventListener("click", function (e) {
+  if (e.target.closest("[data-wxopen]")) { e.preventDefault(); openWx(); return; }
+  if (e.target.closest("[data-wxclose]")) { closeWx(); }
+});
+document.addEventListener("keydown", function (e) { if (e.key === "Escape" && document.querySelector("#wxbox .wxpop")) closeWx(); });
 function heroHtml() {
   if (!me) return "";
   var hero = "";
@@ -4269,7 +4306,7 @@ var DEMO = {
   dots: '<span class="osicon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></span>'
 };
 var HELP_FAQ = [
-  ["start", "Kom i gang", [
+  ["start", "Login og opsætning", [
     ["Hvordan logger jeg ind første gang?", "<ol><li>Åbn linket fra den invitation, du har fået.</li><li>Tryk på <strong>Første gang: opret adgangskode</strong>.</li><li>Skriv den mail, du er inviteret med, og vælg en adgangskode (mindst 8 tegn).</li><li>Du får en mail. Den er på engelsk og hedder <em>Confirm your signup</em>. Tryk på linket <em>Confirm your mail</em> i mailen.</li><li>Kom tilbage til Vores Laderita og log ind med mail og adgangskode.</li></ol>"],
     ["Jeg har glemt min adgangskode", "<ol><li>Tryk på <strong>Glemt adgangskode?</strong> under feltet til adgangskoden på log ind-siden.</li><li>Skriv din mail og tryk <strong>Send link</strong>.</li><li>Åbn mailen. Den er på engelsk og hedder <em>Reset your password</em>. Tryk på linket <em>Reset password</em>. Kan du ikke finde mailen, så kig i uønsket post (spam).</li><li>Skriv din nye adgangskode to gange og tryk <strong>Gem ny adgangskode</strong>.</li></ol><p>Så er du logget ind igen.</p>"],
     ["Hvordan får jeg Vores Laderita som \"app\" på min telefon?", "<p>Vores Laderita er ikke en app, du henter i App Store eller Google Play. Det er en hjemmeside. Men du kan lægge den på telefonens hjemmeskærm med sit eget ikon. Så åbner den med ét tryk og ser ud og opfører sig som en app – og du skal ikke logge ind hver gang.</p>" +
@@ -4852,7 +4889,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 293;
+var APP_VERSION = 294;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
