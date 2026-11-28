@@ -886,7 +886,7 @@ function wxPopHtml() {
       (wx.tmin != null && wx.tmax != null ? row("I dag laveste / højeste", wxNum(wx.tmin) + "° / " + wxNum(wx.tmax) + "°") : "") +
       (wx.wind != null ? row("Vind", wx.wind < 0.3 ? "Stille" : wxNum(wx.wind, 1) + " m/s" + (wx.wdir != null ? " fra " + WX_DIRS[Math.round(wx.wdir / 45) % 8] : "")) : "") +
     "</div>" +
-    (wx.mAt ? '<p class="hint">Målt på hotellet kl. ' + hhmm(wx.mAt) + ".</p>" : "") +
+    (wx.mAt ? '<p class="hint">Målt på hotellet ved lejl. 105 kl. ' + hhmm(wx.mAt) + ".</p>" : "") +
     ((wx.days || []).length ? '<h3>De næste to dage</h3><div class="wxdays">' + wx.days.map(function (x, i) {
       var di = wxIcon(x.c, true), dd = new Date(x.d + "T12:00:00");
       return '<div class="wxday"><span class="wxdn">' + (i === 0 ? "I morgen" : WX_DAYS[dd.getDay()].replace(/^./, function (c) { return c.toUpperCase(); })) + "</span>" + di[0] + '<span class="wxdt"><b>' + wxNum(x.hi) + "°</b> / " + wxNum(x.lo) + "°</span>" + (x.rain != null ? '<span class="wxdr">' + wxNum(x.rain) + " % regn</span>" : "") + "</div>";
@@ -4889,7 +4889,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 296;
+var APP_VERSION = 297;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
