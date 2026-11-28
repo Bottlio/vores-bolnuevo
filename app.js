@@ -884,7 +884,7 @@ function wxPopHtml() {
       (wx.feels != null ? row("Føles som", wxNum(wx.feels) + "°") : "") +
       (wx.hum != null ? row("Luftfugtighed", wxNum(wx.hum) + " %") : "") +
       (wx.tmin != null && wx.tmax != null ? row("I dag laveste / højeste", wxNum(wx.tmin) + "° / " + wxNum(wx.tmax) + "°") : "") +
-      (wx.wind != null ? row("Vind", wxNum(wx.wind) + " m/s" + (wx.wdir != null ? " fra " + WX_DIRS[Math.round(wx.wdir / 45) % 8] : "")) : "") +
+      (wx.wind != null ? row("Vind", wx.wind < 0.3 ? "Stille" : wxNum(wx.wind, 1) + " m/s" + (wx.wdir != null ? " fra " + WX_DIRS[Math.round(wx.wdir / 45) % 8] : "")) : "") +
     "</div>" +
     (wx.mAt ? '<p class="hint">Målt på hotellet kl. ' + hhmm(wx.mAt) + ".</p>" : "") +
     ((wx.days || []).length ? '<h3>De næste to dage</h3><div class="wxdays">' + wx.days.map(function (x, i) {
@@ -4889,7 +4889,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 295;
+var APP_VERSION = 296;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
