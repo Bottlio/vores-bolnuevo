@@ -169,7 +169,11 @@ function renderRating(first) {
     '<p class="rplace">' + esc(r.name) + '</p><h2 id="r-h">' + esc(c[0]) + "</h2>" +
     (r.legacy ? '<p class="hint">Tidligere samlet karakter: ' + r.legacy + " af 5 stjerner." + (ro ? "" : " Den erstattes, når I vurderer kriterierne.") + "</p>" : "") +
     '<div class="rrows">' + rows + '</div><hr class="rsep"><div class="rtotal" aria-live="polite"><p class="rcap">Samlet vurdering</p>' + total + "</div>" +
-    (r.others && r.others.length ? '<div class="rothers"><p class="rcap">Andre andeles vurdering</p>' + r.others.map(function (x) { return '<p><span class="rstars" aria-hidden="true">' + starRow(Math.round(x.rating_score)) + "</span> " + dec(+x.rating_score) + " · " + esc(authorText(x)) + "</p>"; }).join("") + "</div>" : "") +
+    (r.others && r.others.length ? '<div class="rothers"><p class="rcap">Andre andeles vurdering</p>' + r.others.map(function (x, oi) {
+      var open = !!(r.openOthers && r.openOthers[oi]), rv = x.ratings || {};
+      var det = open ? '<div class="rodet">' + c[1].map(function (k) { var v = rv[k[0]]; return '<div class="rodrow"><span>' + esc(k[1]) + '</span><span>' + (v === "na" ? '<span class="rna-ro">Ikke relevant</span>' : typeof v === "number" ? '<span class="rstars" aria-label="' + v + ' af 5">' + starRow(v) + "</span>" : '<span class="rna-ro">–</span>') + "</span></div>"; }).join("") + "</div>" : "";
+      return '<div class="rother"><button type="button" class="rotherbtn" data-rother="' + oi + '" aria-expanded="' + open + '" title="Se stjernerne for hver kategori"><span class="rstars" aria-hidden="true">' + starRow(Math.round(x.rating_score)) + "</span></button> " + dec(+x.rating_score) + " · " + esc(authorText(x)) + det + "</div>";
+    }).join("") + "</div>" : "") +
     (r.err ? '<p class="err" role="alert">' + esc(r.err) + "</p>" : "") +
     '<div class="row rbtns">' + (ro ? '<button type="button" class="btn primary" data-rclose>Luk</button>' :
       '<button type="button" class="btn primary" data-rsave' + (r.saving ? " disabled" : "") + ">" + (r.saving ? "Gemmer…" : "Gem") + '</button><button type="button" class="btn" data-rclose>Annuller</button>') + "</div></div>";
@@ -190,6 +194,8 @@ rateBox.addEventListener("click", function (e) {
   var r = ui.rate; if (!r) return;
   if (e.target.closest("[data-rclose]")) { closeRating(); return; }
   if (e.target.closest("[data-rsave]")) { saveRating(); return; }
+  var ob = e.target.closest("[data-rother]");
+  if (ob) { var oi = +ob.dataset.rother; r.openOthers = r.openOthers || {}; r.openOthers[oi] = !r.openOthers[oi]; renderRating(); var o2 = rateBox.querySelector('[data-rother="' + oi + '"]'); if (o2) o2.focus(); return; }
   var b = e.target.closest("button"); if (!b || r.readonly) return;
   if (b.dataset.rv) { var k = b.dataset.rv, n = +b.dataset.n; r.values[k] = r.values[k] === n ? undefined : n; if (r.values[k] === undefined) delete r.values[k]; renderRating(); var again = rateBox.querySelector('[data-rv="' + k + '"][data-n="' + n + '"]'); if (again) again.focus(); return; }
   if (b.dataset.rna) { var kk = b.dataset.rna; if (r.values[kk] === "na") delete r.values[kk]; else r.values[kk] = "na"; renderRating(); var a2 = rateBox.querySelector('[data-rna="' + kk + '"]'); if (a2) a2.focus(); return; }
@@ -4842,7 +4848,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 291;
+var APP_VERSION = 292;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

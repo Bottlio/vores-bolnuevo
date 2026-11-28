@@ -1340,3 +1340,11 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 .herowx .wxrow{gap:8px}
 .herowx .wxi{width:46px;height:46px}
 .herowx .wxt{font-size:2rem}
+
+/* Andre andeles vurdering: stjernerne kan trykkes på og viser fordelingen */
+.rothers .rother{margin:4px 0}
+.rotherbtn{background:none;border:0;padding:2px 0;font:inherit;cursor:pointer;color:inherit}
+.rotherbtn:hover .rstars,.rotherbtn[aria-expanded="true"] .rstars{filter:brightness(.9)}
+.rodet{margin:6px 0 8px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.rodrow{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:.85rem}
+.rodrow .rstars .on{color:var(--gold,#d4a017)}
