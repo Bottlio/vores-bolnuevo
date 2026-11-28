@@ -1370,3 +1370,6 @@ button.herowx:focus-visible{outline:2px solid #fff;outline-offset:2px}
 .wxdn{font-size:.85rem;color:var(--muted)}
 .wxdr{font-size:.8rem;color:var(--muted)}
 .wxsrc{font-size:.72rem;color:var(--muted);margin:12px 0 0}
+
+/* Smalle skærme: fire valg (fx Køkkenet om aftenen) skal kunne stå på én linje */
+@media (max-width:420px){.seg.small button{padding:6px 9px}}

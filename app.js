@@ -2890,7 +2890,7 @@ function logWhat(r) {
       if (op !== "UPDATE") return op === "INSERT" ? "Oprettede stedet " + t : "Slettede stedet " + (ref.name || t);
       var pb = ks.filter(function (k) { return k !== "facts"; }).map(function (k) { return LOG_FIELDS[k] || k; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
       if (c.facts) {
-        var fo = c.facts[0] || {}, fn = c.facts[1] || {}, FT = { saeson: ["Sæsonlukket", { ja: "ja", nej: "nej" }], frokost: ["Frokoståbent", { ja: "ja", nej: "nej" }], tidlig: ["Køkkenet om aftenen åbner", { ja: "før kl. 20", nej: "efter kl. 20" }] };
+        var fo = c.facts[0] || {}, fn = c.facts[1] || {}, FT = { saeson: ["Sæsonlukket", { ja: "ja", nej: "nej" }], frokost: ["Frokoståbent", { ja: "ja", nej: "nej" }], tidlig: ["Køkkenet om aftenen åbner", { ja: "før kl. 20", nej: "efter kl. 20", lukket: "lukket om aftenen" }] };
         Object.keys(Object.assign({}, fo, fn)).forEach(function (k) {
           if (fo[k] === fn[k] || k === "beskrivelse") { if (k === "beskrivelse" && fo[k] !== fn[k]) pb.push("beskrivelse"); return; }
           var ft = FT[k]; pb.push(ft ? ft[0] + ": " + (fn[k] ? ft[1][fn[k]] || fn[k] : "ikke angivet") : k);
@@ -3659,15 +3659,15 @@ function cleanFacts(d) {
 /* Faste spørgsmål pr. kategori (svar: "ja", "nej" eller ikke besvaret) */
 var QUESTIONS = {
   dagligvarer: [["saeson", "Sæsonlukket?"], ["sondag", "Åbent om søndagen?"]],
-  spisesteder: [["saeson", "Sæsonlukket?"], ["frokost", "Frokoståbent?"], ["tidlig", "Køkkenet om aftenen åbner", ["Før kl. 20.00", "Efter kl. 20.00"]]]
+  spisesteder: [["saeson", "Sæsonlukket?"], ["frokost", "Frokoståbent?"], ["tidlig", "Køkkenet om aftenen åbner", ["Før kl. 20.00", "Efter kl. 20.00"], [["lukket", "Lukket"]]]]
 };
 function factList(p, full) {
   var f = p.facts || {}, q = QUESTIONS[p.cat] || [], out = [];
   q.forEach(function (x) {
     var v = f[x[0]];
     if (x[0] === "saeson") { if (v === "ja") out.push(["warn", "Sæsonlukket" + (f.periode ? " (" + f.periode + ")" : "")]); else if (v === "nej" && full) out.push(["", "Åbent hele året"]); }
-    if (x[0] === "frokost") { if (v === "ja") out.push(["", "Frokoståbent"]); else if (v === "nej" && full) out.push(["", "Ikke frokoståbent"]); }
-    if (x[0] === "tidlig") { if (v === "ja") out.push(["", "Aften før kl. 20"]); else if (v === "nej") out.push(["warn", "Aften efter kl. 20"]); }
+    if (x[0] === "frokost") { if (v === "ja" && f.tidlig === "lukket") out.push(["", "Kun frokost"]); else if (v === "ja") out.push(["", "Frokoståbent"]); else if (v === "nej" && full) out.push(["", "Ikke frokoståbent"]); }
+    if (x[0] === "tidlig") { if (v === "ja") out.push(["", "Aften før kl. 20"]); else if (v === "nej") out.push(["warn", "Aften efter kl. 20"]); else if (v === "lukket" && f.frokost !== "ja") out.push(["warn", "Lukket om aftenen"]); }
     if (x[0] === "sondag") { if (v === "ja" && full) out.push(["", "Søndagsåbent"]); else if (v === "nej") out.push(["warn", "Lukket om søndagen"]); }
   });
   return out;
@@ -3678,7 +3678,7 @@ function questionsHtml(f) {
   return '<div class="questions">' + q.map(function (x) {
     var v = fa[x[0]] || "";
     return '<div class="qrow"><span>' + esc(x[1]) + '</span><div class="seg small" role="group" aria-label="' + esc(x[1]) + '">' +
-      [["ja", x[2] ? x[2][0] : "Ja"], ["nej", x[2] ? x[2][1] : "Nej"], ["", "Ved ikke"]].map(function (o) { return '<button type="button" data-q="' + x[0] + '" data-qv="' + o[0] + '" aria-pressed="' + (v === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div></div>" +
+      [["ja", x[2] ? x[2][0] : "Ja"], ["nej", x[2] ? x[2][1] : "Nej"]].concat(x[3] || [], [["", "Ved ikke"]]).map(function (o) { return '<button type="button" data-q="' + x[0] + '" data-qv="' + o[0] + '" aria-pressed="' + (v === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div></div>" +
       (x[0] === "saeson" && v === "ja" ? '<label class="qperiod">Hvornår er der lukket? (valgfrit)<input id="f-periode" value="' + esc(fa.periode || "") + '" placeholder="Fx november–marts"></label>' : "");
   }).join("") + "</div>";
 }
@@ -4889,7 +4889,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 297;
+var APP_VERSION = 298;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });

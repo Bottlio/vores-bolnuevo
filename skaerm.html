@@ -399,7 +399,7 @@ var GV_SUB={restaurant:"Restaurant",barcafe:"Bar/café",strandbar:"Strandbar",is
 function gvType(x){return x.subcat?(GV_SUB[x.subcat]||""):"";}
 function gvDist(x){if(x.lat==null)return "";var k=x.drive_km!=null?+x.drive_km:gvKm(x);var t=(k<10?k.toFixed(1).replace(".",","):Math.round(k))+" km fra hotellet";if(x.drive_min)t+=" · "+x.drive_min+" min. i bil";return t;}
 function gvFacts(x){var h="";var d=gvDist(x);if(d)h+='<p class="gvf gvdist">'+E(d)+'</p>';
- if(x.cat==="spisesteder"){var f=[];if(x.tidlig==="ja")f.push("Køkken åbner før kl. 20");else if(x.tidlig==="nej")f.push("Køkken åbner efter kl. 20");if(x.frokost==="ja")f.push("Frokoståbent");
+ if(x.cat==="spisesteder"){var f=[];if(x.tidlig==="ja")f.push("Køkken åbner før kl. 20");else if(x.tidlig==="nej")f.push("Køkken åbner efter kl. 20");else if(x.tidlig==="lukket")f.push(x.frokost==="ja"?"Kun frokost":"Lukket om aftenen");if(x.frokost==="ja"&&x.tidlig!=="lukket")f.push("Frokoståbent");
   if(f.length)h+='<p class="gvf">'+E(f.join(" · "))+'</p>';
   if(x.saeson==="ja")h+='<p class="gvf gvwarn">Sæsonlukket – tjek om der er åbent</p>';else if(x.saeson==="nej")h+='<p class="gvf">Åbent hele året</p>';}
  return h;}
