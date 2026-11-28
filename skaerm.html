@@ -288,8 +288,13 @@ function week(){var V=viewDays();wlabel(V);var cols='2.6em '+(V.roll?'minmax(0,2
     return {a:l[3],z:l[4],html:function(st){return '<div class="hb'+(l[7]?' '+l[7]:(/golf/i.test(l[0])?' golf':''))+'"'+(l[5]?' data-bk="'+E(l[5])+'" data-src="'+E(l[6])+'" data-inf="'+E((l[8]||l[0])+' · lejl. '+l[1]+' · '+hm(l[3])+'–'+hm(l[4]))+'"':'')+' style="'+st+'"><b>'+E(l[1]?"Lejl. "+l[1]:"")+'</b>'+E(l[0])+'</div>'}};});},"udl");
  }
 var WX={0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",48:"🌫️",51:"🌦️",53:"🌦️",55:"🌦️",61:"🌧️",63:"🌧️",65:"🌧️",80:"🌦️",81:"🌧️",82:"🌧️",95:"⛈️"};
-function weather(){try{fetch("https://api.open-meteo.com/v1/forecast?latitude=37.563&longitude=-1.307&current=temperature_2m,weather_code&timezone=Europe%2FMadrid")
- .then(function(r){return r.json()}).then(function(j){var c=j.current;document.getElementById("wx").innerHTML='<span class="ico">'+(WX[c.weather_code]||"🌤️")+'</span><b>'+Math.round(c.temperature_2m)+'°</b><span>Bolnuevo</span>'}).catch(function(){})}catch(e){}}
+function weather(){try{ // ikon fra Open-Meteo, temperatur fra hotellets egen Netatmo-måler (når den er under en time gammel)
+ var C=window.BOLNUEVO||{};
+ var om=fetch("https://api.open-meteo.com/v1/forecast?latitude=37.563&longitude=-1.307&current=temperature_2m,weather_code&timezone=Europe%2FMadrid").then(function(r){return r.json()}).catch(function(){return null});
+ var na=fetch(C.supabaseUrl+"/functions/v1/netatmo-temp",{method:"POST",headers:{"apikey":C.supabaseKey,"Authorization":"Bearer "+C.supabaseKey,"Content-Type":"application/json"},body:"{}"}).then(function(r){return r.json()}).catch(function(){return null});
+ Promise.all([om,na]).then(function(x){var j=x[0],n=x[1];if(!j||!j.current)return;var c=j.current;
+  var own=n&&typeof n.t==="number"&&n.at&&Date.now()-n.at<36e5;var t=own?n.t:c.temperature_2m;
+  document.getElementById("wx").innerHTML='<span class="ico">'+(WX[c.weather_code]||"🌤️")+'</span><b>'+Math.round(t)+'°</b><span>Bolnuevo</span>'}).catch(function(){})}catch(e){}}
 function live(){ // rigtige aktiviteter fra appen (kun titel, tid, sted og antal)
  var V=viewDays(),mon=V.start;var sun=new Date(mon);sun.setDate(mon.getDate()+7);
  var C=window.BOLNUEVO||{};
