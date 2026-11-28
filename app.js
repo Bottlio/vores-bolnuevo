@@ -827,10 +827,14 @@ try { var wxs = JSON.parse(localStorage.getItem("bol_wx") || "null"); if (wxs &&
 async function loadWx() {
   if (wxLoading) return; wxLoading = true;
   try {
-    var r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=" + CFG.hotel.lat + "&longitude=" + CFG.hotel.lon + "&current=temperature_2m,weather_code,is_day&timezone=Europe%2FMadrid");
-    var j = await r.json();
+    // Ikonet (sol/sky/regn) fra Open-Meteo; temperaturen fra hotellets egen Netatmo-måler, når den er frisk (under en time)
+    var both = await Promise.all([
+      fetch("https://api.open-meteo.com/v1/forecast?latitude=" + CFG.hotel.lat + "&longitude=" + CFG.hotel.lon + "&current=temperature_2m,weather_code,is_day&timezone=Europe%2FMadrid").then(function (r) { return r.json(); }).catch(function () { return null; }),
+      sb.functions.invoke("netatmo-temp", { body: {} }).then(function (r) { return r.data; }).catch(function () { return null; })]);
+    var j = both[0], na = both[1];
+    var naOk = na && typeof na.t === "number" && na.at && Date.now() - na.at < 60 * 60 * 1000;
     if (j && j.current && typeof j.current.temperature_2m === "number") {
-      wx = { t: j.current.temperature_2m, c: j.current.weather_code, day: j.current.is_day !== 0, at: Date.now() };
+      wx = { t: naOk ? na.t : j.current.temperature_2m, own: !!naOk, c: j.current.weather_code, day: j.current.is_day !== 0, at: Date.now() };
       try { localStorage.setItem("bol_wx", JSON.stringify(wx)); } catch (x) {}
     }
   } catch (e) { /* intet net – boksen vises bare ikke */ }
@@ -858,7 +862,7 @@ function wxBadgeHtml() {
   if (Date.now() - wxAt > 15 * 60 * 1000) loadWx();
   if (!wx || Date.now() - wx.at > 60 * 60 * 1000) return "";
   var ic = wxIcon(wx.c, wx.day);
-  return '<div class="herowx" title="' + esc(ic[1]) + ' – vejret i Bolnuevo lige nu"><span class="wxrow">' + ic[0] + '<span class="wxt">' + Math.round(wx.t) + "°</span></span></div>";
+  return '<div class="herowx" title="' + esc(ic[1]) + (wx.own ? " – " + String(Math.round(wx.t * 10) / 10).replace(".", ",") + "° målt på hotellet" : " – vejret i Bolnuevo lige nu") + '"><span class="wxrow">' + ic[0] + '<span class="wxt">' + Math.round(wx.t) + "°</span></span></div>";
 }
 function heroHtml() {
   if (!me) return "";
@@ -4848,7 +4852,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 292;
+var APP_VERSION = 293;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
