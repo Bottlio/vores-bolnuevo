@@ -2967,14 +2967,16 @@ var STATUS_TXT = { adgang: "Har adgang", inviteret: "Inviteret – ikke logget i
 function isInternLejl(l) { return l === "900" || l === "901"; }
 function andelshaverListHtml(d) {
   var hh = d.andele.filter(function (a) { return a.aktiv && a.lejlighed !== "999"; });
-  var cnt = { adgang: 0, inviteret: 0, ikke: 0 };
+  var persons = {}, PST_RANK = { nomail: 0, ikke: 1, inviteret: 2, adgang: 3 };
   var rows = [];
   hh.forEach(function (a) {
     var ks = (d.contacts || []).filter(function (k) { return k.andel_id === a.id; });
     var ms = d.members.filter(function (m) { return m.andel_id === a.id; });
     var nums = hhNums(d, a);
     var sts = ks.map(function (k) { return personStatus(d, a, k); });
-    var hs = sts.indexOf("adgang") >= 0 ? "adgang" : sts.indexOf("inviteret") >= 0 ? "inviteret" : "ikke"; if (!isInternLejl(a.lejlighed)) cnt[hs]++;
+    var hs = sts.indexOf("adgang") >= 0 ? "adgang" : sts.indexOf("inviteret") >= 0 ? "inviteret" : "ikke";
+    // Tallinjen tæller personer (andelshavere), ikke andele; står en person på to andele, tælles personen én gang med den bedste status
+    if (!isInternLejl(a.lejlighed)) ks.forEach(function (k, i) { var key = k.mail ? k.mail.toLowerCase() : "id:" + k.id, st = sts[i], old = persons[key]; if (!old || PST_RANK[st] > PST_RANK[old]) persons[key] = st; });
     var extraMembers = ms.filter(function (m) { return !ks.some(function (k) { return k.mail && k.mail.toLowerCase() === (m.email || "").toLowerCase(); }); });
     var people = ks.map(function (k, i) {
         var st = sts[i];
@@ -3005,7 +3007,10 @@ function andelshaverListHtml(d) {
   var items = rows.map(function (r) { return r.html; }).join("");
   // Personale (900) og gæster med læseadgang (901) har interne pladser – de tælles ikke med som andelsnumre/husstande (Christian 26/11)
   var realRows = rows.filter(function (r) { return !isInternLejl(r.l); }), realHh = hh.filter(function (a) { return !isInternLejl(a.lejlighed); });
-  var stats = realRows.length + " andelsnumre · " + realHh.length + " husstande · " + cnt.adgang + " har adgang · " + cnt.inviteret + " inviteret · " + cnt.ikke + " ikke inviteret";
+  var cnt = { adgang: 0, inviteret: 0, ikke: 0, nomail: 0 }, nP = 0;
+  Object.keys(persons).forEach(function (k) { cnt[persons[k]]++; nP++; });
+  // Christian 28/11: andele som hovedtal (andelsnumre i parentes), status pr. andelshaver
+  var stats = realHh.length + " andele (" + realRows.length + " andelsnumre) · " + nP + " andelshavere · " + cnt.adgang + " har adgang · " + cnt.inviteret + " inviteret · " + cnt.ikke + " ikke inviteret" + (cnt.nomail ? " · " + cnt.nomail + " mangler mail" : "");
   return foldBox("adm-list", "<strong>Andelshavere</strong>", stats,
     '<input type="search" id="adm-q" class="admq" placeholder="Søg: navn, nummer, by eller mail" autocomplete="off">' +
     '<div class="seg small admfilter" role="group" aria-label="Vis">' + [["alle", "Alle"], ["ikke", "Ikke inviteret"], ["inviteret", "Inviteret"], ["adgang", "Har adgang"]].map(function (o) { return '<button type="button" data-admf="' + o[0] + '" aria-pressed="' + ((ui.admF || "alle") === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>" +
@@ -4893,7 +4898,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 300;
+var APP_VERSION = 301;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
