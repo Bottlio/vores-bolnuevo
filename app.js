@@ -823,7 +823,7 @@ function inAppNote() {
 /* Vejret lige nu i billedet ved "Hej …" (Christian 27/11): ikon og temperatur fra Open-Meteo (gratis, ingen nøgle).
    Midlertidigt – temperaturen skal komme fra hotellets egen Netatmo-måler, når den er delt. Vises ikke, hvis målingen mangler eller er over en time gammel. */
 var wx = null, wxAt = 0, wxLoading = false;
-try { var wxs = JSON.parse(localStorage.getItem("bol_wx") || "null"); if (wxs && wxs.at) { wx = wxs; wxAt = wxs.at; } } catch (x) {}
+try { var wxs = JSON.parse(localStorage.getItem("bol_wx") || "null"); if (wxs && wxs.at) { wx = wxs; wxAt = wxs.days ? wxs.at : 0; } } catch (x) {}
 async function loadWx() {
   if (wxLoading) return; wxLoading = true;
   try {
@@ -894,7 +894,7 @@ function wxPopHtml() {
     '<p class="wxsrc">' + (wx.own ? "Målt på hotellet med Netatmo · " : "") + "Udsigt og føles som fra Open-Meteo</p></div>";
   return h;
 }
-function openWx() { var b = document.getElementById("wxbox"); if (!b) { b = document.createElement("div"); b.id = "wxbox"; document.body.appendChild(b); } b.innerHTML = wxPopHtml(); document.body.classList.add("modal-open"); var x = b.querySelector(".wxx"); if (x) x.focus(); }
+function openWx() { if (wx && !wx.days && !wxLoading) { wxAt = 0; loadWx().then(function () { if (document.querySelector("#wxbox .wxpop")) openWx(); }); } var b = document.getElementById("wxbox"); if (!b) { b = document.createElement("div"); b.id = "wxbox"; document.body.appendChild(b); } b.innerHTML = wxPopHtml(); document.body.classList.add("modal-open"); var x = b.querySelector(".wxx"); if (x) x.focus(); }
 function closeWx() { var b = document.getElementById("wxbox"); if (b) b.innerHTML = ""; document.body.classList.remove("modal-open"); }
 document.addEventListener("click", function (e) {
   if (e.target.closest("[data-wxopen]")) { e.preventDefault(); openWx(); return; }
@@ -4889,7 +4889,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 294;
+var APP_VERSION = 295;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
