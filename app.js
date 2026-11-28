@@ -1469,12 +1469,12 @@ function renderGate() {
   else if (ui.page === "udstyr" && ui.member) html += udstyrPageHtml();
   else if (ui.page === "sortbog" && ui.member) html += sortbogPageHtml();
   else if (!ui.user) {
-    html += '<section class="welcome"><p class="lead">Andelshavernes egen app til Laderita de Bolnuevo: en guide til området med andelshavernes tips til spisesteder, strande, udsigtspunkter, dagsture og det praktiske. Booking af udstyr, fælles aktiviteter og den sorte bog er under afprøvning. Adgang kun via invitation fra en andelshaver.</p></section>';
+    html += '<section class="welcome"><p class="lead">Andelshavernes egen app til Laderita de Bolnuevo: en guide til området med andelshavernes tips til spisesteder, strande, udsigtspunkter, dagsture og det praktiske. Booking af udstyr, fælles aktiviteter og den sorte bog er under afprøvning. Andelshavere logger ind med den mail, der står i andelshaverlisten. Andre får adgang via en invitation.</p></section>';
     if (!ui.login) ui.login = { mode: "login" };
     html += loginHtml();
   } else if (!ui.member) {
-    html += '<section class="panel"><h2>Ingen invitation endnu</h2><p>Du er logget ind som <strong>' + esc(ui.user.email) + "</strong>, men den mail er ikke inviteret til Vores Laderita.</p>" +
-      "<p>Bed en andelshaver om at invitere dig med præcis denne mailadresse. Når invitationen er sendt, så tryk på knappen herunder.</p>" +
+    html += '<section class="panel"><h2>Vi kender ikke den mail</h2><p>Du er logget ind som <strong>' + esc(ui.user.email) + "</strong>, men den mail står ikke i andelshaverlisten og er ikke inviteret til Vores Laderita.</p>" +
+      "<p>Er du andelshaver, så log ud og prøv med den mail, andelsforeningen har på dig. Ellers bed en andelshaver om at invitere dig med præcis denne mailadresse, og tryk så på knappen herunder.</p>" +
       '<div class="row"><button class="btn primary" type="button" id="recheck">Jeg er inviteret nu – prøv igen</button><button class="btn" type="button" id="logout">Log ud</button></div></section>';
   }
   html += ui.member && ui.loaded ? footerHtml() : '<footer><span><button class="linkbtn" type="button" data-page="hjaelp">Hjælp</button> · <button class="linkbtn" type="button" data-page="regler">Regler og privatliv</button></span></footer>';
@@ -4311,7 +4311,7 @@ var DEMO = {
 };
 var HELP_FAQ = [
   ["start", "Login og opsætning", [
-    ["Hvordan logger jeg ind første gang?", "<ol><li>Åbn linket fra den invitation, du har fået.</li><li>Tryk på <strong>Første gang: opret adgangskode</strong>.</li><li>Skriv den mail, du er inviteret med, og vælg en adgangskode (mindst 8 tegn).</li><li>Du får en mail. Den er på engelsk og hedder <em>Confirm your signup</em>. Tryk på linket <em>Confirm your mail</em> i mailen.</li><li>Kom tilbage til Vores Laderita og log ind med mail og adgangskode.</li></ol>"],
+    ["Hvordan logger jeg ind første gang?", "<ol><li>Åbn Vores Laderita – fx via linket i den invitation, du har fået.</li><li>Tryk på <strong>Første gang: opret adgangskode</strong>.</li><li>Skriv den mail, andelsforeningen har på dig (eller den, du er inviteret med), og vælg en adgangskode (mindst 8 tegn).</li><li>Du får en mail. Den er på engelsk og hedder <em>Confirm your signup</em>. Tryk på linket <em>Confirm your mail</em> i mailen.</li><li>Kom tilbage til Vores Laderita og log ind med mail og adgangskode.</li></ol>"],
     ["Jeg har glemt min adgangskode", "<ol><li>Tryk på <strong>Glemt adgangskode?</strong> under feltet til adgangskoden på log ind-siden.</li><li>Skriv din mail og tryk <strong>Send link</strong>.</li><li>Åbn mailen. Den er på engelsk og hedder <em>Reset your password</em>. Tryk på linket <em>Reset password</em>. Kan du ikke finde mailen, så kig i uønsket post (spam).</li><li>Skriv din nye adgangskode to gange og tryk <strong>Gem ny adgangskode</strong>.</li></ol><p>Så er du logget ind igen.</p>"],
     ["Hvordan får jeg Vores Laderita som \"app\" på min telefon?", "<p>Vores Laderita er ikke en app, du henter i App Store eller Google Play. Det er en hjemmeside. Men du kan lægge den på telefonens hjemmeskærm med sit eget ikon. Så åbner den med ét tryk og ser ud og opfører sig som en app – og du skal ikke logge ind hver gang.</p>" +
       "<p><strong>Åbnede du linket fra Messenger, Facebook eller en mail-app?</strong> Så åbner Vores Laderita inde i den app, og der kan den ikke lægges på hjemmeskærmen. Tryk først på de tre prikker øverst og vælg <strong>Åbn i browser</strong> (Android) eller <strong>Åbn i Safari</strong> (iPhone).</p>" +
@@ -4893,7 +4893,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 299;
+var APP_VERSION = 300;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
