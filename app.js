@@ -1368,8 +1368,12 @@ function slimBar(summary, filters, n) {
 var barObserver = null;
 function watchBar() {
   if (barObserver) barObserver.disconnect();
-  var bar = document.getElementById("fullbar"); if (!bar || !("IntersectionObserver" in window)) return;
+  var bar = document.getElementById("fullbar");
+  // På et steds egen side er der ingen filtre – den tynde bjælke øverst skal ikke komme frem dér (Christian 28/11: "dobbelt menu")
+  if (!bar || bar.classList.contains("detailbar")) { slim.classList.remove("show"); return; }
+  if (!("IntersectionObserver" in window)) return;
   barObserver = new IntersectionObserver(function (e) {
+    if (!bar.isConnected) { slim.classList.remove("show"); return; }
     var below = !e[0].isIntersecting && e[0].boundingClientRect.top < 0;
     slim.classList.toggle("show", below || ui.panel);
   }, { rootMargin: "-64px 0px 0px 0px" });
@@ -4889,7 +4893,7 @@ newInput.addEventListener("change", function () { var files = Array.prototype.sl
 /* ---------- automatisk opdatering ----------
    Appen på hjemmeskærmen har ingen genindlæs-knap. Ved start, og hver gang den åbnes igen,
    tjekker den version.json og henter selv den nye udgave, hvis der er en. */
-var APP_VERSION = 298;
+var APP_VERSION = 299;
 async function checkForUpdate() {
   try {
     var r = await fetch("version.json?t=" + Date.now(), { cache: "no-store" });
